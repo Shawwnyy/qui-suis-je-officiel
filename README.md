@@ -82,26 +82,6 @@ Plus tu progresses, plus les thèmes deviennent difficiles : il faudra donc fair
 
 🔄 Rejouabilité importante
 
-🚀 Installation
-
-Clone le dépôt :
-
-git clone https://github.com/TON-UTILISATEUR/qui-suiss-je-officiel.git
-
-
-Puis entre dans le dossier :
-
-cd qui-suiss-je-officiel
-
-
-Installe les dépendances du projet si nécessaire :
-
-npm install
-
-
-Lance ensuite le projet :
-
-npm run dev
 
 
 Les commandes peuvent varier selon la technologie utilisée par le projet.
@@ -109,58 +89,6 @@ Les commandes peuvent varier selon la technologie utilisée par le projet.
 🕹️ Comment jouer ?
 
 Choisis un thème, lance une partie et commence à poser tes questions.
-
-Exemples :
-
-❓ Est-ce une personne réelle ?
-❓ Est-ce un personnage de film ?
-❓ Est-ce un animal ?
-❓ Est-ce que ça existe encore aujourd'hui ?
-
-Utilise les réponses pour réduire progressivement les possibilités jusqu'à trouver la bonne réponse.
-
-📁 Structure du projet
-qui-suiss-je-officiel/
-├── ...
-├── README.md
-└── ...
-
-
-La structure exacte peut évoluer au fil du développement.
-
-🤝 Contribution
-
-Les contributions sont les bienvenues !
-
-Tu peux notamment proposer :
-
-de nouveaux thèmes ;
-
-de nouvelles questions ;
-
-de nouvelles réponses ;
-
-des améliorations du gameplay ;
-
-des corrections de bugs ;
-
-des améliorations de l'interface.
-
-Pour contribuer :
-
-Fork le projet.
-
-Crée une nouvelle branche.
-
-Effectue tes modifications.
-
-Commit tes changements.
-
-Ouvre une Pull Request.
-
-📜 Licence
-
-Ce projet est distribué sous licence [à préciser].
 
 ❤️ Remerciements
 
