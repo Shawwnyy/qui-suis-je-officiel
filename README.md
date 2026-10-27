@@ -1,97 +1,122 @@
-🎭 Qui suis-je ?
+# 🎮 Qui suis-je ? — quiz multijoueur
 
-Bienvenue dans Qui suis-je ?, un mini-jeu de devinettes basé sur 107 thèmes différents !
+Un jeu de quiz **multijoueur en ligne** (FR / EN) qui tourne entièrement dans le navigateur : l'hôte crée une
+partie, les autres rejoignent avec un code, et les questions s'enchaînent avec scores, pouvoirs, bonus, chat et podium.
+Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **aucun serveur n'est nécessaire** pour jouer.
 
-Le principe est simple : un personnage, une célébrité, un animal, un objet ou tout autre élément est à deviner. À toi de poser les bonnes questions et de faire preuve de déduction pour trouver la réponse !
+- **127 thèmes**, environ **15 000 questions** (4 niveaux : facile, moyen, difficile, impossible)
+- Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, ODT, DOCX, TXT)
+- **Modération stricte** du chat (voir plus bas)
 
-🎮 Principe du jeu
+## ▶️ Lancer le jeu
 
-Le jeu reprend le concept du célèbre « Qui suis-je ? », mais avec une grande variété de thèmes.
+Ouvre simplement `index.html` dans un navigateur, ou publie le dossier tel quel (GitHub Pages, n'importe quel hébergement statique).
+Le jeu fonctionne aussi en ouvrant le fichier directement (`file://`).
 
-À chaque partie :
+Pour tester en local avec un petit serveur :
 
-Un thème est sélectionné.
+```bash
+python3 -m http.server 8000      # puis http://localhost:8000/
+```
 
-Un élément à deviner est choisi.
+## 📁 Organisation du dépôt
 
-Le joueur pose des questions pour obtenir des indices.
+Le fichier unique `index.html` (1,9 Mo) a été découpé. Le comportement du jeu est inchangé.
 
-Les réponses permettent d'éliminer progressivement les possibilités.
+```
+index.html              page + ordre de chargement des scripts
+css/
+  base.css              styles de base
+  features.css          styles des fonctionnalités (chat, pouvoirs, podium…)
+  qcm.css               styles de la fenêtre « QCM depuis un cours »
+js/
+  core/                 moteur du jeu (réseau, joueurs, questions, scores…)
+  patches/              évolutions successives, chargées dans l'ordre des numéros
+  moderation/           lexique + moteur de modération
+  qcm/                  générateur de QCM (generator.js), lecture des fichiers (extract.js), interface (ui.js)
+  data/                 questions : banque d'origine + data/bank/NNN-theme.js (un fichier par thème)
+php/
+  qcm.php               OPTIONNEL — extraction côté serveur et mode IA (voir plus bas)
+tests/                  tests Node (modération, QCM, banque de questions)
+```
 
-Le joueur doit trouver la bonne réponse avant la fin de la partie.
+Ce sont des scripts classiques (pas de bundler, pas de build) : **l'ordre des balises `<script>` de `index.html` compte**.
 
-🧩 107 thèmes
+## 🛡️ Modération du chat
 
-Le jeu propose 107 catégories, permettant de varier les parties et d'éviter la répétition.
+Chaque message est analysé **avant l'envoi** (côté joueur) **et à la réception** (côté hôte, qui fait foi). Un message interdit est supprimé instantanément, y compris chez les joueurs qui l'auraient déjà reçu.
 
-Les thèmes peuvent notamment couvrir :
+Détection notamment de :
 
-🎬 Films et séries
+- texte écrit **lettre par lettre sur plusieurs lignes** (`B` ⏎ `I` ⏎ `T` ⏎ `E`), même avec des lignes vides ou du texte autour ;
+- lettres séparées par des espaces ou des symboles (`b i t e`, `b.i.t.e`, `b!i!t!e`) ;
+- astuces classiques : accents, majuscules mélangées, lettres étirées (`biiiite`), leet (`p@ute`, `m3rde`), caractères de largeur nulle, lettres homoglyphes (cyrillique, grec, pleine largeur).
 
-🎮 Jeux vidéo
+Sanctions progressives par joueur : 1ᵉʳ message interdit → avertissement ; 2ᵉ → sourdine 1 min ; 3ᵉ → 5 min ; 4ᵉ et suivants → 15 min.
+La sourdine se lève d'elle-même à la fin de sa durée (le joueur est prévenu) et le compteur repart à zéro après 10 minutes sans infraction. Le journal de modération est visible côté hôte.
 
-🎵 Musique
+Aucun filtre n'est parfait : le lexique est dans `js/moderation/lexicon.js`, facile à compléter.
 
-🦁 Animaux
+## 📄 QCM à partir d'un cours
 
-⚽ Sport
+Bouton **« QCM depuis un cours »** sur l'accueil et dans le gestionnaire de questions :
 
-👨‍🎤 Célébrités
+1. choisis un **PDF, ODT, DOCX ou TXT** (25 Mo max), ou colle le texte ;
+2. donne un nom de thème et choisis le nombre de questions, **de 5 à 100** ;
+3. vérifie l'aperçu (tu peux décocher des questions), puis ajoute au jeu : le thème est créé, sélectionné, et le nombre de manches réglé.
 
-🦸 Super-héros
+Deux méthodes :
 
-📚 Livres
+- **⚡ Rapide** (par défaut, gratuit) : tout se passe sur ton appareil, rien n'est envoyé. Le générateur repère des définitions, dates/nombres et termes clés du cours et en fait des questions à 4 réponses. La qualité dépend fortement du texte : un cours bien rédigé (définitions, dates, chiffres) donne de bien meilleurs résultats qu'un diaporama de mots-clés. **Relis toujours l'aperçu.**
+- **🤖 IA** (optionnel) : demande un serveur PHP avec une clé API Claude (voir ci-dessous). Les questions sont mieux formulées.
 
-🌍 Pays et villes
+Les questions sont stockées dans le navigateur (`localStorage`) et ne sont utilisées que lorsque **tu** es l'hôte. Relancer le même cours remplace l'ancien lot au lieu de s'accumuler.
 
-🍔 Nourriture
+Le PDF doit contenir du texte : un PDF scanné (image) ne peut pas être lu sans OCR. Pour lire les PDF, ODT et DOCX, la page charge pdf.js / JSZip depuis cdnjs à la demande (connexion requise à ce moment-là) ; le TXT et le texte collé n'en ont pas besoin. Si le chargement échoue et que `php/qcm.php` est disponible, l'extraction se fait côté serveur.
 
-🚗 Véhicules
+### Activer le mode IA (optionnel)
 
-🧙 Personnages fictifs
+GitHub Pages **n'exécute pas PHP** : ce mode demande un hébergement PHP (≥ 7.4, extension cURL). Rien n'est écrit en dur dans le dépôt.
 
-🏛️ Histoire
+```bash
+export ANTHROPIC_API_KEY="sk-ant-…"
+export QCM_ACCESS_CODE="un-mot-de-passe"     # fortement recommandé
+export ANTHROPIC_MODEL="claude-sonnet-5-5"   # facultatif
+```
 
-🔬 Sciences
+ou crée `php/config.local.php` (ignoré par git) :
 
-💻 Technologie
+```php
+<?php return ['anthropic_key' => 'sk-ant-…', 'model' => 'claude-sonnet-5-5', 'access_code' => 'un-mot-de-passe'];
+```
 
-🎨 Arts
+⚠️ Chaque génération IA consomme du crédit API et le texte du cours est envoyé à l'API : définis toujours un code d'accès. Sans PHP ou sans clé, le jeu bascule simplement sur le mode rapide.
 
-😂 Culture populaire
+## ➕ Ajouter des questions ou un thème
 
-Et bien plus encore !
+Un thème = un fichier `js/data/bank/NNN-nom.js` :
 
-🎯 Objectif
+```js
+V35_BANK["🎻 Mon thème"]=[
+"f|La question ?|La bonne réponse|Faux 1|Faux 2|Faux 3",   // f = facile, m = moyen, d = difficile, i = impossible
+];
+```
 
-L'objectif est de trouver la réponse le plus rapidement possible en utilisant le moins de questions possible.
+Ajoute ensuite la balise `<script src="js/data/bank/NNN-nom.js"></script>` dans `index.html`, **avant** `999-register.js`.
+La bonne réponse est toujours en premier dans le fichier : le jeu mélange les réponses à l'affichage.
 
-Plus tu progresses, plus les thèmes deviennent difficiles : il faudra donc faire preuve de logique, de mémoire et de déduction !
+## ✅ Tests
 
-✨ Fonctionnalités
+```bash
+node tests/moderation.test.js            # cas à bloquer / cas légitimes
+node tests/qcm.test.js                   # générateur et lecture des fichiers de test
+node tests/bank.test.js                  # valide toutes les questions (format, doublons, réponses ambiguës)
+node tests/bank.test.js "Football|Chess"   # ne valider que certains thèmes (expression régulière)
+```
 
-🎲 107 thèmes différents
+Le validateur détecte les erreurs de format, les doublons exacts et les réponses incohérentes ; il ne vérifie pas
+l'exactitude factuelle des questions.
 
-🧠 Système de questions et de réponses
+## ❤️ Contribuer
 
-🔀 Parties variées grâce à la sélection aléatoire
-
-🎭 De nombreux personnages, objets et concepts à découvrir
-
-🏆 Défi basé sur la rapidité et la déduction
-
-🔄 Rejouabilité importante
-
-
-
-Les commandes peuvent varier selon la technologie utilisée par le projet.
-
-🕹️ Comment jouer ?
-
-Choisis un thème, lance une partie et commence à poser tes questions.
-
-❤️ Remerciements
-
-Merci à toutes les personnes qui contribuent au projet et à celles qui prennent le temps d'y jouer !
-
-Amusez-vous bien et... saurez-vous deviner qui je suis ? 🎭
+Les corrections de questions, nouveaux thèmes et mots à modérer sont les bienvenus. Amuse-toi bien ! 🎉

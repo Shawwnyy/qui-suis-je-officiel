@@ -1,0 +1,40 @@
+/* Extrait de l'ancien index.html : <script id="v18-profile-photo-patch"> */
+(function V18ProfilePhotos(){
+"use strict";
+const MAX_BYTES=3*1024*1024, OUT=256;
+let pendingPhoto="";
+const escAttr=s=>String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function photoOf(p){return p&&typeof p.photo==="string"&&p.photo.startsWith("data:image/")?p.photo:"";}
+function avatarHTML(p,cls="v18-avatar-img"){const src=photoOf(p);return src?'<img class="'+cls+'" src="'+escAttr(src)+'" alt="Photo de profil de '+escAttr(p.name||"joueur")+'">':escapeHTML(p?.avatar||"🙂");}
+function setPhotoError(id,text){const e=document.getElementById(id);if(e)e.textContent=text||"";}
+function resizePhoto(file,done,fail){
+if(!file||!/^image\/(jpeg|png|webp)$/i.test(file.type)){fail("Format refusé. Utilise une image JPG, PNG ou WebP.");return;}
+if(file.size>MAX_BYTES){fail("Image trop lourde. Taille maximale : 3 Mo.");return;}
+const reader=new FileReader();reader.onerror=()=>fail("Impossible de lire cette image.");reader.onload=()=>{const img=new Image();img.onerror=()=>fail("Cette image est invalide ou endommagée.");img.onload=()=>{const c=document.createElement("canvas"),ctx=c.getContext("2d");c.width=c.height=OUT;const side=Math.min(img.naturalWidth,img.naturalHeight),sx=(img.naturalWidth-side)/2,sy=(img.naturalHeight-side)/2;ctx.fillStyle="#20213a";ctx.fillRect(0,0,OUT,OUT);ctx.drawImage(img,sx,sy,side,side,0,0,OUT,OUT);done(c.toDataURL("image/jpeg",.82));};img.src=reader.result;};reader.readAsDataURL(file);
+}
+function photoBox(kind){const prefix=kind==="host"?"host":"join";return '<div class="v18-photo-box"><div class="v18-photo-row"><img id="'+prefix+'PhotoPreview" class="v18-photo-preview" alt="Aperçu de la photo de profil" src="" style="display:none"><div id="'+prefix+'PhotoFallback" class="v18-photo-preview" style="display:grid;place-items:center;font-size:31px">📷</div><div class="v18-photo-actions"><label class="btn btn-secondary" for="'+prefix+'PhotoInput">📷 Ajouter une photo<input id="'+prefix+'PhotoInput" type="file" accept="image/jpeg,image/png,image/webp" capture="user" hidden></label><button class="btn btn-secondary" type="button" onclick="removeProfilePhotoV18(\''+prefix+'\')">Retirer</button></div></div><div class="v18-photo-help">Photo facultative, recadrée automatiquement en carré. JPG, PNG ou WebP, 3 Mo maximum.</div><div id="'+prefix+'PhotoError" class="v18-photo-error"></div></div>'}
+function installHomePickers(){
+[["hostName","host"],["joinName","join"]].forEach(([id,kind])=>{const input=document.getElementById(id);if(!input||document.getElementById(kind+"PhotoInput"))return;input.insertAdjacentHTML("afterend",photoBox(kind));const f=document.getElementById(kind+"PhotoInput");f.addEventListener("change",()=>{const file=f.files&&f.files[0];resizePhoto(file,data=>{pendingPhoto=data;showPreview(kind,data);setPhotoError(kind+"PhotoError","");},err=>setPhotoError(kind+"PhotoError",err));});});
+}
+function showPreview(kind,data){const img=document.getElementById(kind+"PhotoPreview"),fallback=document.getElementById(kind+"PhotoFallback");if(img){img.src=data||"";img.style.display=data?"block":"none";}if(fallback)fallback.style.display=data?"none":"grid";}
+window.removeProfilePhotoV18=function(kind){pendingPhoto="";showPreview(kind,"");const f=document.getElementById(kind+"PhotoInput");if(f)f.value="";setPhotoError(kind+"PhotoError","");};
+const createP=createPlayer;createPlayer=function(id,name,host=false){const p=createP(id,name,host);p.photo=pendingPhoto||"";return p;};
+const cleanP=cleanPlayers;cleanPlayers=function(){const out=cleanP();Object.keys(out).forEach(id=>{out[id].photo=photoOf(players[id]);});return out;};
+function repaintPlayers(){document.querySelectorAll("#playersList .player").forEach((el,i)=>{const p=Object.values(players)[i],a=el.querySelector(".player-avatar");if(p&&a)a.innerHTML=avatarHTML(p);if(isHost&&p&&!p.host&&photoOf(p)&&!el.querySelector(".v18-photo-admin")){const b=document.createElement("button");b.className="v18-photo-admin";b.textContent="Retirer la photo";b.onclick=e=>{e.stopPropagation();removePlayerPhotoV18(p.id);};el.appendChild(b);}});}
+window.removePlayerPhotoV18=function(id){if(!isHost||!players[id])return;openConfirm("Retirer cette photo ?","La photo de profil sera remplacée par l’avatar du joueur.",()=>{players[id].photo="";broadcastPlayers();updatePlayers();},"🖼️");};
+const upp=updatePlayers;updatePlayers=function(){const r=upp();setTimeout(repaintPlayers,0);return r;};
+const sw=showWaitingScreen;showWaitingScreen=function(){const r=sw();setTimeout(()=>{const c=document.getElementById("waitingPlayers");if(c)c.innerHTML=Object.values(players).map(p=>'<span style="display:inline-flex;align-items:center;gap:6px">'+(photoOf(p)?'<img src="'+escAttr(p.photo)+'" alt="" style="width:25px;height:25px;border-radius:8px;object-fit:cover">':escapeHTML(p.avatar||"🙂"))+' '+escapeHTML(p.name)+'</span>').join("");},0);return r;};
+const podium=buildPodium;buildPodium=function(sorted){const r=podium(sorted);setTimeout(()=>document.querySelectorAll("#podium .podium-item").forEach((el,i)=>{const order=[sorted[1],sorted[0],sorted[2]],p=order[i],a=el.querySelector(".podium-avatar");if(p&&a)a.innerHTML=avatarHTML(p);}),0);return r;};
+const profile=openProfileV9;openProfileV9=function(id){const r=profile(id);setTimeout(()=>{const p=players[id],a=document.querySelector("#profileModal .profile-avatar");if(p&&a)a.innerHTML=avatarHTML(p);},0);return r;};
+const handle=handleData;handleData=function(data){if(data?.type==="v18PhotoUpdate"&&isHost&&players[data.playerId]){players[data.playerId].photo=String(data.photo||"").slice(0,180000);broadcastPlayers();updatePlayers();return;}return handle(data);};
+function appendRules(){
+const fr='<br><div class="v18-rule-alert"><b>📷 Photos de profil :</b> elles doivent être appropriées à tous les publics. Sont strictement interdites : nudité ou contenu sexuel, cadavres ou corps sans vie, sang, blessures ou scènes choquantes, personnes ou personnages connus pour des atrocités, criminels de masse ou propagande extrémiste, symboles haineux, harcèlement, humiliation, données personnelles visibles et images utilisées sans autorisation. L’hôte peut retirer une photo, expulser un joueur et conserver une trace de modération. Chaque joueur reste responsable de l’image envoyée.</div>';
+const en='<br><div class="v18-rule-alert"><b>📷 Profile photos:</b> they must be suitable for all audiences. Strictly forbidden: nudity or sexual content, corpses or lifeless bodies, blood, injuries or disturbing scenes, people or characters known for atrocities, mass criminals or extremist propaganda, hateful symbols, harassment, humiliation, visible personal data, and images used without permission. The host may remove a photo, remove a player, and keep a moderation record. Each player is responsible for the uploaded image.</div>';
+const es='<br><div class="v18-rule-alert"><b>📷 Fotos de perfil:</b> deben ser aptas para todos los públicos. Se prohíben estrictamente: desnudos o contenido sexual, cadáveres o cuerpos sin vida, sangre, heridas o escenas impactantes, personas o personajes conocidos por atrocidades, criminales de masas o propaganda extremista, símbolos de odio, acoso, humillación, datos personales visibles e imágenes usadas sin permiso. El anfitrión puede retirar una foto, expulsar a un jugador y conservar un registro de moderación. Cada jugador es responsable de la imagen subida.</div>';
+if(!RULES_TEXT.fr.includes("Photos de profil")){RULES_TEXT.fr+=fr;RULES_TEXT.en+=en;RULES_TEXT.es+=es;}setRulesLang("fr");
+}
+const screen=showScreen;showScreen=function(id){const r=screen(id);setTimeout(()=>{installHomePickers();repaintPlayers();},0);return r;};
+const reset=resetConnection;resetConnection=function(){pendingPhoto="";showPreview("host","");showPreview("join","");return reset();};
+appendRules();installHomePickers();document.title="Qui suis-je ? 🎮 — V18";
+console.log("V18 : photos de profil, compression locale et règles de sécurité renforcées.");
+})();

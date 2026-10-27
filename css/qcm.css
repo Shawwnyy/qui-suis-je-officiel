@@ -1,0 +1,66 @@
+/* ============================================================================
+   Générateur de QCM à partir d'un cours — fenêtre (réutilise les classes v35q-* du gestionnaire de questions)
+   ============================================================================ */
+#qcmModal{position:fixed;inset:0;z-index:4150;display:none;background:rgba(0,0,0,.82);padding:0;overflow:hidden}
+#qcmModal.show{display:flex!important;align-items:stretch!important;justify-content:center;padding:0!important}
+
+.qcm-entry{margin-top:10px}
+.v35q-body .qcm-intro{margin:2px 0 6px;font-size:13px}
+.v35q-body label.qcm-step{margin-top:20px;font-size:14px;color:#fff}
+.v35q-body label.qcm-step b{color:#fcd34d}
+
+/* zone de dépôt */
+.v35q-body label.qcm-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;margin:6px 0;padding:22px 14px;min-height:120px;text-align:center;border:2px dashed rgba(196,181,253,.55);border-radius:16px;background:rgba(124,58,237,.1);color:#fff;font-size:16px;cursor:pointer;transition:background .15s,border-color .15s}
+.v35q-body label.qcm-drop:hover,.v35q-body label.qcm-drop.over{background:rgba(124,58,237,.22);border-color:#c4b5fd}
+.qcm-drop-ico{font-size:34px;line-height:1}
+.qcm-drop small{color:#a9abc0;font-size:12px}
+.qcm-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}
+.qcm-file:focus-visible+*,.qcm-file:focus-visible~*{outline:none}
+.v35q-body details.qcm-paste{margin:8px 0;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:0 12px;background:rgba(255,255,255,.03)}
+.qcm-paste summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:800;font-size:14px;color:#ddd6fe}
+.qcm-paste textarea{min-height:150px;margin-bottom:12px}
+
+/* nombre de questions */
+.qcm-count{display:grid;grid-template-columns:1fr 84px;gap:12px;align-items:center}
+.qcm-count input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:36px;margin:0;padding:0;border:0;background:transparent;accent-color:#a855f7}
+.qcm-count input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:99px;background:rgba(255,255,255,.22)}
+.qcm-count input[type=range]::-moz-range-track{height:8px;border-radius:99px;background:rgba(255,255,255,.22)}
+.qcm-count input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;margin-top:-10px;border-radius:50%;background:#a855f7;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.qcm-count input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#a855f7;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.qcm-count input[type=range]:focus-visible{outline:3px solid rgba(168,85,247,.7);outline-offset:2px;border-radius:10px}
+.v35q-body input[type=number]{width:100%;box-sizing:border-box;padding:11px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:#202137;color:#fff;font-size:16px;text-align:center}
+.qcm-presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.qcm-presets button{flex:1 1 44px;min-height:44px;border-radius:11px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;font-weight:900;font-size:14px}
+.qcm-presets button:hover{background:rgba(168,85,247,.28)}
+.v35q-radio label.disabled{opacity:.5}
+
+/* aperçu */
+.qcm-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0 4px}
+.qcm-bar button{min-height:44px;padding:8px 12px;border-radius:11px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-weight:800;font-size:13px}
+.qcm-bar span{margin-left:auto;font-size:13px;font-weight:800;color:#fde68a}
+.v35q-body label.qcm-q{display:flex;gap:12px;align-items:flex-start;margin:8px 0;padding:12px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);font-size:inherit;color:inherit;cursor:pointer}
+.v35q-body label.qcm-q:has(input:not(:checked)){opacity:.5}
+/* les cases à cocher sont masquées par la règle globale « input{appearance:none} » : on les redessine */
+.v35q-body input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:0 0 auto;display:inline-grid;place-content:center;width:26px;height:26px;min-width:26px;margin:0;padding:0;border-radius:8px;border:2px solid #a9abc0;background:#202137}
+.v35q-body input[type=checkbox]:checked{background:#7c3aed;border-color:#c4b5fd}
+.v35q-body input[type=checkbox]:checked::after{content:"✓";color:#fff;font-weight:900;font-size:17px;line-height:1}
+.v35q-body input[type=checkbox]:focus-visible{outline:3px solid rgba(168,85,247,.7);outline-offset:2px}
+.v35q-body label.qcm-q input[type=checkbox]{margin-top:1px}
+#qcmModal select{padding-right:38px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%23ddd6fe' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+/* les boutons flottants du jeu passent au-dessus de la fenêtre : on les masque tant qu'elle est ouverte */
+html.qcm-open #dock,html.qcm-open #v231QuickNav,html.qcm-open #soundToggle,html.qcm-open #v21BackTop{display:none!important}
+.qcm-qbody{display:block;min-width:0;flex:1}
+.qcm-qbody .t{display:block;font-weight:900;line-height:1.4;overflow-wrap:anywhere}
+.qcm-qbody ul{margin:8px 0 0;padding-left:20px;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.qcm-qbody li.ok{color:#86efac;font-weight:900}
+.qcm-qbody .m{display:block;margin-top:6px;font-size:12px;color:#a9abc0}
+.v35q-body label.qcm-only{display:flex;align-items:center;gap:12px;margin:16px 0 0;padding:12px;border-radius:12px;border:1px solid rgba(250,204,21,.3);background:rgba(250,204,21,.07);color:#fde68a;font-size:14px;cursor:pointer}
+.qcm-done-txt{line-height:1.6;margin:14px 0 0}
+
+/* attente */
+.qcm-busy{display:flex;align-items:center;gap:12px;margin:14px 0;padding:12px 14px;border-radius:12px;background:rgba(124,58,237,.18);border:1px solid rgba(196,181,253,.4);font-weight:800;font-size:14px}
+.qcm-spin{flex:0 0 auto;width:22px;height:22px;border-radius:50%;border:3px solid rgba(255,255,255,.25);border-top-color:#c4b5fd;animation:qcmSpin .8s linear infinite}
+@keyframes qcmSpin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.qcm-spin{animation-duration:2.4s}}
+.v35q-actions button:disabled{opacity:.5}
+@media(max-width:480px){.qcm-count{grid-template-columns:1fr 72px}}
