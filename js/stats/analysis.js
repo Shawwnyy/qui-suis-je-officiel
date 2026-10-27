@@ -7,13 +7,15 @@
      P:[{i:<id>, n:<nom>, a:<avatar>, h:0|1 (hôte), x:0|1 (exclu / parti)}],            joueurs, dans l'ordre d'arrivée
      R:[{q:<texte>, c:<thème>, d:<difficulté>, m:0|1 (image/vidéo),
          r:[[état, secondes, score cumulé], …]}],                                         une entrée par joueur de P
-     C:[[indexJoueur, n° d'infraction, niveau 1=avert. 2=malus 3=exclusion, n° de question]]
+     C:[[indexJoueur, n° d'infraction, niveau 1=avert. 2=malus 3=exclusion, n° de question]],
+     B:[[n° de question (après laquelle le pouvoir a été choisi), indexLanceur, indexCible ou -1, 1=bonus 2=malus,
+         type (« xp », « shield »…), points déplacés, drapeaux (1=bloqué 2=renvoyé), libellé des pouvoirs spéciaux]]
    }
    état : 0 = pas dans la partie à ce moment-là · 1 = bonne réponse · 2 = mauvaise réponse · 3 = pas de réponse
    ============================================================================= */
 var V40Analysis = (function () {
   "use strict";
-  var MAX_PLAYERS = 60, MAX_ROUNDS = 300, MAX_CHEATS = 400, SCORE_LIMIT = 9999999;
+  var MAX_PLAYERS = 60, MAX_ROUNDS = 300, MAX_CHEATS = 400, MAX_POWERS = 600, SCORE_LIMIT = 9999999;
   var DIFFS = ["facile", "moyen", "difficile", "impossible"];
 
   function str(x, n) { return typeof x === "string" ? x.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, n) : ""; }
@@ -40,7 +42,7 @@ var V40Analysis = (function () {
     if (!raw.P.length || raw.P.length > MAX_PLAYERS || raw.R.length > MAX_ROUNDS) return null;
     var log = {
       v: 1, id: str(raw.id, 40) || ("g" + Date.now()), at: int(raw.at, 0, 4102444800000, 0),
-      qt: int(raw.qt, 0, 600, 0), mode: str(raw.mode, 20), P: [], R: [], C: []
+      qt: int(raw.qt, 0, 600, 0), mode: str(raw.mode, 20), P: [], R: [], C: [], B: []
     };
     raw.P.forEach(function (p) {
       p = p || {};
@@ -53,6 +55,15 @@ var V40Analysis = (function () {
       var pi = Math.round(Number(c[0]));
       if (!(pi >= 0 && pi < np)) return;                 /* joueur inconnu : ignoré (pas ramené au bord) */
       log.C.push([pi, int(c[1], 1, 99, 1), int(c[2], 1, 3, 1), int(c[3], 1, MAX_ROUNDS, 1)]);
+    });
+    (Array.isArray(raw.B) ? raw.B : []).slice(0, MAX_POWERS).forEach(function (b) {
+      if (!Array.isArray(b)) return;
+      var gi = Math.round(Number(b[1])), ti = b[2] === null || b[2] === undefined ? -1 : Math.round(Number(b[2])), ch = Math.round(Number(b[3]));
+      if (!(gi >= 0 && gi < np) || !(ch === 1 || ch === 2)) return;
+      if (!(ti >= 0 && ti < np) || ti === gi) ti = -1;
+      var kind = str(b[4], 16).replace(/[^a-zA-Z0-9_\-]/g, "").slice(0, 16);
+      if (!kind) return;
+      log.B.push([int(b[0], 1, MAX_ROUNDS, 1), gi, ch === 2 ? ti : -1, ch, kind, int(b[5], 0, SCORE_LIMIT, 0), int(b[6], 0, 3, 0), str(b[7], 30)]);
     });
     return log;
   }
@@ -212,7 +223,43 @@ var V40Analysis = (function () {
     return lines.join("\r\n");
   }
 
-  return { DIFFS: DIFFS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, byCategory: byCategory,
+  /* ---------- Bonus et malus (pouvoirs gagnés en enchaînant les bonnes réponses) ---------- */
+  var POWER_NAMES = { "1:xp": "Points bonus", "1:shield": "Bouclier", "1:double": "Points ×2", "1:jackpot": "Jackpot", "1:triple": "Points ×3",
+    "2:xp": "Pénalité", "2:freeze": "Gel du combo", "2:steal": "Vol de points", "2:crush": "Impact", "2:halve": "Moitié du score" };
+  function powerName(b) { return POWER_NAMES[b[3] + ":" + b[4]] || b[7] || b[4]; }
+  /* « Gagnés » : points bonus, jackpot, points volés. « Perdus » : points retirés par un malus non bloqué. Les pouvoirs
+     spéciaux (sans montant) comptent dans les effectifs mais pas dans les points. */
+  function powers(log) {
+    var np = log.P.length, nr = log.R.length, B = log.B || [];
+    var pl = log.P.map(function (p, i) { return { idx: i, name: p.n, avatar: p.a, bonusGiven: 0, malusGiven: 0, malusReceived: 0, shieldSaves: 0, blockedOnMe: 0, reflected: 0, gained: 0, lost: 0, dealt: 0, net: 0 }; });
+    var kinds = {}, matrix = pl.map(function () { return pl.map(function () { return 0; }); });
+    var perRound = []; for (var r = 0; r < Math.max(nr, 1); r++) perRound.push({ bonus: 0, malus: 0, points: 0 });
+    var delta = pl.map(function () { var a = []; for (var q = 0; q <= Math.max(nr, 1); q++) a.push(0); return a; });
+    var out = { total: B.length, bonus: 0, malus: 0, blocked: 0, reflected: 0, points: 0, players: pl, kinds: [], matrix: matrix, perRound: perRound, netSeries: [] };
+    B.forEach(function (b) {
+      var round = Math.min(b[0], Math.max(nr, 1)), g = pl[b[1]], t = b[2] >= 0 ? pl[b[2]] : null, blocked = !!(b[6] & 1), refl = !!(b[6] & 2), amt = b[5];
+      var key = b[3] + ":" + b[4], k = kinds[key] || (kinds[key] = { key: key, label: powerName(b), choice: b[3], count: 0, points: 0, blocked: 0 });
+      k.count++;
+      if (b[3] === 1) { g.bonusGiven++; out.bonus++; perRound[round - 1].bonus++; if (amt > 0) { g.gained += amt; k.points += amt; out.points += amt; perRound[round - 1].points += amt; delta[g.idx][round] += amt; } return; }
+      g.malusGiven++; out.malus++; perRound[round - 1].malus++;
+      if (t) { t.malusReceived++; matrix[g.idx][t.idx]++; }
+      if (blocked || refl) {
+        k.blocked++; out.blocked++; if (refl) { out.reflected++; if (t) t.reflected++; }
+        if (t) t.shieldSaves++; g.blockedOnMe++;
+        return;
+      }
+      if (amt > 0 && t) {
+        t.lost += amt; g.dealt += amt; k.points += amt; out.points += amt; perRound[round - 1].points += amt; delta[t.idx][round] -= amt;
+        if (b[4] === "steal") { g.gained += amt; delta[g.idx][round] += amt; }
+      }
+    });
+    pl.forEach(function (p) { p.net = p.gained - p.lost; });
+    out.kinds = Object.keys(kinds).map(function (x) { return kinds[x]; }).sort(function (a, b) { return b.count - a.count || (a.key < b.key ? -1 : 1); });
+    out.netSeries = pl.map(function (p, i) { var v = [0], run = 0; for (var q = 1; q <= nr; q++) { run += delta[i][q]; v.push(run); } return { idx: i, values: v }; });
+    return out;
+  }
+
+  return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, byCategory: byCategory,
     byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell };
 })();

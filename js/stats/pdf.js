@@ -297,6 +297,26 @@ var V40Pdf = (function () {
     var med = A.byMedia(log); if (med.length > 1) bars("Questions avec image ou vidéo", med, function (g) { return g.label + " (" + g.questions + " q.)"; });
     note("Barre verte : au moins la moitié de bonnes réponses ; rouge : moins de la moitié. Le pourcentage et le détail (bonnes / réponses) sont écrits à droite.");
 
+    /* ----- Bonus et malus ----- */
+    if (log.B && log.B.length) {
+      var pws = A.powers(log), pr = pws.players.filter(function (r) { return r.bonusGiven + r.malusGiven + r.malusReceived > 0; }).sort(function (a, b) { return b.net - a.net || a.idx - b.idx; });
+      title("Bonus et malus", 16 * Math.min(pr.length + 2, 8));
+      note(pws.total + " pouvoir" + (pws.total > 1 ? "s" : "") + " utilisé" + (pws.total > 1 ? "s" : "") + " : " + pws.bonus + " bonus, " + pws.malus + " malus (" + pws.blocked + " bloqué" + (pws.blocked > 1 ? "s" : "") + (pws.reflected ? " dont " + pws.reflected + " renvoyé" + (pws.reflected > 1 ? "s" : "") : "") + "). " + pws.points + " points déplacés.");
+      table([
+        { h: "Joueur", w: 22, f: function (r) { return r.name; }, bold: function () { return true; } },
+        { h: "Bonus", w: 8, a: "right", f: function (r) { return String(r.bonusGiven); } },
+        { h: "Malus", w: 8, a: "right", f: function (r) { return String(r.malusGiven); } },
+        { h: "Visé", w: 8, a: "right", f: function (r) { return String(r.malusReceived); } },
+        { h: "Bloqués", w: 9, a: "right", f: function (r) { return String(r.shieldSaves); } },
+        { h: "Gagnés", w: 10, a: "right", f: function (r) { return String(r.gained); } },
+        { h: "Perdus", w: 10, a: "right", f: function (r) { return String(r.lost); } },
+        { h: "Bilan", w: 10, a: "right", f: function (r) { return (r.net > 0 ? "+" : "") + r.net; }, color: function (r) { return r.net < 0 ? C.bad : C.ink; }, bold: function () { return true; } }
+      ], pr);
+      note("Visé : malus lancés contre le joueur. Bloqués : malus arrêtés par un bouclier ou renvoyés. Gagnés : points bonus, jackpots et points volés. Perdus : points retirés par un malus. Les pouvoirs spéciaux sans montant ne comptent pas dans les points.");
+      valueBars("Pouvoirs lancés par joueur (bonus + malus)", pws.players.filter(function (r) { return r.bonusGiven + r.malusGiven > 0; }).sort(function (a, b) { return (b.bonusGiven + b.malusGiven) - (a.bonusGiven + a.malusGiven) || a.idx - b.idx; }).slice(0, 20).map(function (r) { return { label: r.name, value: r.bonusGiven + r.malusGiven, text: r.bonusGiven + " bonus · " + r.malusGiven + " malus" }; }));
+      valueBars("Types de pouvoirs utilisés", pws.kinds.slice(0, 14).map(function (k) { return { label: (k.choice === 1 ? "Bonus · " : "Malus · ") + k.label, value: k.count, text: k.count + (k.choice === 2 && k.blocked ? "  (" + k.blocked + " bloqué" + (k.blocked > 1 ? "s" : "") + ")" : "") }; }));
+    }
+
     /* ----- Questions les plus difficiles / faciles ----- */
     function qTable(label, list) {
       if (!list.length) return;

@@ -20,6 +20,7 @@
   var liveDone = false;      /* la partie est terminée */
   var finalFor = "";         /* identifiant de la partie déjà envoyée / enregistrée */
   var buf = {};              /* hôte : réponses de la question en cours */
+  var seenEv = {};           /* hôte : évènements bonus / malus déjà notés */
   var history = loadHistory();
   var view = { tab: "overview", src: "live", hidden: new Set() };
 
@@ -47,9 +48,9 @@
     return log.P.length - 1;
   }
   function beginLog() {
-    buf = {}; liveDone = false;
+    buf = {}; liveDone = false; seenEv = {};
     live = { v: 1, id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), at: Date.now(),
-      qt: Number(questionTime) || 0, mode: String(window.v9GameMode || ""), P: [], R: [], C: [] };
+      qt: Number(questionTime) || 0, mode: String(window.v9GameMode || ""), P: [], R: [], C: [], B: [] };
     Object.keys(players).forEach(function (id) { addPlayer(live, players[id]); });
     refreshEntryPoints();
     broadcast({ type: "v40Entry", kind: "begin", head: { id: live.id, at: live.at, qt: live.qt, mode: live.mode, P: live.P } });
@@ -94,6 +95,7 @@
     if (isHost && data && typeof data === "object") {
       if (data.type === "gameStart") { try { beginLog(); } catch (e) { if (window.console) console.error("V40Stats", e); } }
       else if (data.type === "nextQuestion") { try { buf = {}; syncScores(); } catch (e) {} }
+      else if (data.type === "v35Event") { try { notePower(data); } catch (e) {} }
     }
     return baseBroadcast.apply(this, arguments);
   };
@@ -149,6 +151,21 @@
     refreshOpen();
   }
 
+  /* Bonus / malus choisis après une question (évènement « v35Event » diffusé par l'hôte). */
+  function notePower(ev) {
+    if (!isHost || !live || !ev || (ev.choice !== "bonus" && ev.choice !== "malus")) return;
+    var key = String(ev.id == null ? "" : ev.id);
+    if (key) { if (seenEv[key]) return; seenEv[key] = 1; }
+    var gi = -1, ti = -1;
+    live.P.forEach(function (P, i) { if (P.i === String(ev.giverId)) gi = i; if (ev.targetId != null && P.i === String(ev.targetId)) ti = i; });
+    if (gi < 0 || live.B.length >= A.MAX_POWERS) return;
+    var ch = ev.choice === "malus" ? 2 : 1, kind = String(ev.kind || "").replace(/[^a-zA-Z0-9_\-]/g, "").slice(0, 16) || "x";
+    var lab = A.powerName([0, 0, 0, ch, kind, 0, 0, ""]) === kind ? String(ev.label || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/[+\u2212-]?\d+/g, "").trim().slice(0, 30) : "";
+    live.B.push([Math.max(1, live.R.length), gi, ch === 2 ? ti : -1, ch, kind, Math.max(0, Math.round(Number(ev.amount) || 0)), (ev.blocked ? 1 : 0) | (ev.reflected ? 2 : 0), lab]);
+    broadcast({ type: "v40Entry", kind: "powers", id: live.id, B: live.B });
+    refreshOpen();
+  }
+
   /* ===================================================================== Réception (joueurs) */
   function onEntry(d) {
     if (isHost || !d) return;
@@ -164,6 +181,9 @@
       while (live.R.length < d.n) live.R.push(A.normalizeRound({ r: [] }, np));          /* manche perdue : case vide, remplacée par v40Final */
       live.R[d.n] = A.normalizeRound(d.e, np);
       (Array.isArray(d.gone) ? d.gone : []).forEach(function (k) { if (live.P[k]) live.P[k].x = 1; });
+    } else if (d.kind === "powers" && live && live.id === d.id) {
+      var tb = A.normalize({ P: live.P, R: [], B: d.B });
+      if (tb) live.B = tb.B;
     } else if (d.kind === "cheats" && live && live.id === d.id) {
       var tmp = A.normalize({ P: live.P, R: [], C: d.C });
       if (tmp) live.C = tmp.C;
@@ -241,7 +261,7 @@
     refreshTimer = setTimeout(function () { if (isOpen()) render(true); }, 120);
   }
 
-  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["cheat", "Triche"], ["history", "Historique"]];
+  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
 
   function render(keepScroll) {
     var log = currentLog();
@@ -277,7 +297,7 @@
       else if (!log || !log.R.length) main.appendChild(emptyState(log));
       else {
         if (!liveDone && log === live) main.appendChild(el("p", { "class": "v40s-note", text: "⏳ Partie en cours : les chiffres sont à jour jusqu’à la dernière question terminée (" + log.R.length + (typeof totalRounds === "number" && totalRounds ? "/" + totalRounds : "") + ")." }));
-        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, cheat: buildCheat }[view.tab] || buildOverview;
+        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
         fn(main, log);
       }
     } catch (e) {
@@ -526,6 +546,140 @@
 
   /* ---------- Triche ---------- */
   var LV = { 1: "⚠️ Avertissement", 2: "🚨 Malus", 3: "🚫 Exclusion" };
+  /* ---------- Bonus / Malus ---------- */
+  function keyNote(items, extra) {
+    var p = el("p", { "class": "v40s-note v40s-key" });
+    items.forEach(function (it) {
+      var sw = el("span", { "aria-hidden": "true" }); sw.style.cssText = "display:inline-block;width:12px;height:12px;border-radius:3px;margin:0 6px -1px 0;background:" + it[1];
+      var item = el("span", null, [sw, document.createTextNode(it[0])]); item.style.marginRight = "16px"; p.appendChild(item);
+    });
+    if (extra) p.appendChild(document.createTextNode(extra));
+    return p;
+  }
+  function buildPowers(main, log) {
+    var P = A.powers(log), rows = P.players, BON = K.C.palette[2], MAL = K.C.palette[1], BLK = K.C.palette[0];
+    if (!P.total) {
+      main.appendChild(el("div", { "class": "v40s-empty" }, [el("div", { "class": "big", text: "🎁" }), el("h3", { text: "Aucun bonus ni malus pour l’instant" }), el("p", { text: "Un pouvoir se gagne en enchaînant les bonnes réponses : bonus pour soi, malus pour un adversaire." })]));
+      return;
+    }
+    var pctB = P.malus ? Math.round(P.blocked / P.malus * 100) : 0;
+    main.appendChild(el("div", { "class": "v40s-tiles" }, [
+      tile(String(P.total), "Pouvoirs utilisés", log.R.length + " question" + (log.R.length > 1 ? "s" : "")), tile(String(P.bonus), "🎁 Bonus", "pour soi"), tile(String(P.malus), "💥 Malus", "contre un adversaire"),
+      tile(P.malus ? pctB + " %" : "—", "Malus bloqués", P.blocked + " bloqué" + (P.blocked > 1 ? "s" : "") + (P.reflected ? " dont " + P.reflected + " renvoyé" + (P.reflected > 1 ? "s" : "") : "")),
+      tile(fmt.int(P.points), "Points déplacés", "bonus, vols et pénalités")
+    ]));
+    function top(key) { var b = null; rows.forEach(function (r) { if (r[key] > 0 && (!b || r[key] > b[key])) b = r; }); return b; }
+    var hl = [], g;
+    if ((g = top("bonusGiven"))) hl.push(tile(g.bonusGiven + " bonus", "Le plus généreux", g.name));
+    if ((g = top("malusGiven"))) hl.push(tile(g.malusGiven + " malus", "Le plus offensif", g.name));
+    if ((g = top("malusReceived"))) hl.push(tile(g.malusReceived + " visé" + (g.malusReceived > 1 ? "s" : ""), "Cible n° 1", g.name));
+    if ((g = top("shieldSaves"))) hl.push(tile(g.shieldSaves + " bloqué" + (g.shieldSaves > 1 ? "s" : ""), "Le meilleur rempart", g.name));
+    if ((g = top("net")) ) hl.push(tile((g.net > 0 ? "+" : "") + fmt.int(g.net) + " pts", "Meilleur bilan", g.name));
+    if (hl.length) main.appendChild(el("div", { "class": "v40s-tiles v40s-highlights", "aria-label": "Faits marquants des pouvoirs" }, hl));
+
+    var launched = rows.filter(function (r) { return r.bonusGiven + r.malusGiven > 0; }).sort(function (a, b) { return (b.bonusGiven + b.malusGiven) - (a.bonusGiven + a.malusGiven) || a.idx - b.idx; });
+    if (launched.length) main.appendChild(K.card({
+      title: "Pouvoirs lancés par joueur", desc: "Bonus (pour soi) et malus (contre un adversaire) de chaque joueur.",
+      draw: function (host) {
+        K.stack(host, { unit: "pouvoir", ariaLabel: "Bonus et malus lancés par joueur", rows: launched.map(function (r) {
+          return { label: label(r), avatar: r.avatar, total: r.bonusGiven + r.malusGiven, parts: [{ name: "Bonus", glyph: "🎁", value: r.bonusGiven, color: BON }, { name: "Malus", glyph: "💥", value: r.malusGiven, color: MAL }] };
+        }) });
+        host.appendChild(keyNote([["🎁 Bonus", BON], ["💥 Malus", MAL]]));
+      },
+      table: function () { return K.table(["Joueur", "Bonus", "Malus", "Total"], launched.map(function (r) { return [label(r), r.bonusGiven, r.malusGiven, r.bonusGiven + r.malusGiven]; }), "Pouvoirs lancés par joueur"); }
+    }));
+
+    var targeted = rows.filter(function (r) { return r.malusReceived > 0; }).sort(function (a, b) { return b.malusReceived - a.malusReceived || a.idx - b.idx; });
+    if (targeted.length) main.appendChild(K.card({
+      title: "Malus reçus et boucliers", desc: "Parmi les malus visant chaque joueur : ceux qui ont touché, et ceux qui ont été bloqués par un bouclier ou renvoyés.",
+      draw: function (host) {
+        K.stack(host, { unit: "malus", ariaLabel: "Malus reçus, touchés ou bloqués", rows: targeted.map(function (r) {
+          return { label: label(r), avatar: r.avatar, total: r.malusReceived, parts: [{ name: "Touchés", glyph: "💥", value: r.malusReceived - r.shieldSaves, color: MAL }, { name: "Bloqués ou renvoyés", glyph: "🛡️", value: r.shieldSaves, color: BLK }] };
+        }) });
+        host.appendChild(keyNote([["💥 Touchés", MAL], ["🛡️ Bloqués ou renvoyés", BLK]]));
+      },
+      table: function () { return K.table(["Joueur", "Malus visant", "Touchés", "Bloqués ou renvoyés", "Points perdus"], targeted.map(function (r) { return [label(r), r.malusReceived, r.malusReceived - r.shieldSaves, r.shieldSaves, fmt.int(r.lost)]; }), "Malus reçus"); }
+    }));
+
+    var money = rows.filter(function (r) { return r.gained > 0 || r.lost > 0; }).sort(function (a, b) { return b.net - a.net || a.idx - b.idx; });
+    if (money.length) main.appendChild(K.card({
+      title: "Points gagnés et perdus grâce aux pouvoirs", desc: "Gagnés : points bonus, jackpots et points volés. Perdus : points retirés par un malus. Les pouvoirs spéciaux sans montant ne sont pas comptés ici.",
+      draw: function (host) {
+        K.stack(host, { unit: "pts", ariaLabel: "Points gagnés et perdus par joueur", rows: money.map(function (r) {
+          return { label: label(r) + " (" + (r.net > 0 ? "+" : r.net < 0 ? "−" : "") + fmt.int(Math.abs(r.net)) + ")", avatar: r.avatar, total: r.gained + r.lost, parts: [{ name: "Gagnés", glyph: "＋", value: r.gained, color: BON }, { name: "Perdus", glyph: "−", value: r.lost, color: MAL }] };
+        }) });
+        host.appendChild(keyNote([["＋ Gagnés", BON], ["− Perdus", MAL]], "Entre parenthèses : bilan net."));
+      },
+      table: function () { return K.table(["Joueur", "Gagnés", "Perdus", "Bilan net", "Points infligés"], money.map(function (r) { return [label(r), fmt.int(r.gained), fmt.int(r.lost), (r.net > 0 ? "+" : "") + fmt.int(r.net), fmt.int(r.dealt)]; }), "Points gagnés et perdus grâce aux pouvoirs"); }
+    }));
+
+    var nr = log.R.length, net = P.netSeries.filter(function (s) { return s.idx < MAX_PLAYERS_PLOTTED && (P.players[s.idx].gained || P.players[s.idx].lost); }).map(function (s) {
+      return { key: String(s.idx), name: label(rows[s.idx]), color: colorFor(s.idx), values: s.values };
+    });
+    if (net.length) main.appendChild(K.card({
+      title: "Bilan net des pouvoirs au fil des questions", desc: "Points gagnés moins points perdus par les pouvoirs, cumulés après chaque question.",
+      legend: function (redraw) { return playerLegend(rows, redraw); },
+      draw: function (host) {
+        K.line(host, { n: nr, series: net, hidden: view.hidden, xTitle: "Questions", endLabels: true, ariaLabel: "Bilan net des pouvoirs de " + net.map(function (s) { return s.name; }).join(", "),
+          yFmt: function (v) { return fmt.int(v); },
+          header: function (i) { return i === 0 ? { title: "Départ" } : { title: "Après la question " + i }; },
+          valueText: function (s, i) { var v = s.values[i]; return (v > 0 ? "+" : "") + fmt.int(v) + " pts"; } });
+      },
+      table: function () {
+        return K.table(["Question"].concat(net.map(function (s) { return s.name; })), (function () { var b = []; for (var i = 0; i <= nr; i++) b.push([i === 0 ? "Départ" : i].concat(net.map(function (s) { var v = s.values[i]; return (v > 0 ? "+" : "") + fmt.int(v); }))); return b; })(), "Bilan net des pouvoirs");
+      }
+    }));
+
+    main.appendChild(K.card({
+      title: "Types de pouvoirs utilisés", desc: "Combien de fois chaque pouvoir a servi (🎁 bonus, 💥 malus).",
+      draw: function (host) {
+        K.hbars(host, { rows: P.kinds.map(function (k) {
+          return { label: (k.choice === 1 ? "🎁 " : "💥 ") + k.label, value: k.count, color: k.choice === 1 ? BON : MAL, text: k.count + (k.choice === 2 && k.blocked ? " · " + k.blocked + " bloqué" + (k.blocked > 1 ? "s" : "") : ""),
+            tip: { title: (k.choice === 1 ? "Bonus · " : "Malus · ") + k.label, rows: [{ label: "Utilisations", value: k.count, strong: true }].concat(k.choice === 2 ? [{ label: "Bloquées ou renvoyées", value: k.blocked }] : []).concat(k.points ? [{ label: "Points déplacés", value: fmt.int(k.points) }] : []) } };
+        }), max: P.kinds[0].count, ariaLabel: "Types de pouvoirs utilisés" });
+      },
+      table: function () { return K.table(["Pouvoir", "Type", "Utilisations", "Bloqués ou renvoyés", "Points déplacés"], P.kinds.map(function (k) { return [k.label, k.choice === 1 ? "Bonus" : "Malus", k.count, k.choice === 2 ? k.blocked : "—", k.points ? fmt.int(k.points) : "—"]; }), "Types de pouvoirs"); }
+    }));
+
+    var tgt = rows.filter(function (r) { return r.malusGiven > 0 || r.malusReceived > 0; });
+    if (P.malus && tgt.length > 1) {
+      var mx = 1; P.matrix.forEach(function (row) { row.forEach(function (v) { mx = Math.max(mx, v); }); });
+      main.appendChild(K.card({
+        title: "Qui vise qui ?", desc: "Nombre de malus lancés (en ligne) contre chaque joueur (en colonne). Plus la case est foncée, plus il y en a.",
+        draw: function (host) {
+          var tbl = el("table", { "class": "v40s-table v40s-heat" }), hr = el("tr", null, [el("th", { scope: "col", text: "Lanceur ↓ / Cible →" })]);
+          tgt.forEach(function (c) { hr.appendChild(el("th", { scope: "col", text: K.cut((c.avatar ? c.avatar + " " : "") + c.name, 12) })); });
+          tbl.appendChild(el("thead", null, [hr]));
+          var tb = el("tbody");
+          tgt.forEach(function (r) {
+            var tr = el("tr", null, [el("th", { scope: "row", text: K.cut((r.avatar ? r.avatar + " " : "") + r.name, 14) })]);
+            tgt.forEach(function (c) {
+              var v = r.idx === c.idx ? null : P.matrix[r.idx][c.idx], td = el("td", { text: v === null ? "·" : (v ? String(v) : "") });
+              if (v) { td.style.background = "rgba(217,89,38," + (0.18 + 0.62 * v / mx).toFixed(2) + ")"; td.style.fontWeight = "800"; td.setAttribute("title", r.name + " → " + c.name + " : " + v); }
+              tr.appendChild(td);
+            });
+            tb.appendChild(tr);
+          });
+          tbl.appendChild(tb);
+          host.appendChild(el("div", { "class": "v40s-tablewrap", tabindex: "0", role: "region", "aria-label": "Malus lancés, par lanceur et par cible" }, [tbl]));
+        },
+        table: function () { return K.table(["Lanceur"].concat(tgt.map(function (c) { return c.name; })), tgt.map(function (r) { return [r.name].concat(tgt.map(function (c) { return r.idx === c.idx ? "·" : P.matrix[r.idx][c.idx]; })); }), "Malus lancés, par lanceur et par cible"); }
+      }));
+    }
+
+    var cum = [0], cb = [0], cm = [0];
+    for (var q = 0; q < nr; q++) { var pr = P.perRound[q] || { bonus: 0, malus: 0 }; cb.push(cb[q] + pr.bonus); cm.push(cm[q] + pr.malus); }
+    main.appendChild(K.card({
+      title: "Bonus et malus cumulés", desc: "Nombre de pouvoirs utilisés depuis le début de la partie.",
+      draw: function (host) {
+        K.line(host, { n: nr, series: [{ key: "b", name: "🎁 Bonus", color: BON, values: cb }, { key: "m", name: "💥 Malus", color: MAL, values: cm }], hidden: new Set(), xTitle: "Questions", endLabels: true, ariaLabel: "Bonus et malus cumulés",
+          yFmt: function (v) { return fmt.int(v); }, header: function (i) { return i === 0 ? { title: "Départ" } : { title: "Après la question " + i }; },
+          valueText: function (s, i) { return fmt.int(s.values[i]) + (s.key === "b" ? " bonus" : " malus"); } });
+      },
+      table: function () { var b = []; for (var i = 0; i <= nr; i++) b.push([i === 0 ? "Départ" : i, cb[i], cm[i]]); return K.table(["Question", "Bonus cumulés", "Malus cumulés"], b, "Bonus et malus cumulés"); }
+    }));
+  }
+
   function buildCheat(main, log) {
     var rows = A.perPlayer(log);
     var pol = (window.V40Cheat && window.V40Cheat.policy) || { WARN_MAX: 2, KICK_AFTER: 4, MALUS_POINTS: 250 };
