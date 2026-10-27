@@ -33,6 +33,7 @@ css/
   features.css          styles des fonctionnalités (chat, pouvoirs, podium…)
   qcm.css               styles de la fenêtre « QCM depuis un cours »
   v40.css               anti-triche, questions avec média, statistiques
+  v43.css               voix off (réglages) et carte de justification de la réponse
 js/
   core/                 moteur du jeu (réseau, joueurs, questions, scores…)
   patches/              évolutions successives, chargées dans l'ordre des numéros
@@ -46,9 +47,11 @@ js/
                         + image-mix.js (questions avec image ajoutées à TOUS les thèmes, sans rien remplacer)
   media/                media.js : validation et affichage des images / vidéos YouTube / illustrations SVG
   stats/                analysis.js (calculs), charts.js (graphiques SVG), pdf.js (export PDF), stats.js (capture + tableau de bord)
+  voice/                voice.js : voix off (la question est lue à voix haute, synthèse vocale du navigateur)
+  justif/               justif.js : justification après chaque réponse (bonne ou mauvaise)
 php/
   qcm.php               OPTIONNEL — extraction, lecture de liens, transcription et mode IA côté serveur (voir plus bas)
-tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route / drapeaux / horloges en images, statistiques, PDF)
+tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route / drapeaux / horloges en images, statistiques, PDF, justifications / voix off)
 ```
 
 Ce sont des scripts classiques (pas de bundler, pas de build) : **l'ordre des balises `<script>` de `index.html` compte**.
@@ -63,7 +66,7 @@ Détection notamment de :
 - lettres séparées par des espaces ou des symboles (`b i t e`, `b.i.t.e`, `b!i!t!e`) ;
 - astuces classiques : accents, majuscules mélangées, lettres étirées (`biiiite`), leet (`p@ute`, `m3rde`), caractères de largeur nulle, lettres homoglyphes (cyrillique, grec, pleine largeur).
 
-**Contournement par épellation (bannissement).** Envoyer un mot lettre par lettre (« b », « i », « t », « e » en quatre messages) ne trompe plus le filtre : l'hôte garde les « morceaux » (1 ou 2 caractères) de chaque joueur pendant 30 secondes, même si d'autres messages sont intercalés. Si les morceaux forment un mot interdit, ou si le joueur envoie **3 lettres isolées différentes** en 30 s, il est **banni automatiquement** : ses morceaux disparaissent du chat de tout le monde, il est retiré de la partie, son pseudo et son identifiant sont refusés s'il tente de revenir (jusqu'à ce que l'hôte ferme la page), les autres joueurs sont prévenus et l'hôte retrouve la ligne dans son journal. Trois lettres seulement 2 à 2 différentes (« a b a ») suppriment le message avec un avertissement. Les nombres seuls (compte à rebours « 3, 2, 1 ») et les réponses courtes (« ok », « A », « B ») ne sont pas touchés. Limite : un joueur banni peut revenir avec un autre pseudo.
+**Contournement par épellation (bannissement).** Envoyer un mot lettre par lettre (« b », « i », « t », « e » en quatre messages) ne trompe plus le filtre : l'hôte garde les « morceaux » (1 à 4 caractères) de chaque joueur pendant 5 minutes, même si d'autres messages sont intercalés (messages de l'hôte compris). Si les morceaux (espacés de moins de 2 minutes) forment un mot interdit (« b » « i » « t » « e », mais aussi « bit » + « e » ou « b » + « ite »), ou si le joueur envoie **3 lettres isolées différentes** en 5 minutes, il est **banni automatiquement** : ses morceaux disparaissent du chat de tout le monde, il est retiré de la partie, son pseudo et son identifiant sont refusés s'il tente de revenir (jusqu'à ce que l'hôte ferme la page), les autres joueurs sont prévenus et l'hôte retrouve la ligne dans son journal. **Deux lettres isolées différentes en 60 secondes** (« b » puis « i ») suppriment immédiatement la seconde (et la première) avec un avertissement ; la troisième lettre différente entraîne le bannissement. Trois lettres seulement 2 à 2 différentes (« a b a ») suppriment aussi le message avec un avertissement. Les nombres seuls (compte à rebours « 3, 2, 1 ») et les mots courts (« ok », « lol ») ne sont pas touchés ; une lettre isolée seule n'est pas une anomalie. Limites : un joueur banni peut revenir avec un autre pseudo ; des lettres espacées de plus de 3 minutes, ou réparties entre plusieurs joueurs, ne sont pas détectées.
 
 Sanctions progressives par joueur : 1ᵉʳ message interdit → avertissement ; 2ᵉ → sourdine 1 min ; 3ᵉ → 5 min ; 4ᵉ et suivants → 15 min.
 La sourdine se lève d'elle-même à la fin de sa durée (le joueur est prévenu) et le compteur repart à zéro après 10 minutes sans infraction. Le journal de modération est visible côté hôte.
@@ -199,13 +202,36 @@ les joueurs (même un joueur exclu) : tout le monde voit les mêmes chiffres. On
 - **Joueurs** : bonnes / mauvaises / sans réponse, temps de réponse moyen, plus gros gain ;
 - **Questions** : réussite par question, par thème, par difficulté, avec / sans média, questions les plus difficiles et les plus faciles ;
 - **Détail** : qui a répondu quoi à chaque question ;
+- **Bonus / Malus** : pouvoirs utilisés (🎁 bonus pour soi, 💥 malus contre un adversaire), avec 7 graphiques — pouvoirs lancés par joueur, malus reçus (touchés / bloqués par un bouclier ou renvoyés), points gagnés et perdus grâce aux pouvoirs, bilan net au fil des questions, types de pouvoirs, **qui vise qui** (matrice lanceur × cible) et bonus / malus cumulés. Les pouvoirs spéciaux sans montant comptent dans les effectifs mais pas dans les points ;
 - **Triche** : infractions par joueur et chronologie ;
 - **Historique** : les 12 dernières parties (gardées dans le navigateur), réussite de chaque partie.
 
 Chaque graphique se survole / se touche (infobulle), a une version **Tableau** et la légende masque ou affiche un joueur sans changer les couleurs des autres.
-Export **CSV** de toutes les réponses (compatible tableur) et export **📄 PDF** : classement, **courbes d'évolution des scores**, réussite par thème / difficulté, grille joueurs × questions, détail de chaque question et infractions. Le PDF est généré dans le navigateur, **sans bibliothèque externe ni connexion**, en vectoriel (net à tout zoom, texte sélectionnable) ; les emojis, absents de la police intégrée, en sont retirés. Les couleurs sont validées pour le thème sombre et les daltoniens ; au-delà de 8 joueurs, les courbes montrent les 8 premiers arrivés et les autres figurent dans les tableaux.
+Les bonus et malus sont notés par l'hôte (évènement « v35Event ») et envoyés aux joueurs comme le reste du journal.
+Export **CSV** de toutes les réponses (compatible tableur) et export **📄 PDF** : classement, **courbes d'évolution des scores**, réussite par thème / difficulté, grille joueurs × questions, détail de chaque question, infractions et **section « Bonus et malus »** (tableau par joueur, pouvoirs lancés, types de pouvoirs). Le PDF est généré dans le navigateur, **sans bibliothèque externe ni connexion**, en vectoriel (net à tout zoom, texte sélectionnable) ; les emojis, absents de la police intégrée, en sont retirés. Les couleurs sont validées pour le thème sombre et les daltoniens ; au-delà de 8 joueurs, les courbes montrent les 8 premiers arrivés et les autres figurent dans les tableaux.
 
 Les journaux reçus par le réseau sont nettoyés et bornés avant usage (`V40Analysis.normalize`).
+
+## 🗣️ Voix off et justifications
+
+### Voix off (`js/voice/voice.js`)
+Chaque question est **lue à voix haute** au moment où elle s'affiche, avec la synthèse vocale du navigateur (gratuite, sans compte, aucune donnée envoyée).
+Le réglage est **personnel** (gardé dans le navigateur de chaque joueur) : bouton **🗣️** du dock →
+- lire les questions à voix haute (activé par défaut) ;
+- lire aussi les quatre réponses (« Réponse A : … ») ;
+- lire l'explication après la réponse ;
+- vitesse (lente → très rapide) et choix de la voix française s'il y en a plusieurs, avec un bouton « Écouter un exemple ».
+
+La lecture s'arrête dès qu'on répond, quand la correction apparaît ou à la question suivante, et respecte le bouton « Son ON / OFF ». Les symboles sont dits en toutes lettres (« × » → « fois », « % » → « pour cent »…) et les emojis sont ignorés.
+Le narrateur 🔊 existant (« Bonne réponse / Mauvaise réponse ») est inchangé. Si le navigateur n'a pas de synthèse vocale, le panneau l'indique. La qualité de la voix dépend de l'appareil.
+
+### Justifications (`js/justif/justif.js`)
+Après chaque réponse, une carte explique le résultat, selon le cas :
+- **bonne réponse** : confirmation, phrase complète quand la forme de la question le permet (« Paris est la capitale de la France. »), explication propre à la question, taux de réussite des joueurs sur cette manche ;
+- **mauvaise réponse** : ce qui a été répondu, la bonne réponse, pourquoi la réponse choisie ne convient pas (écart chiffré pour une date ou un nombre : « 3 ans trop tard »), **confusion repérée** quand la réponse choisie est la bonne réponse d'une autre question de la banque, et « À retenir » ;
+- **temps écoulé** : la bonne réponse et son explication.
+
+La carte est complétée environ une seconde plus tard avec les statistiques de la manche (« 1 joueur a trouvé la bonne réponse sur 2 »). Le texte est calculé à partir des données de la question : **la banque ne contient pas d'explication écrite à la main pour chaque question**, donc rien n'est inventé ; quand aucune phrase fiable ne peut être construite, la carte se limite à la bonne réponse, à la correction existante et à la statistique.
 
 ## ➕ Ajouter des questions ou un thème
 
@@ -234,6 +260,7 @@ node tests/images.test.js                # drapeaux et horloges : la réponse es
 node tests/mix.test.js                   # images dans tous les thèmes : chaque réponse est recalculée en relisant le dessin
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 node tests/pdf.test.js                   # export PDF : structure du fichier, métriques, caractères, pagination
+node tests/justif.test.js                # justifications (bonne / mauvaise / temps écoulé, écarts, confusions, HTML échappé) et texte lu par la voix off
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)
 ```
 

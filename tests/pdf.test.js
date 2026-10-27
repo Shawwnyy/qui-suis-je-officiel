@@ -15,7 +15,8 @@ const raw = {
     { q: "Symbole chimique de l'or ?", c: "🧪 Sciences", d: "difficile", m: 0, r: [[2, 7, 1900], [1, 4, 600], [0, 0, 0]] },
     { q: "Combien de côtés a un hexagone ?", c: "🌍 Géographie", d: "facile", m: 0, r: [[1, 1.5, 2600], [1, 2, 1500], [0, 0, 0]] }
   ],
-  C: [[2, 1, 1, 1], [2, 2, 1, 2], [2, 3, 2, 2]]
+  C: [[2, 1, 1, 1], [2, 2, 1, 2], [2, 3, 2, 2]],
+  B: [[1, 0, -1, 1, "xp", 100, 0], [1, 1, 0, 2, "crush", 80, 0], [2, 0, 1, 2, "steal", 60, 0], [2, 1, 0, 2, "miroir", 0, 3, "Mi(ro)ir \\ <b>"]]
 };
 const log = A.normalize(raw);
 
@@ -28,6 +29,11 @@ t("le tiret long est écrit dans le PDF (octet 151 = \\227)", Buffer.from(P.buil
 t("emojis retirés", P._clean("🦊 Léa 🌍") === "Léa");
 t("accents conservés (cp1252)", P._toCp("éàç€’").join(",") === "233,224,231,128,146");
 t("texte tronqué avec …", P._fit("Un texte vraiment très très long pour une colonne", 60, 10, false).endsWith("…"));
+
+/* --- section Bonus et malus --- */
+t("PDF : section « Bonus et malus » présente", Buffer.from(P.build(log)).toString("latin1").includes("Bonus et malus"));
+t("PDF : aucune valeur NaN / undefined / Infinity dans le flux", !/NaN|undefined|Infinity/.test(Buffer.from(P.build(log)).toString("latin1")));
+t("PDF : partie sans pouvoir → pas de section", !Buffer.from(P.build(A.normalize(Object.assign({}, raw, { B: [] })))).toString("latin1").includes("Bonus et malus"));
 
 /* --- structure du fichier --- */
 const bytes = P.build(log);

@@ -78,7 +78,7 @@ return true;
 function sequenceViolation(pid,p,id,text,sq,reject){
 (sq.run||[]).forEach(mid=>{if(!mid||mid===id)return;S.gone.add(mid);const m=S.msgs.get(mid);if(m){hostDelete({id:mid,by:myId},true);archive(m,"blocked","Contournement du filtre : "+sq.label);}});
 S.gone.add(id);
-if(sq.ban){
+if(sq.ban&&pid!==myId){
 const A=adm();archive({id,playerId:pid,name:(p&&p.name)||"?",text:String(text||"")},"blocked","Contournement du filtre : "+sq.label+" → bannissement");
 banPlayer(pid,p,sq.label+(sq.letters?" (« "+sq.letters+" »)":""));
 return;
@@ -156,7 +156,7 @@ if(banned.ids.has(pid))return;
 if(A.chatLocked&&!p.host)return reject("🔒 Le chat est verrouillé par l’hôte.");
 if(A.muted&&A.muted.has&&A.muted.has(pid))return reject("🔇 Tu as été mis en sourdine par l’hôte.");
 const now=Date.now();if(pid!==myId){const h=(S.lastFrom[pid]||[]).filter(x=>now-x<3000);if(h.length>=10){S.lastFrom[pid]=h;return reject("⏳ Trop de messages d’un coup, patiente un instant.");}h.push(now);S.lastFrom[pid]=h;}
-if(pid!==myId){let sq=null;try{sq=window.Moderation&&window.Moderation.sequence&&window.Moderation.sequence(pid,msg.text,Date.now(),id);}catch(e){}if(sq&&sq.blocked)return sequenceViolation(pid,p,id,msg.text,sq,reject);}
+{let sq=null;try{sq=window.Moderation&&window.Moderation.sequence&&window.Moderation.sequence(pid,msg.text,Date.now(),id);}catch(e){}if(sq&&sq.blocked)return sequenceViolation(pid,p,id,msg.text,sq,reject);}
 const f=filter(msg.text);
 if(!f.ok){if(f.why==="blocked")return moderate(pid,p,id,msg.text,f,t=>reject(t,true));return reject("Message vide.");}
 const out={type:"chat",id,playerId:pid,name:p.name,text:f.text,time:okTime(msg.time)?msg.time:stamp()};

@@ -92,6 +92,8 @@ html.v40s-lock,html.v40s-lock body{overflow:hidden!important}
 .v40s-svg g[tabindex]:focus-visible rect{stroke:#a78bfa;stroke-width:2}
 .v40s-tablewrap,.v40s-matrix{overflow:auto;max-height:420px;border-radius:12px;border:1px solid rgba(255,255,255,.1);-webkit-overflow-scrolling:touch}
 .v40s-table{border-collapse:collapse;width:100%;font-size:13px}
+.v40s-heat td{text-align:center;min-width:44px}
+.v40s-heat th:first-child{text-align:left}
 .v40s-table caption{position:absolute;left:-9999px}
 .v40s-table th,.v40s-table td{padding:8px 10px;text-align:right;border-bottom:1px solid #2c2c2a;white-space:nowrap;color:#f0efec}
 .v40s-table th:first-child,.v40s-table td:first-child{text-align:left}

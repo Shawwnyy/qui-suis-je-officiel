@@ -105,5 +105,32 @@ t("manche trop courte complétée", short.R[0].r.length === 2 && short.R[0].r[1]
 const empty = A.normalize({ P: [{ i: "a", n: "A" }], R: [] });
 t("partie vide : calculs sans erreur", A.totals(empty).accuracy === null && A.perPlayer(empty)[0].accuracy === null && A.hardest(empty).length === 0 && A.byCategory(empty).length === 0);
 
+/* --- Bonus / malus (journal B) : chiffres recalculés à la main --- */
+const pw = A.normalize({ P: [{ i: "a", n: "Ana" }, { i: "b", n: "Bob" }, { i: "c", n: "Cy" }], R: [{ q: "x", r: [[1, 2, 100], [1, 3, 100], [2, 4, 0]] }, { q: "y", r: [[1, 2, 300], [1, 3, 50], [2, 4, 0]] }],
+  B: [[1, 0, -1, 1, "xp", 100, 0], [1, 1, 0, 2, "crush", 80, 0], [2, 0, 1, 2, "steal", 60, 0], [2, 2, 0, 2, "freeze", 0, 1], [2, 1, -1, 1, "shield", 0, 0], [2, 2, 1, 2, "miroir", 0, 2, "🪞 Miroir"],
+    [9, 5, 1, 2, "xp", 5, 0], [1, 0, 0, 2, "xp", 5, 0]] });
+const dirty = A.normalize({ P: [{ i: "a", n: "A" }, { i: "b", n: "B" }], R: [], B: [[1, 0, -1, 1, "<b>x</b>", 1, 0], [1, 0, 1, 2, "xp", -50, 0], [1, 0, -1, 3, "xp", 1, 0], "nimp", [1, 7, -1, 1, "xp", 1, 0], [1, 0, 1, 2, "a".repeat(40), 3, 9, "é".repeat(80)]] });
+const PW = A.powers(pw);
+t("journal B : joueur inconnu ignoré, cible = lanceur → aucune cible", pw.B.length === 7 && pw.B.some(b => b[5] === 5 && b[2] === -1 && b[3] === 2));
+t("entrées invalides ignorées (type 3, texte, joueur inconnu)", dirty.B.length === 3);
+t("kind nettoyé (« <b>x</b> » → « bxb »), tronqué à 16 caractères", dirty.B[0][4] === "bxb" && dirty.B[2][4].length === 16);
+t("montant négatif ramené à 0, drapeaux bornés, libellé tronqué à 30", dirty.B[1][5] === 0 && dirty.B[2][6] === 3 && dirty.B[2][7].length === 30);
+t("total / bonus / malus", PW.total === 7 && PW.bonus === 2 && PW.malus === 5);
+t("malus bloqués et renvoyés", PW.blocked === 2 && PW.reflected === 1);
+const [ana, bob, cy] = PW.players;
+t("Ana : gagne 100 + 60 (vol), perd 80 → bilan +80", ana.gained === 160 && ana.lost === 80 && ana.net === 80);
+t("Bob : perd 60 (vol) → bilan −60", bob.lost === 60 && bob.net === -60 && bob.dealt === 80);
+t("Cy : deux malus bloqués ou renvoyés", cy.blockedOnMe === 2 && cy.malusGiven === 2);
+t("boucliers : Ana et Bob ont chacun arrêté un malus", ana.shieldSaves === 1 && bob.shieldSaves === 1 && ana.reflected === 0 && bob.reflected === 1);
+t("matrice lanceur → cible", PW.matrix[1][0] === 1 && PW.matrix[0][1] >= 1 && PW.matrix[2][0] === 1 && PW.matrix[2][1] === 1 && PW.matrix[0][0] === 0);
+t("pouvoir sans cible : ni cible ni matrice", ana.malusGiven === 2 && PW.matrix[0].reduce((x, y) => x + y, 0) === PW.matrix[0][1]);
+t("bilan cumulé Ana : 20 après Q1, 80 après Q2", PW.netSeries[0].values.join() === "0,20,80" && PW.netSeries[1].values.join() === "0,0,-60");
+t("points déplacés = 100 + 80 + 60", PW.points === 240);
+t("noms des pouvoirs spéciaux et connus", A.powerName([0, 0, 0, 2, "freeze", 0, 0, ""]) === "Gel du combo" && A.powerName([0, 0, 0, 2, "miroir", 0, 0, "🪞 Miroir"]) === "🪞 Miroir");
+t("partie sans pouvoir : powers() vide sans erreur", A.powers(empty).total === 0 && A.powers(short).players.length === 2);
+const flood = A.normalize({ P: [{ i: "a", n: "A" }, { i: "b", n: "B" }], R: [], B: Array.from({ length: 5000 }, () => [1, 0, 1, 2, "xp", 5, 0]) });
+t("journal B plafonné", flood.B.length === A.MAX_POWERS);
+t("anciens journaux sans B acceptés", A.normalize({ P: [{ i: "a", n: "A" }], R: [] }).B.length === 0);
+
 console.log("Stats : " + ok + " OK, " + ko + " échec(s)");
 process.exit(ko ? 1 : 0);
