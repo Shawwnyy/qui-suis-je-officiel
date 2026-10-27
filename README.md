@@ -122,7 +122,7 @@ ou crée `php/config.local.php` (ignoré par git) :
 <?php return ['anthropic_key' => 'sk-ant-…', 'model' => 'claude-sonnet-5-5', 'access_code' => 'un-mot-de-passe'];
 ```
 
-⚠️ Chaque génération IA consomme du crédit API et le texte du cours est envoyé à l'API : définis toujours un code d'accès. Sans PHP ou sans clé, le jeu bascule simplement sur le mode rapide.
+⚠️ Chaque génération IA consomme du crédit API et le texte du cours est envoyé à l'API. **Par sécurité, le mode IA, la transcription par le serveur et la lecture de liens par le serveur sont désactivés tant que `QCM_ACCESS_CODE` n'est pas défini** (sinon n'importe qui pourrait utiliser ton crédit ou ton serveur). Sans PHP, sans clé ou sans code, le jeu bascule simplement sur le mode rapide / la lecture dans le navigateur.
 
 ### Configuration du serveur : lecture de liens et transcription (optionnel)
 
@@ -131,7 +131,7 @@ ou crée `php/config.local.php` (ignoré par git) :
 - `?action=fetch` : lit une page web **côté serveur**, ce qui évite les blocages CORS du navigateur. Protection SSRF : seules les adresses http(s) publiques sont acceptées (adresses locales, privées, IPv6 non publiques et notations décimales / hexadécimales refusées), chaque redirection est revérifiée, l'adresse IP contrôlée est celle qui est utilisée, 8 Mo et 15 s maximum ;
 - `?action=transcribe` : transcrit un audio / une vidéo avec une API compatible OpenAI (« Whisper »). Le son est découpé par `ffmpeg` en morceaux de 10 minutes (90 minutes maximum). Configuration : `STT_API_KEY` (obligatoire), `STT_API_URL` (défaut : API OpenAI), `STT_MODEL` (défaut `whisper-1`) — ou les clés `stt_key`, `stt_url`, `stt_model` de `php/config.local.php`.
 
-Le fichier audio est alors **envoyé à ton serveur puis au service de transcription** que tu as choisi. Les deux actions demandent le code d'accès s'il est défini ; sans lui, le jeu reste sur la voie « navigateur ».
+Le fichier audio est alors **envoyé à ton serveur puis au service de transcription** que tu as choisi. Les deux actions **exigent** un code d'accès configuré ; sans lui, elles sont refusées et le jeu reste sur la voie « navigateur ».
 
 ## 🚨 Anti-triche
 

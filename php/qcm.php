@@ -83,6 +83,15 @@ function requireAccess(): void
     }
 }
 
+/** Les actions qui coûtent de l'argent (IA, transcription) ou qui sortent sur Internet (lecture de liens)
+ *  refusent de fonctionner tant qu'AUCUN code d'accès n'est configuré : sinon n'importe qui pourrait s'en servir. */
+function requireConfiguredCode(string $what): void
+{
+    if (config()['access_code'] === '') {
+        fail($what . ' : désactivé tant qu\'aucun code d\'accès n\'est configuré sur le serveur (QCM_ACCESS_CODE).', 403);
+    }
+}
+
 function pdftotextAvailable(): bool
 {
     static $ok = null;
@@ -349,6 +358,7 @@ function parseQuestions(string $raw): array
 function handleGenerate(): void
 {
     requireAccess();
+    requireConfiguredCode('Le mode IA');
     $cfg = config();
     if ($cfg['anthropic_key'] === '') {
         fail('Le mode IA n\'est pas configuré sur ce serveur (aucune clé API).', 501);
@@ -565,6 +575,7 @@ function htmlToText(string $html, string &$title): string
 function handleFetch(): void
 {
     requireAccess();
+    requireConfiguredCode('La lecture de liens par le serveur');
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         fail('Utilise POST avec {"url": "…"}.', 405);
     }
@@ -640,6 +651,7 @@ function sttOne(string $file, string $name, string $lang): string
 function handleTranscribe(): void
 {
     requireAccess();
+    requireConfiguredCode('La transcription par le serveur');
     $cfg = config();
     if ($cfg['stt_key'] === '' || !function_exists('curl_init')) {
         fail('La transcription par le serveur n\'est pas configurée.', 501);
@@ -712,9 +724,9 @@ if ($action === 'status') {
     reply([
         'ok' => true,
         'extract' => ['txt' => true, 'odt' => class_exists('ZipArchive'), 'docx' => class_exists('ZipArchive'), 'pdf' => pdftotextAvailable()],
-        'ai' => $cfg['anthropic_key'] !== '' && function_exists('curl_init'),
-        'stt' => $cfg['stt_key'] !== '' && function_exists('curl_init'),
-        'fetch' => function_exists('curl_init'),
+        'ai' => $cfg['anthropic_key'] !== '' && function_exists('curl_init') && $cfg['access_code'] !== '',
+        'stt' => $cfg['stt_key'] !== '' && function_exists('curl_init') && $cfg['access_code'] !== '',
+        'fetch' => function_exists('curl_init') && $cfg['access_code'] !== '',
         'needs_code' => $cfg['access_code'] !== '',
         'max_per_call' => QCM_AI_MAX_PER_CALL,
     ]);
