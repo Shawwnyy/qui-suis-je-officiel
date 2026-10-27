@@ -33,7 +33,7 @@ css/
   features.css          styles des fonctionnalités (chat, pouvoirs, podium…)
   qcm.css               styles de la fenêtre « QCM depuis un cours »
   v40.css               anti-triche, questions avec média, statistiques
-  v43.css               voix off (réglages) et carte de justification de la réponse
+  v43.css               voix off (réglages), carte de justification de la réponse et horloge permanente
 js/
   core/                 moteur du jeu (réseau, joueurs, questions, scores…)
   patches/              évolutions successives, chargées dans l'ordre des numéros
@@ -49,6 +49,7 @@ js/
   stats/                analysis.js (calculs), charts.js (graphiques SVG), pdf.js (export PDF), stats.js (capture + tableau de bord)
   voice/                voice.js : voix off (la question est lue à voix haute, synthèse vocale du navigateur)
   justif/               justif.js : justification après chaque réponse (bonne ou mauvaise)
+  clock/                clock.js : horloge permanente HH:MM:SS en bas à gauche
 php/
   qcm.php               OPTIONNEL — extraction, lecture de liens, transcription et mode IA côté serveur (voir plus bas)
 tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route / drapeaux / horloges en images, statistiques, PDF, justifications / voix off)
@@ -233,6 +234,10 @@ Après chaque réponse, une carte explique le résultat, selon le cas :
 
 La carte est complétée environ une seconde plus tard avec les statistiques de la manche (« 1 joueur a trouvé la bonne réponse sur 2 »). Le texte est calculé à partir des données de la question : **la banque ne contient pas d'explication écrite à la main pour chaque question**, donc rien n'est inventé ; quand aucune phrase fiable ne peut être construite, la carte se limite à la bonne réponse, à la correction existante et à la statistique.
 
+## 🕒 Horloge permanente (`js/clock/clock.js`)
+L'heure **HH:MM:SS** (24 h, en gras) s'affiche **en bas à gauche, sur tous les écrans** : accueil, salons, question, correction, résultats, fenêtres ouvertes. Elle se place juste au-dessus du bouton « Son ON / OFF », ne capte jamais un clic et se recale sur le début de chaque seconde (et au retour sur l'onglet).
+C'est l'heure **de l'appareil de chaque joueur** (pas une heure serveur : si l'horloge d'un téléphone est déréglée, elle l'est aussi à l'écran). Elle n'apparaît pas à l'impression.
+
 ## ➕ Ajouter des questions ou un thème
 
 Un thème = un fichier `js/data/bank/NNN-nom.js` :
@@ -260,6 +265,7 @@ node tests/images.test.js                # drapeaux et horloges : la réponse es
 node tests/mix.test.js                   # images dans tous les thèmes : chaque réponse est recalculée en relisant le dessin
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 node tests/pdf.test.js                   # export PDF : structure du fichier, métriques, caractères, pagination
+node tests/clock.test.js                 # horloge : format HH:MM:SS recalculé autrement (20 000 dates, changements d'heure), recalage sur la seconde
 node tests/justif.test.js                # justifications (bonne / mauvaise / temps écoulé, écarts, confusions, HTML échappé) et texte lu par la voix off
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)
 ```
