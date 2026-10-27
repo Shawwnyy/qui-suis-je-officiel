@@ -1,0 +1,27 @@
+1
+00:00:01,000 --> 00:00:04,200
+Bonjour à tous, aujourd'hui on parle de la cellule.
+
+2
+00:00:04,200 --> 00:00:08,900
+La cellule est l'unité structurale et fonctionnelle
+de tous les êtres vivants.
+
+3
+00:00:08,900 --> 00:00:13,500
+Elle a été observée pour la première fois en 1665
+par Robert Hooke au microscope.
+
+4
+00:00:13,500 --> 00:00:18,000
+[Musique]
+
+5
+00:00:18,000 --> 00:00:23,000
+Les cellules eucaryotes possèdent un noyau
+qui contient l'ADN.
+
+6
+00:00:23,000 --> 00:00:27,000
+Les cellules procaryotes, comme les bactéries,
+n'ont pas de noyau.

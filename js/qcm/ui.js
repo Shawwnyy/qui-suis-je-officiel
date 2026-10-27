@@ -26,7 +26,7 @@
   function freshState() {
     return {
       step: "source", source: "", docText: "", pasteText: "", fileName: "", docInfo: "",
-      title: "", titleTouched: false, count: 20, lang: "auto", mode: "fast",
+      title: "", titleTouched: false, count: 20, lang: "auto", mode: "fast", stt: "fast", reader: false, url: "", abort: null,
       ai: undefined, code: read(CODE_KEY), result: null, checked: [], seed: 0,
       onlyThis: true, busy: "", msg: null, done: null
     };
@@ -71,6 +71,7 @@
       if (f && S && S.step === "source" && !S.busy) loadFile(f);
     });
     document.addEventListener("keydown", function (e) { if (e.key === "Escape" && m.classList.contains("show")) close(); });
+    m.addEventListener("keydown", function (e) { if (e.key === "Enter" && e.target && e.target.id === "qcmUrl") { e.preventDefault(); loadUrl(); } });
     built = true;
   }
 
@@ -126,12 +127,20 @@
 
   function sourceHTML() {
     return '<div id="qcmMsg" class="v35q-msg" role="alert" aria-live="polite"></div>'
-      + '<div class="v35q-hint qcm-intro">Choisis un cours (PDF, ODT, DOCX ou texte) : le jeu en tire des questions à 4 réponses. Rien n\'est envoyé sur Internet en mode rapide : le fichier est lu sur ton appareil.</div>'
+      + '<div class="v35q-hint qcm-intro">Choisis un cours (document, présentation, tableur, page web, audio ou vidéo) : le jeu en tire des questions à 4 réponses. Rien n\'est envoyé sur Internet en mode rapide : le fichier est lu sur ton appareil.</div>'
       + '<label class="qcm-step">1 · Ton cours</label>'
-      + '<label class="qcm-drop" id="qcmDrop" for="qcmFile"><span class="qcm-drop-ico" aria-hidden="true">📄</span><b>Choisir un fichier</b><span>ou dépose-le ici</span><small>PDF · ODT · DOCX · TXT — 25 Mo maximum</small></label>'
-      + '<input type="file" id="qcmFile" class="qcm-file" accept=".pdf,.odt,.docx,.txt,.md,.csv,application/pdf,application/vnd.oasis.opendocument.text,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain">'
+      + '<label class="qcm-drop" id="qcmDrop" for="qcmFile"><span class="qcm-drop-ico" aria-hidden="true">📄</span><b>Choisir un fichier</b><span>ou dépose-le ici</span><small>PDF · Word · PowerPoint · ODP / ODT · Excel · EPUB · HTML · TXT · sous-titres · MP3 · WAV · MP4… — 25 Mo (300 Mo pour le son / la vidéo)</small></label>'
+      + '<input type="file" id="qcmFile" class="qcm-file" accept=".pdf,.docx,.odt,.pptx,.odp,.xlsx,.ods,.csv,.tsv,.epub,.rtf,.html,.htm,.xhtml,.txt,.md,.markdown,.json,.srt,.vtt,.sbv,.ass,.ssa,.lrc,.mp3,.wav,.m4a,.aac,.ogg,.oga,.opus,.flac,.weba,.mp4,.m4v,.webm,.mov,.mkv,.ogv,audio/*,video/*,text/*,application/pdf,application/vnd.openxmlformats-officedocument.*,application/vnd.oasis.opendocument.*,application/epub+zip,application/rtf">'
       + '<div class="v35q-hint" id="qcmDoc" aria-live="polite"></div>'
       + '<details class="qcm-paste" id="qcmPasteBox"><summary>…ou colle le texte du cours</summary><textarea id="qcmText" placeholder="Colle ici le texte de ton cours (au moins quelques paragraphes)." autocomplete="off"></textarea></details>'
+      + '<details class="qcm-paste" id="qcmLinkBox"><summary>🔗 …ou importe un lien (page web, Wikipédia, Canva, Google, YouTube)</summary>'
+      + '<div class="qcm-link"><input type="url" id="qcmUrl" inputmode="url" autocomplete="off" placeholder="https://…" aria-label="Adresse du cours"><button type="button" class="btn btn-secondary" data-qcm="url" id="qcmUrlGo">🔗 Importer</button></div>'
+      + '<label class="qcm-only"><input type="checkbox" id="qcmReader"> 🌐 Si le site refuse, passer par un service de lecture externe (r.jina.ai : l\'adresse est alors envoyée à ce service)</label>'
+      + '<div class="v35q-hint">Canva, Google Slides / Docs, OneDrive, Drive et YouTube ne peuvent pas être lus depuis un simple lien : le jeu t\'indique alors comment télécharger le cours (PDF, PowerPoint…) pour le déposer ici.</div></details>'
+      + '<details class="qcm-paste" id="qcmSttBox"><summary>🎧 Options audio / vidéo</summary>'
+      + '<label for="qcmStt">Qualité de la transcription (dans le navigateur)</label>'
+      + '<select id="qcmStt"><option value="fast">⚡ Rapide (modèle léger ≈ 40 Mo) — suffisant pour une voix claire</option><option value="precise">🎯 Précise (modèle ≈ 80 Mo) — 2 à 3 fois plus lente</option></select>'
+      + '<div class="v35q-hint">La première fois, le modèle de reconnaissance vocale est téléchargé puis gardé en cache. Compte plusieurs minutes pour un cours d\'une heure ; choisis la langue à l\'étape 4 pour de meilleurs résultats.</div></details>'
       + '<label class="qcm-step" for="qcmTitle">2 · Nom du thème</label>'
       + '<input type="text" id="qcmTitle" maxlength="30" autocomplete="off" placeholder="Ex. Biologie cellulaire">'
       + '<label class="qcm-step" for="qcmRange">3 · Nombre de questions : <b id="qcmCountVal"></b></label>'
@@ -144,7 +153,8 @@
   }
   function fillSource() {
     var set = function (id, v) { var e = $(id); if (e) e.value = v; };
-    set("qcmTitle", S.title); set("qcmRange", S.count); set("qcmNum", S.count); set("qcmLang", S.lang);
+    set("qcmTitle", S.title); set("qcmRange", S.count); set("qcmNum", S.count); set("qcmLang", S.lang); set("qcmStt", S.stt); set("qcmUrl", S.url);
+    var rd = $("qcmReader"); if (rd) rd.checked = !!S.reader;
     var c = $("qcmCountVal"); if (c) c.textContent = S.count;
     var d = $("qcmDoc"); if (d) d.textContent = S.docInfo || "";
     var tx = $("qcmText"); if (tx) tx.value = S.pasteText || "";
@@ -160,7 +170,7 @@
       + '<label' + (aiOk ? "" : ' class="disabled"') + '><input type="radio" name="qcmMode" value="ai"' + (S.mode === "ai" ? " checked" : "") + (aiOk ? "" : " disabled") + '> 🤖 IA — questions mieux rédigées (le texte est envoyé à un serveur puis à l\'API Claude)</label>'
       + '</div>';
     if (!aiOk) h += '<div class="v35q-hint">' + (S.ai === undefined ? "Recherche du mode IA…" : "Mode IA indisponible : il demande un hébergement PHP avec une clé API configurée (voir le README). Le mode rapide fonctionne partout.") + '</div>';
-    if (aiOk && ai.needs_code && S.mode === "ai") h += '<label for="qcmCode">Code d\'accès du serveur</label><input type="password" id="qcmCode" autocomplete="off" placeholder="Code d\'accès" value="' + esc(S.code) + '">';
+    if (aiOk && ai.needs_code && S.mode === "ai" || ai && ai.needs_code && (ai.stt || ai.fetch) && S.mode !== "ai") h += '<label for="qcmCode">Code d\'accès du serveur</label><input type="password" id="qcmCode" autocomplete="off" placeholder="Code d\'accès" value="' + esc(S.code) + '">';
     box.innerHTML = h;
   }
 
@@ -210,13 +220,13 @@
   }
   function paintBusy() {
     var go = $("qcmGo");
-    var ids = ["qcmGo", "qcmFile"];
+    var ids = ["qcmGo", "qcmFile", "qcmUrlGo", "qcmUrl"];
     ids.forEach(function (id) { var e = $(id); if (e) e.disabled = !!S.busy; });
     var old = $("qcmBusy"); if (old) old.remove();
     if (S.busy) {
       var d = document.createElement("div");
       d.id = "qcmBusy"; d.className = "qcm-busy"; d.setAttribute("role", "status");
-      d.innerHTML = '<span class="qcm-spin" aria-hidden="true"></span><span id="qcmBusyTxt">' + esc(S.busy) + '</span>';
+      d.innerHTML = '<span class="qcm-spin" aria-hidden="true"></span><span id="qcmBusyTxt">' + esc(S.busy) + '</span>' + (S.abort ? '<button type="button" class="btn btn-secondary qcm-cancel" data-qcm="cancel">✖ Annuler</button>' : '');
       var anchor = go ? go.parentNode : ($("qcmBody") && $("qcmBody").firstChild);
       if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(d, anchor);
       else if ($("qcmBody")) $("qcmBody").appendChild(d);
@@ -225,27 +235,58 @@
     document.querySelectorAll("#qcmBody [data-qcm='regen'],#qcmBody [data-qcm='add'],#qcmBody [data-qcm='back']").forEach(function (b) { b.disabled = !!S.busy; });
   }
 
-  /* ---------- Lecture du fichier ---------- */
+  /* ---------- Lecture du fichier ou du lien ---------- */
+  function serverOptions() {
+    var ai = S.ai, usable = !!(ai && (!ai.needs_code || S.code));
+    return { phpUrl: PHP_URL, code: S.code, serverStt: !!(usable && ai.stt), serverFetch: !!(usable && ai.fetch) };
+  }
+  function liveStatus(mine, my) {
+    return function (t) { if (S !== mine || my !== job || !S.busy) return; S.busy = t; var e = $("qcmBusyTxt"); if (e) e.textContent = t; };
+  }
+  function afterRead(mine, my, r, label) {
+    if (S !== mine || my !== job) return;
+    S.abort = null;
+    S.docText = r.text; S.source = "file"; S.fileName = label;
+    var words = (r.text.match(/\S+/g) || []).length;
+    var how = r.via === "php" || r.via === "serveur" ? " (par le serveur)" : (r.via && /^(whisper|wikip|page|service)/i.test(r.via) ? " (" + r.via + ")" : "");
+    S.docInfo = "✅ " + label + " — " + (r.pages ? r.pages + " page" + (r.pages > 1 ? "s" : "") + ", " : "") + (r.seconds ? Math.max(1, Math.round(r.seconds / 60)) + " min de son, " : "") + words.toLocaleString("fr-FR") + " mots lus" + how + "." + (r.truncated ? " (Seules les 90 premières minutes sont lues.)" : "");
+    S.pasteText = ""; var t = $("qcmText"); if (t) t.value = "";
+    if (!S.titleTouched) { S.title = titleFromName(r.title || label); var ti = $("qcmTitle"); if (ti) ti.value = S.title; }
+    var d = $("qcmDoc"); if (d) d.textContent = S.docInfo;
+    setBusy(""); setMsg("", "");
+  }
+  function readFailed(mine, my, e, fileInput) {
+    if (S !== mine || my !== job) return;
+    S.abort = null; setBusy("");
+    S.docText = ""; S.docInfo = ""; var d = $("qcmDoc"); if (d) d.textContent = "";
+    if (fileInput) { var fi = $("qcmFile"); if (fi) fi.value = ""; }
+    if (e && e.code === "ABORT") { setMsg("", ""); return; }
+    setMsg(e && e.code === "ADVICE" ? "warn" : "err", (e && e.code === "ADVICE" ? "ℹ️ " : "❌ ") + (e && e.message ? e.message : "Lecture impossible."));
+  }
   function loadFile(f) {
     if (!root.QcmExtract) { setMsg("err", "❌ Le module de lecture des fichiers n'est pas chargé."); return; }
-    var mine = S, my = ++job;
+    var mine = S, my = ++job, so = serverOptions();
+    var media = root.QcmFormats ? /^(audio|video)$/.test(root.QcmFormats.kindOf(f.name, f.type)) : false;
+    S.abort = media ? { cancelled: false } : null;
     setMsg("", ""); setBusy("Lecture de « " + f.name + " »…");
-    root.QcmExtract.fromFile(f, { phpUrl: PHP_URL }).then(function (r) {
-      if (S !== mine || my !== job) return;
-      S.docText = r.text; S.source = "file"; S.fileName = f.name;
-      var words = (r.text.match(/\S+/g) || []).length;
-      S.docInfo = "✅ " + f.name + " — " + (r.pages ? r.pages + " page" + (r.pages > 1 ? "s" : "") + ", " : "") + words.toLocaleString("fr-FR") + " mots lus" + (r.via === "php" ? " (par le serveur)" : "") + ".";
-      S.pasteText = ""; var t = $("qcmText"); if (t) t.value = "";
-      if (!S.titleTouched) { S.title = titleFromName(f.name); var ti = $("qcmTitle"); if (ti) ti.value = S.title; }
-      var d = $("qcmDoc"); if (d) d.textContent = S.docInfo;
-      setBusy(""); setMsg("", "");
-    }).catch(function (e) {
-      if (S !== mine || my !== job) return;
-      setBusy("");
-      S.docText = ""; S.docInfo = ""; var d = $("qcmDoc"); if (d) d.textContent = "";
-      var fi = $("qcmFile"); if (fi) fi.value = "";
-      setMsg("err", "❌ " + (e && e.message ? e.message : "Lecture du fichier impossible."));
-    });
+    root.QcmExtract.fromFile(f, { phpUrl: so.phpUrl, code: so.code, serverStt: so.serverStt, lang: S.lang, quality: S.stt, abort: S.abort, onStatus: liveStatus(mine, my) })
+      .then(function (r) { afterRead(mine, my, r, f.name); })
+      .catch(function (e) { readFailed(mine, my, e, true); });
+  }
+  function loadUrl() {
+    if (S.busy) return;
+    if (!root.QcmExtract || !root.QcmExtract.fromUrl) { setMsg("err", "❌ Le module de lecture des liens n'est pas chargé."); return; }
+    var inp = $("qcmUrl"), url = (inp ? inp.value : S.url).trim();
+    S.url = url;
+    if (!url) { setMsg("err", "❌ Colle d'abord une adresse (https://…)."); if (inp) inp.focus(); return; }
+    var mine = S, my = ++job, so = serverOptions();
+    setMsg("", ""); setBusy("Lecture du lien…");
+    root.QcmExtract.fromUrl(url, { phpUrl: so.phpUrl, code: so.code, serverFetch: so.serverFetch, allowReader: !!S.reader, onStatus: liveStatus(mine, my) })
+      .then(function (r) {
+        var label = r.title || (function () { try { var u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(url) ? url : "https://" + url); return u.hostname.replace(/^www\./, "") + (u.pathname.length > 1 ? u.pathname.replace(/\/$/, "") : ""); } catch (e) { return url; } })();
+        afterRead(mine, my, r, label.slice(0, 80));
+      })
+      .catch(function (e) { readFailed(mine, my, e, false); });
   }
 
   /* ---------- Génération ---------- */
@@ -412,6 +453,8 @@
     if (a === "close") close();
     else if (a === "preset") { setCount(Number(t.dataset.n)); }
     else if (a === "generate") generate(false);
+    else if (a === "url") loadUrl();
+    else if (a === "cancel") { if (S.abort) S.abort.cancelled = true; job++; S.abort = null; setBusy(""); setMsg("", "Lecture annulée."); S.docText = ""; S.docInfo = ""; var dd = $("qcmDoc"); if (dd) dd.textContent = ""; var ff = $("qcmFile"); if (ff) ff.value = ""; }
     else if (a === "regen") generate(true);
     else if (a === "back") { S.step = "source"; render(); }
     else if (a === "all" || a === "none") { S.checked = S.checked.map(function () { return a === "all"; }); document.querySelectorAll("#qcmBody .qcm-q input").forEach(function (c) { c.checked = a === "all"; }); updatePreviewCounts(); }
@@ -433,6 +476,7 @@
     else if (t.id === "qcmTitle") { S.title = t.value; S.titleTouched = true; }
     else if (t.id === "qcmText") { S.pasteText = t.value; S.source = "paste"; S.docInfo = ""; var d = $("qcmDoc"); if (d) d.textContent = ""; }
     else if (t.id === "qcmCode") { S.code = t.value; }
+    else if (t.id === "qcmUrl") { S.url = t.value; }
   }
   function onChange(e) {
     var t = e.target;
@@ -440,6 +484,8 @@
     if (t.id === "qcmFile") { var f = t.files && t.files[0]; if (f) loadFile(f); }
     else if (t.id === "qcmNum") { setCount(Number(t.value)); }
     else if (t.id === "qcmLang") S.lang = t.value;
+    else if (t.id === "qcmStt") S.stt = t.value;
+    else if (t.id === "qcmReader") S.reader = t.checked;
     else if (t.name === "qcmMode") { S.mode = t.value; renderMode(); }
     else if (t.id === "qcmOnly") S.onlyThis = t.checked;
     else if (t.closest && t.closest(".qcm-q") && t.dataset.i != null) { S.checked[Number(t.dataset.i)] = t.checked; updatePreviewCounts(); }

@@ -258,8 +258,10 @@
     sel.addEventListener("change", function () { view.src = sel.value; view.hidden = new Set(); render(); });
     var csvBtn = el("button", { type: "button", "class": "v40s-btn", text: "⬇️ CSV", title: "Télécharger toutes les réponses (tableur)", onclick: function () { exportCSV(); } });
     if (!log || !log.R.length) csvBtn.disabled = true;
+    var pdfBtn = el("button", { type: "button", id: "v40sPdf", "class": "v40s-btn", text: "📄 PDF", title: "Télécharger les tableaux et les graphiques en PDF", onclick: function () { exportPDF(); } });
+    if (!log || !log.R.length) pdfBtn.disabled = true;
     var closeBtn = el("button", { type: "button", id: "v40sClose", "class": "v40s-btn close", "aria-label": "Fermer les statistiques", text: "✕", onclick: close });
-    wrap.appendChild(el("div", { "class": "v40s-top" }, [el("h2", { id: "v40sTitle", text: "📊 Statistiques" }), el("div", { "class": "v40s-actions" }, [sel, csvBtn, closeBtn])]));
+    wrap.appendChild(el("div", { "class": "v40s-top" }, [el("h2", { id: "v40sTitle", text: "📊 Statistiques" }), el("div", { "class": "v40s-actions" }, [sel, pdfBtn, csvBtn, closeBtn])]));
     /* ---- onglets ---- */
     var tabs = el("div", { "class": "v40s-tabs", role: "tablist" });
     TABS.forEach(function (t) {
@@ -293,6 +295,16 @@
       el("h3", { text: log ? "Pas encore de question terminée" : "Aucune partie à afficher" }),
       el("p", { text: log ? "Les graphiques apparaissent dès la fin de la première question." : "Joue une partie : les graphiques se remplissent question après question et les 12 dernières parties restent dans l’onglet Historique." })
     ]);
+  }
+  function exportPDF() {
+    var log = currentLog(); if (!log || !log.R.length) return;
+    try {
+      if (!window.V40Pdf) throw new Error("module PDF absent");
+      window.V40Pdf.download(log);
+    } catch (e) {
+      if (window.console) console.error("V40Stats PDF", e);
+      try { if (typeof window.v34Toast === "function") window.v34Toast("Export PDF impossible : " + (e && e.message ? e.message : "erreur")); } catch (e2) {}
+    }
   }
   function exportCSV() {
     var log = currentLog(); if (!log || !log.R.length) return;
@@ -578,5 +590,5 @@
   var resizeTimer = 0;
   window.addEventListener("resize", function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(function () { if (isOpen()) render(true); }, 160); });
 
-  window.V40Stats = { noteCheat: noteCheat, open: open, close: close, isOpen: isOpen, getLive: function () { return live; }, getHistory: function () { return history.slice(); }, _view: view };
+  window.V40Stats = { noteCheat: noteCheat, open: open, close: close, isOpen: isOpen, getLive: function () { return live; }, getHistory: function () { return history.slice(); }, exportPDF: exportPDF, _view: view };
 })();

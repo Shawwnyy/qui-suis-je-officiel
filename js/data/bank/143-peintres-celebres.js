@@ -1,0 +1,28 @@
+/* Thème : 🖼️ Peintres célèbres — "d|question|bonne|faux1|faux2|faux3" (d: f=facile m=moyen d=difficile i=impossible) */
+V35_BANK["🖼️ Peintres célèbres"]=[
+"f|Qui a peint La Joconde ?|Léonard de Vinci|Michel-Ange|Raphaël|Botticelli",
+"f|Quel peintre néerlandais a peint Les Tournesols ?|Vincent van Gogh|Rembrandt|Vermeer|Mondrian",
+"f|Quel peintre espagnol est le père du cubisme avec Braque ?|Pablo Picasso|Salvador Dalí|Joan Miró|Francisco de Goya",
+"f|Quel peintre français est le chef de file de l'impressionnisme avec Impression, soleil levant ?|Claude Monet|Edgar Degas|Paul Cézanne|Henri Matisse",
+"f|Quel peintre est célèbre pour ses montres molles ?|Salvador Dalí|Pablo Picasso|René Magritte|Joan Miró",
+"m|Quel peintre a peint La Nuit étoilée ?|Vincent van Gogh|Claude Monet|Paul Gauguin|Edvard Munch",
+"m|Quel peintre norvégien est l'auteur du Cri ?|Edvard Munch|Gustav Klimt|Egon Schiele|Carl Larsson",
+"m|Quel peintre autrichien a peint Le Baiser, couvert de feuilles d'or ?|Gustav Klimt|Egon Schiele|Oskar Kokoschka|Edvard Munch",
+"m|Quel peintre néerlandais du XVIIe siècle a peint La Jeune Fille à la perle ?|Johannes Vermeer|Rembrandt|Frans Hals|Van Dyck",
+"m|Quel peintre a réalisé La Ronde de nuit ?|Rembrandt|Vermeer|Rubens|Van Eyck",
+"m|Quel peintre a peint Guernica en 1937 ?|Pablo Picasso|Francisco de Goya|Joan Miró|Diego Vélasquez",
+"m|Quel peintre a réalisé La Liberté guidant le peuple ?|Eugène Delacroix|Jacques-Louis David|Théodore Géricault|Gustave Courbet",
+"m|Quel peintre est célèbre pour ses danseuses et ses chevaux de course ?|Edgar Degas|Claude Monet|Auguste Renoir|Édouard Manet",
+"m|Quel mouvement de Monet, Renoir et Sisley est né à la fin du XIXe siècle ?|L'impressionnisme|Le cubisme|Le surréalisme|Le baroque",
+"d|Quel peintre américain est le maître du « pop art » avec la boîte de soupe Campbell ?|Andy Warhol|Jackson Pollock|Edward Hopper|Roy Lichtenstein",
+"d|Quel peintre est célèbre pour ses « drippings » (techniques de coulures) ?|Jackson Pollock|Mark Rothko|Willem de Kooning|Franz Kline",
+"d|Quel peintre a réalisé La Naissance de Vénus ?|Botticelli|Titien|Raphaël|Giorgione",
+"d|Quel peintre a peint Les Ménines ?|Diego Vélasquez|Francisco de Goya|El Greco|Murillo",
+"d|Quel peintre italien est l'auteur de La Cène ?|Léonard de Vinci|Michel-Ange|Raphaël|Caravage",
+"d|Quel peintre est le principal représentant du clair-obscur en Italie au début du XVIIe siècle ?|Le Caravage|Titien|Tintoret|Véronèse",
+"d|Qui a peint Les Demoiselles d'Avignon, en 1907 ?|Pablo Picasso|Henri Matisse|Georges Braque|Paul Cézanne",
+"d|Quelle peintre mexicaine est connue pour ses autoportraits, comme Les Deux Fridas ?|Frida Kahlo|Tamara de Lempicka|Georgia O'Keeffe|Remedios Varo",
+"d|Quel peintre a réalisé Les Nymphéas ?|Claude Monet|Camille Pissarro|Alfred Sisley|Gustave Caillebotte",
+"d|Quel peintre post-impressionniste a peint des Tahitiennes après son voyage à Tahiti ?|Paul Gauguin|Paul Cézanne|Georges Seurat|Henri de Toulouse-Lautrec",
+"d|Quel peintre pointilliste a réalisé Un dimanche après-midi à l'île de la Grande Jatte ?|Georges Seurat|Paul Signac|Camille Pissarro|Henri Rousseau"
+];

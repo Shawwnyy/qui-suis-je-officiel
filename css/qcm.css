@@ -64,3 +64,12 @@ html.qcm-open #dock,html.qcm-open #v231QuickNav,html.qcm-open #soundToggle,html.
 @media (prefers-reduced-motion:reduce){.qcm-spin{animation-duration:2.4s}}
 .v35q-actions button:disabled{opacity:.5}
 @media(max-width:480px){.qcm-count{grid-template-columns:1fr 72px}}
+
+/* Import de liens, options audio / vidéo, annulation */
+.qcm-link{display:flex;gap:8px;align-items:stretch;margin:6px 0 10px}
+.qcm-link input{flex:1;min-width:0;margin:0}
+.qcm-link .btn{flex:none;min-height:44px;white-space:nowrap}
+.qcm-paste select{margin:6px 0 8px}
+.qcm-paste .qcm-only{margin:6px 0}
+.qcm-busy .qcm-cancel{margin-left:auto;min-height:36px;padding:6px 12px;flex:none}
+.qcm-busy #qcmBusyTxt{min-width:0;overflow-wrap:anywhere}

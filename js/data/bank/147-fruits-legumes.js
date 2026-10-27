@@ -1,0 +1,28 @@
+/* Thème : 🍎 Fruits & légumes — "d|question|bonne|faux1|faux2|faux3" (d: f=facile m=moyen d=difficile i=impossible) */
+V35_BANK["🍎 Fruits & légumes"]=[
+"f|Quel fruit est jaune et courbé ?|La banane|Le citron|L'ananas|La poire",
+"f|Quel légume orange est réputé bon pour la vue ?|La carotte|La courgette|Le poireau|Le navet",
+"f|De quelle couleur est une tomate mûre ?|Rouge|Verte|Violette|Bleue",
+"f|Quel fruit rouge est cultivé dans les fraisiers ?|La fraise|La cerise|La framboise|La groseille",
+"f|Quel fruit exotique porte une couronne de feuilles piquantes ?|L'ananas|La mangue|La papaye|Le kiwi",
+"f|Quel fruit est le principal ingrédient du cidre ?|La pomme|La poire|Le raisin|La prune",
+"f|Quel légume vert est l'aliment préféré de Popeye ?|L'épinard|Le brocoli|Le haricot|La laitue",
+"m|De quel fruit est tiré le vin ?|Le raisin|La pomme|La cerise|La figue",
+"m|Quel fruit à pépins noirs est vert à l'intérieur et poilu à l'extérieur ?|Le kiwi|La mangue|La goyave|Le litchi",
+"m|Quel légume est la base de la ratatouille ?|L'aubergine|Le chou-fleur|Le navet|La betterave",
+"m|Quel fruit sert de base à la guacamole ?|L'avocat|La banane|La mangue|La papaye",
+"m|Quel agrume est le plus gros ?|Le pamplemousse|L'orange|Le citron|La mandarine",
+"m|Dans quel pays la clémentine aurait-elle été obtenue pour la première fois, par le père Clément ?|L'Algérie|La Corse|L'Italie|L'Espagne",
+"m|Quel légume est un chou cultivé pour sa fleur blanche ?|Le chou-fleur|Le brocoli|Le chou de Bruxelles|Le chou rouge",
+"m|Quel fruit sec est une prune séchée ?|Le pruneau|La datte|La figue|L'abricot sec",
+"m|Quelle est la couleur du lait de la noix de coco ?|Blanc|Jaune|Marron|Rose",
+"m|Quel légume-racine d'un rouge violacé est utilisé dans le bortsch ?|La betterave|La carotte|Le radis noir|Le navet",
+"d|De quel continent la tomate est-elle originaire ?|L'Amérique|L'Europe|L'Asie|L'Afrique",
+"d|Quel légume a été rapporté d'Amérique et cultivé par Parmentier ?|La pomme de terre|Le haricot|Le maïs|Le navet",
+"d|Quel fruit est surnommé le « roi des fruits » en Asie du Sud-Est, à l'odeur très forte ?|Le durian|La mangue|Le litchi|Le ramboutan",
+"d|Quel bulbe à gousses est utilisé pour parfumer de nombreux plats méditerranéens ?|L'ail|La carotte|Le céleri|Le fenouil",
+"d|Quelle échelle mesure la force des piments ?|L'échelle de Scoville|L'échelle de Richter|L'échelle de Beaufort|L'échelle de Mohs",
+"d|Quelle famille de légumes comprend le brocoli, le chou et le navet ?|Les crucifères|Les solanacées|Les cucurbitacées|Les liliacées",
+"d|Quelle famille comprend la tomate, la pomme de terre et l'aubergine ?|Les solanacées|Les cucurbitacées|Les crucifères|Les légumineuses",
+"d|Quelle famille comprend la courge, le melon et le concombre ?|Les cucurbitacées|Les solanacées|Les crucifères|Les rosacées"
+];
