@@ -288,12 +288,13 @@
 
   /* ---------- Épellation répartie sur plusieurs messages (b / i / t / e) ----------
      Un message ne contient qu'une ou deux lettres : le filtre « message par message » ne voit rien.
-     On garde donc, pour chaque expéditeur, ses derniers « morceaux » (1 ou 2 caractères) sur 30 secondes,
-     même si d'autres messages normaux sont intercalés, et on analyse les lettres mises bout à bout.
-       · les morceaux forment un mot interdit  → bannissement ;
-       · 3 lettres isolées différentes (ou plus) en 30 s → bannissement (contournement évident) ;
-       · 3 lettres isolées seulement 2 à 2 différentes (« a b a ») → message supprimé + avertissement.                                              */
-  var SEQ_WINDOW_MS = 30000, SEQ_KEEP = 10;
+     On garde donc, pour chaque expéditeur, ses derniers « morceaux » (1 à 4 caractères) sur 5 minutes,
+     même si d'autres messages normaux sont intercalés, et on analyse les morceaux mis bout à bout.
+       · les morceaux (≤ 120 s d'écart) forment un mot interdit (« b i t e », « bi te », « b ite »)  → bannissement ;
+       · 3 lettres isolées différentes (ou plus) en 5 min                                          → bannissement ;
+       · 2 lettres isolées différentes en 60 s, ou 3 lettres dont 2 seulement différentes (« a b a ») → message supprimé
+         + avertissement (le 3e morceau différent entraîne le bannissement).                                     */
+  var SEQ_WINDOW_MS = 300000, SEQ_PAIR_MS = 60000, SEQ_GAP_MS = 120000, SEQ_KEEP = 16, SEQ_MAX_LETTERS = 20;
   var seqState = Object.create(null);
   function pieceOf(raw) {
     var t = prep(raw), letters = "", n = 0;
@@ -303,8 +304,8 @@
       else if (LEET_DIG[c]) { letters += LEET_DIG[c]; n++; }
       else if (c >= "0" && c <= "9") { n++; }
     }
-    /* au-delà de deux caractères, ce n'est plus un morceau ; un nombre seul (compte à rebours 3, 2, 1) n'en est pas un */
-    if (n < 1 || n > 2 || !/[a-z]/.test(t)) return null;
+    /* au-delà de quatre caractères, ce n'est plus un morceau ; un nombre seul (compte à rebours 3, 2, 1) n'en est pas un */
+    if (n < 1 || n > 4 || !/[a-z]/.test(t)) return null;
     return { letters: letters, single: n === 1 };
   }
   function sequence(id, raw, now, mid) {
@@ -317,9 +318,12 @@
     list.push({ t: now, letters: pc.letters, single: pc.single, mid: mid == null ? "" : String(mid) });
     if (list.length > SEQ_KEEP) list = list.slice(list.length - SEQ_KEEP);
     seqState[id] = list;
-    /* mots interdits formés par les k derniers morceaux (k = 2…8) */
+    /* mots interdits formés par les k derniers morceaux (k = 2…8), tant que deux morceaux se suivent à moins de 120 s */
     for (var k = 2; k <= Math.min(list.length, 8); k++) {
-      var tail = list.slice(list.length - k), joined = tail.map(function (e) { return e.letters; }).join("");
+      var tail = list.slice(list.length - k);
+      if (tail[1].t - tail[0].t > SEQ_GAP_MS) break;
+      var joined = tail.map(function (e) { return e.letters; }).join("");
+      if (joined.length > SEQ_MAX_LETTERS) break;
       if (joined.length < 3) continue;
       var v = check(joined, { vertical: false });
       if (v.blocked) {
@@ -329,18 +333,23 @@
     var singles = list.filter(function (e) { return e.single; });
     var distinct = Object.create(null); singles.forEach(function (e) { distinct[e.letters] = true; });
     var nd = Object.keys(distinct).length;
+    var runIds = singles.map(function (e) { return e.mid; }), runLetters = singles.map(function (e) { return e.letters; }).join("");
     if (singles.length >= 3 && nd >= 3) {
-      return { blocked: true, ban: true, reason: "epellation", label: "message épelé lettre par lettre", run: singles.map(function (e) { return e.mid; }), letters: singles.map(function (e) { return e.letters; }).join("") };
+      return { blocked: true, ban: true, reason: "epellation", label: "message épelé lettre par lettre", run: runIds, letters: runLetters };
     }
     if (singles.length >= 3 && nd >= 2) {   /* 3 lettres dont 2 seulement différentes (« a b a ») : message supprimé + avertissement */
-      return { blocked: true, ban: false, reason: "epellation", label: "message épelé lettre par lettre", run: singles.map(function (e) { return e.mid; }), letters: singles.map(function (e) { return e.letters; }).join("") };
+      return { blocked: true, ban: false, reason: "epellation", label: "message épelé lettre par lettre", run: runIds, letters: runLetters };
+    }
+    if (pc.single) {                        /* 2 lettres isolées différentes en 60 s : on supprime tout de suite la seconde */
+      var prev = singles.filter(function (e) { return e.mid !== (mid == null ? "" : String(mid)) && now - e.t <= SEQ_PAIR_MS && e.letters !== pc.letters; });
+      if (prev.length) return { blocked: true, ban: false, reason: "epellation", label: "lettres isolées envoyées une à une", run: prev.map(function (e) { return e.mid; }), letters: runLetters };
     }
     return ok;
   }
   function resetSequence(id) { if (id == null) seqState = Object.create(null); else delete seqState[id]; }
 
   var Moderation = {
-    version: "2.1",
+    version: "2.2",
     sequence: sequence,
     resetSequence: resetSequence,
     check: check,

@@ -91,7 +91,8 @@ function seq(list, gap, id) {
   return list.map(w => { const r = Moderation.sequence(id || "p", w, t, "m" + t); t += gap; return r; });
 }
 const spell = seq(["b", "i", "t", "e"], 1000);
-if (spell[0].blocked || spell[1].blocked) report("épellation", "les 2 premières lettres ne doivent pas encore être bloquées", spell);
+if (spell[0].blocked) report("épellation", "la 1re lettre n'est pas encore une anomalie", spell);
+if (!spell[1].blocked || spell[1].ban || spell[1].run.length < 1) report("épellation", "b puis i : la 2e lettre isolée est supprimée (avertissement, sans bannissement)", spell[1]);
 if (!spell[2].blocked || !spell[2].ban) report("épellation", "b i t doit déclencher le bannissement", spell[2]);
 if (!spell[3].ban || spell[3].run.length < 4) report("épellation", "b i t e : bannissement + 4 messages à supprimer", spell[3]);
 if (!seq(["b", "i", "te"], 1000)[2].ban) report("épellation", "b / i / te", {});
@@ -104,19 +105,30 @@ if (!aba.blocked || aba.ban) report("épellation", "a b a : supprimé sans banni
 if (seq(["ok", "ok", "ok", "ok"], 500).some(r => r.blocked)) report("épellation", "ok ok ok ok ne doit pas être bloqué", {});
 if (seq(["a", "a", "a", "a", "a"], 500).some(r => r.ban)) report("épellation", "a a a a a ne doit pas être banni", {});
 if (seq(["3", "2", "1", "go"], 1000).some(r => r.blocked)) report("épellation", "compte à rebours 3 2 1", {});
-if (seq(["A", "B"], 1000).some(r => r.blocked)) report("épellation", "deux réponses A / B", {});
-if (seq(["b", "i", "t", "e"], 20000).some(r => r.ban)) report("épellation", "lettres espacées de 20 s : hors fenêtre de 30 s", {});
-const sepA = (Moderation.resetSequence(), Moderation.sequence("A", "b", 1000, "x1"), Moderation.sequence("B", "i", 1100, "x2"), Moderation.sequence("A", "i", 1200, "x3"), Moderation.sequence("B", "t", 1300, "x4"));
+const ab = seq(["A", "B"], 1000)[1];
+if (!ab.blocked || ab.ban) report("épellation", "deux lettres isolées différentes en 60 s : supprimé sans bannissement", ab);
+if (seq(["A", "B"], 90000).some(r => r.blocked)) report("épellation", "A puis B à 90 s d'écart : pas une anomalie", {});
+if (seq(["b", "i", "t", "e"], 20000)[2].ban !== true) report("épellation", "lettres espacées de 20 s : bannies (fenêtre de 5 min)", {});
+if (seq(["b", "i", "t", "e"], 100000)[2].ban !== true) report("épellation", "lettres espacées de 100 s : bannies", {});
+if (seq(["b", "i", "t", "e"], 200000).some(r => r.ban)) report("épellation", "lettres espacées de plus de 3 min : limite connue, non détectées", {});
+if (!seq(["bit", "e"], 1000)[1].ban) report("épellation", "bit / e", {});
+if (!seq(["b", "ite"], 1000)[1].ban) report("épellation", "b / ite", {});
+if (!seq(["con", "nard"], 1000)[1].ban) report("épellation", "con / nard", {});
+if (!seq(["b", "i", "t", "e"], 1000, "x").every((r, i) => i < 1 || r.blocked)) report("épellation", "après la 1re lettre, chaque nouvelle lettre est supprimée", {});
+const sepA = (Moderation.resetSequence(), Moderation.sequence("A", "b", 1000, "x1"), Moderation.sequence("B", "i", 1100, "x2"), Moderation.sequence("A", "b", 1200, "x3"), Moderation.sequence("B", "i", 1300, "x4"));
 if (sepA.blocked) report("épellation", "deux joueurs différents ne s'additionnent pas", sepA);
+const flagHost = (Moderation.resetSequence(), Moderation.sequence("H", "b", 1000, "h1"), Moderation.sequence("H", "i", 2000, "h2"));
+if (!flagHost.blocked) report("épellation", "l'hôte aussi est analysé (message supprimé, pas de bannissement possible)", flagHost);
 /* aucune suite plausible de petits mots français ne doit déclencher */
-const SMALL = "le la un de du en et ou où au ne ni si se ce ca ça ma ta sa me te je tu il on ah oh ok eh ha ho hi to is it no so go".split(" ");
-let fp = 0, seed = 7; const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+const SMALL = "mais donc car oui non bon bah ben euh mdr lol ptdr cool top bof nul bien mal pas pour sur dans avec sans vous nous ils tes ses mes mon ton son une des les bravo super GG wow merci salut yes hey bye ciao le la un de du en et ou où au ne ni si se ce ca ça ma ta sa me te je tu il on ah oh ok eh ha ho hi to is it no so go".split(" ");
+let fp = 0, seed = 7; const fpWords = {}; const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
 for (let n = 0; n < 20000; n++) {
   const len = 2 + Math.floor(rnd() * 5), arr = [];
   for (let i = 0; i < len; i++) arr.push(SMALL[Math.floor(rnd() * SMALL.length)]);
-  if (seq(arr, 500).some(r => r.blocked)) { fp++; if (fp <= 5) console.log("  faux positif possible : " + arr.join(" ")); }
+  const rr = seq(arr, 500).find(r => r.blocked); if (rr) { fp++; fpWords[rr.letters] = (fpWords[rr.letters] || 0) + 1; }
 }
-if (fp > 5) report("épellation", fp + " faux positifs sur des suites de petits mots", {});   /* 'si te', 'pu te'… : seuls de vrais mots interdits */
+console.log("  suites aléatoires de petits mots signalées : " + fp + " / 20000 — " + (Object.keys(fpWords).join(", ") || "aucune"));
+if (fp > 40) report("épellation", fp + " faux positifs sur des suites de petits mots (seuls de vrais mots du lexique, ex. « ma mon » → mamon, sont attendus)", fpWords);
 
 console.log("\n" + MUST_BLOCK.length + " cas à bloquer, " + MUST_PASS.length + " cas légitimes, " + fails + " échec(s).");
 process.exit(fails ? 1 : 0);
