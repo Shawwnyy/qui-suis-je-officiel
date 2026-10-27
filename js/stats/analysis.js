@@ -81,7 +81,7 @@ var V40Analysis = (function () {
     var rows = log.P.map(function (p, idx) {
       return { idx: idx, id: p.i, name: p.n, avatar: p.a, host: !!p.h, left: !!p.x,
         correct: 0, wrong: 0, none: 0, absent: 0, answered: 0, accuracy: null, avgTime: null,
-        final: 0, bestGain: 0, cheats: 0, rank: 0, _t: 0, _tn: 0 };
+        final: 0, bestGain: 0, cheats: 0, rank: 0, bestStreak: 0, fastest: null, _t: 0, _tn: 0, _run: 0 };
     });
     var prev = rows.map(function () { return 0; });
     log.R.forEach(function (R) {
@@ -91,6 +91,7 @@ var V40Analysis = (function () {
         if (st === 0) { row.absent++; return; }
         row.answered++;
         if (st === 1) row.correct++; else if (st === 2) row.wrong++; else row.none++;
+        if (st === 1) { row._run++; if (row._run > row.bestStreak) row.bestStreak = row._run; if (e[1] > 0 && (row.fastest === null || e[1] < row.fastest)) row.fastest = e[1]; } else row._run = 0;
         if (st === 1 || st === 2) { row._t += e[1]; row._tn++; }
         row.bestGain = Math.max(row.bestGain, e[2] - prev[k]);
         prev[k] = e[2];
@@ -101,7 +102,7 @@ var V40Analysis = (function () {
     rows.forEach(function (r) {
       r.accuracy = r.answered ? r.correct / r.answered : null;
       r.avgTime = r._tn ? r._t / r._tn : null;
-      delete r._t; delete r._tn;
+      delete r._t; delete r._tn; delete r._run;
     });
     rows.slice().sort(function (a, b) { return b.final - a.final || a.idx - b.idx; })
       .forEach(function (r, i, arr) { r.rank = i > 0 && arr[i - 1].final === r.final ? arr[i - 1].rank : i + 1; });
@@ -156,6 +157,29 @@ var V40Analysis = (function () {
       .sort(function (a, b) { return b.rate - a.rate || b.answers - a.answers || a.round - b.round; }).slice(0, n || 5);
   }
 
+  /* ---------- Répartition des temps de réponse (6 tranches égales) ---------- */
+  function timeHistogram(log) {
+    var times = [], maxT = 0;
+    log.R.forEach(function (R) { R.r.forEach(function (e) { if (e[0] === 1 || e[0] === 2) { times.push([e[0], e[1]]); if (e[1] > maxT) maxT = e[1]; } }); });
+    if (!times.length) return { n: 0, width: 0, buckets: [] };
+    var top = Math.max(log.qt || 0, maxT, 1), width = Math.max(1, Math.ceil(top / 6)), n = Math.min(6, Math.ceil(top / width));
+    var buckets = [];
+    for (var i = 0; i < n; i++) buckets.push({ lo: i * width, hi: (i + 1) * width, label: (i * width) + "–" + ((i + 1) * width) + " s", correct: 0, wrong: 0 });
+    times.forEach(function (t) { var b = buckets[Math.min(n - 1, Math.floor(t[1] / width))]; if (t[0] === 1) b.correct++; else b.wrong++; });
+    return { n: times.length, width: width, buckets: buckets };
+  }
+
+  /* ---------- Faits marquants : série, rapidité, gain, régularité ---------- */
+  function highlights(log) {
+    var rows = perPlayer(log), out = [];
+    function pick(key, keep, cmp) { var c = rows.filter(keep).sort(cmp)[0]; if (c) out.push({ key: key, idx: c.idx, name: c.name, avatar: c.avatar, row: c }); }
+    pick("streak", function (r) { return r.bestStreak >= 2; }, function (a, b) { return b.bestStreak - a.bestStreak || a.idx - b.idx; });
+    pick("fastest", function (r) { return r.fastest !== null; }, function (a, b) { return a.fastest - b.fastest || a.idx - b.idx; });
+    pick("gain", function (r) { return r.bestGain > 0; }, function (a, b) { return b.bestGain - a.bestGain || a.idx - b.idx; });
+    pick("accuracy", function (r) { return r.answered >= 3 && r.accuracy !== null; }, function (a, b) { return b.accuracy - a.accuracy || b.answered - a.answered || a.idx - b.idx; });
+    return out;
+  }
+
   /* ---------- Historique ---------- */
   function summarize(log) {
     var rows = perPlayer(log), t = totals(log);
@@ -189,7 +213,7 @@ var V40Analysis = (function () {
   }
 
   return { DIFFS: DIFFS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, byCategory: byCategory,
-    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, hardest: hardest, easiest: easiest, summarize: summarize,
+    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V40Analysis;

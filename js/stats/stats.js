@@ -343,6 +343,13 @@
       tile(best ? fmt.int(best.final) + " pts" : "—", "Meilleur score", best ? best.name : ""),
       tile(String(t.cheats), "Infractions", t.cheats ? "voir l’onglet Triche" : "aucune")
     ]));
+    var hl = A.highlights(log), HT = {
+      streak: function (h) { return tile(h.row.bestStreak + " d’affilée", "Plus longue série", h.name); },
+      fastest: function (h) { return tile(fmt.sec(h.row.fastest), "Réponse la plus rapide", h.name); },
+      gain: function (h) { return tile("+" + fmt.int(h.row.bestGain), "Plus gros gain en une question", h.name); },
+      accuracy: function (h) { return tile(fmt.pct(h.row.accuracy), "Meilleure réussite", h.name + " · " + h.row.correct + "/" + h.row.answered); }
+    };
+    if (hl.length) main.appendChild(el("div", { "class": "v40s-tiles v40s-highlights", "aria-label": "Faits marquants" }, hl.map(function (h) { return HT[h.key](h); })));
     var series = A.scoreSeries(log).filter(function (s) { return s.idx < MAX_PLAYERS_PLOTTED; }).map(function (s) {
       return { key: String(s.idx), name: label(rows[s.idx]), color: colorFor(s.idx), values: s.values };
     });
@@ -405,6 +412,27 @@
       },
       table: function () { return K.table(["Joueur", "Temps moyen"], timed.map(function (r) { return [label(r), fmt.sec(r.avgTime)]; }), "Temps de réponse moyen"); }
     }));
+    var streaks = rows.slice().sort(function (a, b) { return b.bestStreak - a.bestStreak || a.idx - b.idx; });
+    main.appendChild(K.card({
+      title: "Meilleure série de bonnes réponses", desc: "Le plus grand nombre de bonnes réponses d’affilée pour chaque joueur.",
+      draw: function (host) {
+        K.hbars(host, { rows: streaks.map(function (r) { return { label: label(r), avatar: r.avatar, value: r.bestStreak, color: colorFor(r.idx), text: r.bestStreak + " d’affilée",
+          tip: { title: label(r), rows: [{ label: "Meilleure série", value: r.bestStreak + " bonne" + (r.bestStreak > 1 ? "s" : "") + " d’affilée", strong: true }, { label: "Bonnes réponses", value: r.correct + " / " + r.answered }] } }; }),
+          max: Math.max.apply(null, streaks.map(function (r) { return r.bestStreak; }).concat([1])), ariaLabel: "Meilleure série de bonnes réponses par joueur" });
+      },
+      table: function () { return K.table(["Joueur", "Meilleure série", "Bonnes réponses"], streaks.map(function (r) { return [label(r), r.bestStreak, r.correct + " / " + r.answered]; }), "Meilleure série de bonnes réponses"); }
+    }));
+    var quick = rows.filter(function (r) { return r.fastest !== null; }).sort(function (a, b) { return a.fastest - b.fastest || a.idx - b.idx; });
+    main.appendChild(K.card({
+      title: "Réponse correcte la plus rapide", desc: "Le meilleur temps de chaque joueur sur une bonne réponse. Plus court = plus rapide.",
+      draw: function (host) {
+        if (!quick.length) { host.appendChild(el("p", { "class": "v40s-note", text: "Aucune bonne réponse chronométrée pour l’instant." })); return; }
+        K.hbars(host, { rows: quick.map(function (r) { return { label: label(r), avatar: r.avatar, value: r.fastest, color: colorFor(r.idx), text: fmt.sec(r.fastest),
+          tip: { title: label(r), rows: [{ label: "Meilleur temps", value: fmt.sec(r.fastest), strong: true }, { label: "Temps moyen", value: fmt.sec(r.avgTime) }] } }; }),
+          max: Math.max(log.qt || 0, Math.max.apply(null, quick.map(function (r) { return r.fastest; }))), ariaLabel: "Réponse correcte la plus rapide par joueur" });
+      },
+      table: function () { return K.table(["Joueur", "Meilleur temps", "Temps moyen"], quick.map(function (r) { return [label(r), fmt.sec(r.fastest), fmt.sec(r.avgTime)]; }), "Réponse correcte la plus rapide"); }
+    }));
     var gains = rows.slice().sort(function (a, b) { return b.bestGain - a.bestGain; });
     main.appendChild(K.card({
       title: "Plus gros gain en une question", desc: "Le meilleur coup de chaque joueur (combos, vitesse et bonus inclus).",
@@ -460,6 +488,18 @@
           header: function (i) { return i === 0 ? { title: "Départ" } : { title: "Question " + i, sub: K.cut(stats[i - 1].q, 90) }; }, valueText: function (s, i) { return Math.round(s.values[i]) + " %"; } });
       },
       table: function () { return K.table(["Question", "Texte", "Réussite", "Bonnes / réponses", "Temps moyen"], stats.map(function (r) { return [r.round, K.cut(r.q, 70), fmt.pct(r.rate), r.correct + " / " + r.answers, fmt.sec(r.avgTime)]; }), "Réussite par question"); }
+    }));
+    var hist = A.timeHistogram(log);
+    if (hist.n) main.appendChild(K.card({
+      title: "Répartition des temps de réponse", desc: "Combien de réponses (justes et fausses) arrivent dans chaque tranche de temps.",
+      legend: function () { return K.legend([1, 2].map(function (st) { return { key: String(st), name: K.STATE[st].name, color: K.STATE[st].color, glyph: K.STATE[st].glyph }; }), null, null); },
+      draw: function (host) {
+        K.stack(host, { unit: "réponse", rows: hist.buckets.map(function (b) {
+          return { label: b.label, total: b.correct + b.wrong, parts: [
+            { name: K.STATE[1].name, glyph: K.STATE[1].glyph, value: b.correct, color: K.STATE[1].color }, { name: K.STATE[2].name, glyph: K.STATE[2].glyph, value: b.wrong, color: K.STATE[2].color }] };
+        }), ariaLabel: "Répartition des temps de réponse" });
+      },
+      table: function () { return K.table(["Temps", "✓ Bonnes", "✗ Mauvaises", "Total"], hist.buckets.map(function (b) { return [b.label, b.correct, b.wrong, b.correct + b.wrong]; }), "Répartition des temps de réponse"); }
     }));
     main.appendChild(rateCard("Réussite par thème", "Les thèmes les mieux et les moins bien maîtrisés par le groupe.", A.byCategory(log)));
     main.appendChild(rateCard("Réussite par difficulté", "Plus la question est difficile, plus la réussite devrait baisser.", A.byDifficulty(log)));

@@ -4,12 +4,12 @@ Un jeu de quiz **multijoueur en ligne** (FR / EN) qui tourne entièrement dans l
 partie, les autres rejoignent avec un code, et les questions s'enchaînent avec scores, pouvoirs, bonus, chat et podium.
 Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **aucun serveur n'est nécessaire** pour jouer.
 
-- **151 thèmes**, environ **13 600 questions** (4 niveaux : facile, moyen, difficile, impossible)
+- **157 thèmes**, environ **15 800 questions** (4 niveaux : facile, moyen, difficile, impossible)
 - Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, Word, PowerPoint, ODP, Excel, EPUB, page web, audio, vidéo…)
 - **Modération stricte** du chat (voir plus bas)
 - **Anti-triche progressif** : avertissements, malus, puis exclusion jusqu'à la fin de la partie
 - **Questions avec image ou vidéo YouTube** (agrandissables), dont un thème de questions en images (« de quelle couleur est le pull ? »)
-- **Statistiques et graphiques** de chaque partie, historique des 12 dernières parties, export **PDF** (tableaux + graphiques) et CSV
+- **Statistiques et graphiques** de chaque partie (classement, évolution des scores, séries de bonnes réponses, réponses les plus rapides, répartition des temps, faits marquants), historique des 12 dernières parties, export **PDF** (tableaux + graphiques) et CSV
 
 ## ▶️ Lancer le jeu
 
@@ -59,6 +59,8 @@ Détection notamment de :
 - texte écrit **lettre par lettre sur plusieurs lignes** (`B` ⏎ `I` ⏎ `T` ⏎ `E`), même avec des lignes vides ou du texte autour ;
 - lettres séparées par des espaces ou des symboles (`b i t e`, `b.i.t.e`, `b!i!t!e`) ;
 - astuces classiques : accents, majuscules mélangées, lettres étirées (`biiiite`), leet (`p@ute`, `m3rde`), caractères de largeur nulle, lettres homoglyphes (cyrillique, grec, pleine largeur).
+
+**Contournement par épellation (bannissement).** Envoyer un mot lettre par lettre (« b », « i », « t », « e » en quatre messages) ne trompe plus le filtre : l'hôte garde les « morceaux » (1 ou 2 caractères) de chaque joueur pendant 30 secondes, même si d'autres messages sont intercalés. Si les morceaux forment un mot interdit, ou si le joueur envoie **3 lettres isolées différentes** en 30 s, il est **banni automatiquement** : ses morceaux disparaissent du chat de tout le monde, il est retiré de la partie, son pseudo et son identifiant sont refusés s'il tente de revenir (jusqu'à ce que l'hôte ferme la page), les autres joueurs sont prévenus et l'hôte retrouve la ligne dans son journal. Trois lettres seulement 2 à 2 différentes (« a b a ») suppriment le message avec un avertissement. Les nombres seuls (compte à rebours « 3, 2, 1 ») et les réponses courtes (« ok », « A », « B ») ne sont pas touchés. Limite : un joueur banni peut revenir avec un autre pseudo.
 
 Sanctions progressives par joueur : 1ᵉʳ message interdit → avertissement ; 2ᵉ → sourdine 1 min ; 3ᵉ → 5 min ; 4ᵉ et suivants → 15 min.
 La sourdine se lève d'elle-même à la fin de sa durée (le joueur est prévenu) et le compteur repart à zéro après 10 minutes sans infraction. Le journal de modération est visible côté hôte.
