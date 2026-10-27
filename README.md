@@ -7,6 +7,9 @@ Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **a
 - **127 thèmes**, environ **15 000 questions** (4 niveaux : facile, moyen, difficile, impossible)
 - Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, ODT, DOCX, TXT)
 - **Modération stricte** du chat (voir plus bas)
+- **Anti-triche progressif** : avertissements, malus, puis exclusion jusqu'à la fin de la partie
+- **Questions avec image ou vidéo YouTube** (agrandissables), dont un thème de questions en images (« de quelle couleur est le pull ? »)
+- **Statistiques et graphiques** de chaque partie, historique des 12 dernières parties, export CSV
 
 ## ▶️ Lancer le jeu
 
@@ -29,15 +32,19 @@ css/
   base.css              styles de base
   features.css          styles des fonctionnalités (chat, pouvoirs, podium…)
   qcm.css               styles de la fenêtre « QCM depuis un cours »
+  v40.css               anti-triche, questions avec média, statistiques
 js/
   core/                 moteur du jeu (réseau, joueurs, questions, scores…)
   patches/              évolutions successives, chargées dans l'ordre des numéros
   moderation/           lexique + moteur de modération
   qcm/                  générateur de QCM (generator.js), lecture des fichiers (extract.js), interface (ui.js)
   data/                 questions : banque d'origine + data/bank/NNN-theme.js (un fichier par thème)
+                        + visual-questions.js (thème « Questions en images », généré à chaque partie)
+  media/                media.js : validation et affichage des images / vidéos YouTube / illustrations SVG
+  stats/                analysis.js (calculs), charts.js (graphiques SVG), stats.js (capture + tableau de bord)
 php/
   qcm.php               OPTIONNEL — extraction côté serveur et mode IA (voir plus bas)
-tests/                  tests Node (modération, QCM, banque de questions)
+tests/                  tests Node (modération, QCM, banque, médias, questions en images, statistiques)
 ```
 
 Ce sont des scripts classiques (pas de bundler, pas de build) : **l'ordre des balises `<script>` de `index.html` compte**.
@@ -92,6 +99,54 @@ ou crée `php/config.local.php` (ignoré par git) :
 
 ⚠️ Chaque génération IA consomme du crédit API et le texte du cours est envoyé à l'API : définis toujours un code d'accès. Sans PHP ou sans clé, le jeu bascule simplement sur le mode rapide.
 
+## 🚨 Anti-triche
+
+**Une infraction = quitter la page pendant une question** (changement d'onglet ou d'appli, perte du focus) avant d'avoir répondu.
+Au plus une infraction par joueur et par question. C'est **l'hôte qui compte et décide** :
+
+| Infractions du joueur | Conséquence |
+|---|---|
+| 1 et 2 | avertissement (aucune sanction) |
+| plus de 2 (3ᵉ et 4ᵉ) | **malus** : −250 points et chrono réduit de 25 % pendant 2 questions (« Minuterie piégée ») |
+| plus de 4 (5ᵉ) | **exclusion** : le joueur est retiré de la partie et attend la fin de celle-ci (un écran le lui explique), puis il est libéré pour la suivante |
+
+Les autres joueurs sont prévenus. La question en cours ne bloque pas sur un joueur exclu. L'hôte peut désactiver l'anti-triche dans les réglages de la partie.
+Les seuils sont dans `js/patches/039-v40-anti-triche.js` (`V40CheatPolicy`) et testés dans `tests/media.test.js`.
+
+Limites, à connaître : la détection tourne **dans le navigateur du joueur** — quelqu'un de technique peut la contourner ou jouer sur un second appareil ;
+l'hôte reçoit les avertissements et malus mais **ne peut pas être exclu** (la partie dépend de lui).
+
+## 🖼️ Questions avec image ou vidéo
+
+Dans le gestionnaire de questions, une question peut avoir un **média** : une image (lien `https://…` ou fichier envoyé, compressé automatiquement),
+un lien **YouTube** (`youtube.com/watch`, `youtu.be`, `shorts`, `embed`… avec début optionnel `?t=1m30s`) ou, pour les questions générées, une illustration SVG.
+Le média s'affiche au-dessus de la question chez **tous** les joueurs et un bouton **« Agrandir »** le passe en plein écran (Échap ou toucher pour fermer).
+Il est conservé à l'export / import des questions.
+
+- Les vidéos passent par `youtube-nocookie.com` dans un cadre isolé, construit à partir de l'identifiant (11 caractères) : aucun autre domaine n'est accepté.
+- Une vidéo demande du temps : choisis un **chronomètre assez long**.
+- Les images venant d'Internet doivent rester accessibles aux autres joueurs ; les images envoyées sont limitées à environ 170 000 caractères (stockage du navigateur).
+
+Le thème intégré **🖼️ Questions en images** crée à chaque partie de petites scènes (personnes avec un pull, un pantalon ou un chapeau de couleur, formes, ballons, étoiles…).
+Les réponses sont **calculées à partir de ce qui est dessiné** (`tests/visual.test.js` relit chaque dessin pour le vérifier). Ce sont des illustrations originales, en français.
+
+## 📊 Statistiques et graphiques
+
+Le bouton **📊** (barre latérale, écran des résultats ou accueil) ouvre un tableau de bord. Pendant la partie, l'hôte note chaque réponse et envoie le journal à tous
+les joueurs (même un joueur exclu) : tout le monde voit les mêmes chiffres. Onglets :
+
+- **Vue d'ensemble** : chiffres clés, **évolution des scores** question par question, classement ;
+- **Joueurs** : bonnes / mauvaises / sans réponse, temps de réponse moyen, plus gros gain ;
+- **Questions** : réussite par question, par thème, par difficulté, avec / sans média, questions les plus difficiles et les plus faciles ;
+- **Détail** : qui a répondu quoi à chaque question ;
+- **Triche** : infractions par joueur et chronologie ;
+- **Historique** : les 12 dernières parties (gardées dans le navigateur), réussite de chaque partie.
+
+Chaque graphique se survole / se touche (infobulle), a une version **Tableau** et la légende masque ou affiche un joueur sans changer les couleurs des autres.
+Export **CSV** de toutes les réponses (compatible tableur). Les couleurs sont validées pour le thème sombre et les daltoniens ; au-delà de 8 joueurs, les courbes montrent les 8 premiers arrivés et les autres figurent dans les tableaux.
+
+Les journaux reçus par le réseau sont nettoyés et bornés avant usage (`V40Analysis.normalize`).
+
 ## ➕ Ajouter des questions ou un thème
 
 Un thème = un fichier `js/data/bank/NNN-nom.js` :
@@ -112,6 +167,9 @@ node tests/moderation.test.js            # cas à bloquer / cas légitimes
 node tests/qcm.test.js                   # générateur et lecture des fichiers de test
 node tests/bank.test.js                  # valide toutes les questions (format, doublons, réponses ambiguës)
 node tests/bank.test.js "Football|Chess"   # ne valider que certains thèmes (expression régulière)
+node tests/media.test.js                 # liens YouTube / images, filtrage SVG, politique anti-triche
+node tests/visual.test.js                # chaque question en image est cohérente avec son dessin
+node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 ```
 
 Le validateur détecte les erreurs de format, les doublons exacts et les réponses incohérentes ; il ne vérifie pas

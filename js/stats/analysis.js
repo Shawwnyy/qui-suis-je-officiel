@@ -1,0 +1,196 @@
+/* =============================================================================
+   V40 — Analyse des parties (aucun accès au DOM : testable avec Node)
+
+   Format d'un journal de partie (« log »), volontairement compact pour passer par PeerJS :
+   {
+     v:1, id:"g…", at:<ms>, qt:<temps par question en s>, mode:"…",
+     P:[{i:<id>, n:<nom>, a:<avatar>, h:0|1 (hôte), x:0|1 (exclu / parti)}],            joueurs, dans l'ordre d'arrivée
+     R:[{q:<texte>, c:<thème>, d:<difficulté>, m:0|1 (image/vidéo),
+         r:[[état, secondes, score cumulé], …]}],                                         une entrée par joueur de P
+     C:[[indexJoueur, n° d'infraction, niveau 1=avert. 2=malus 3=exclusion, n° de question]]
+   }
+   état : 0 = pas dans la partie à ce moment-là · 1 = bonne réponse · 2 = mauvaise réponse · 3 = pas de réponse
+   ============================================================================= */
+var V40Analysis = (function () {
+  "use strict";
+  var MAX_PLAYERS = 60, MAX_ROUNDS = 300, MAX_CHEATS = 400, SCORE_LIMIT = 9999999;
+  var DIFFS = ["facile", "moyen", "difficile", "impossible"];
+
+  function str(x, n) { return typeof x === "string" ? x.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, n) : ""; }
+  function int(x, lo, hi, def) { x = Math.round(Number(x)); if (!isFinite(x)) return def; return Math.max(lo, Math.min(hi, x)); }
+  function dec(x, lo, hi, def) { x = Number(x); if (!isFinite(x)) return def; x = Math.max(lo, Math.min(hi, x)); return Math.round(x * 10) / 10; }
+
+  /* Nettoie une manche : np = nombre de joueurs du journal. */
+  function normalizeRound(r, np) {
+    r = r || {};
+    var d = DIFFS.indexOf(r.d) >= 0 ? r.d : "moyen";
+    var row = { q: str(r.q, 160), c: str(r.c, 60), d: d, m: r.m ? 1 : 0, r: [] };
+    var src = Array.isArray(r.r) ? r.r : [];
+    for (var k = 0; k < np; k++) {
+      var e = Array.isArray(src[k]) ? src[k] : [0, 0, 0];
+      var st = int(e[0], 0, 3, 0);
+      row.r.push([st, st === 1 || st === 2 ? dec(e[1], 0, 3600, 0) : 0, int(e[2], -SCORE_LIMIT, SCORE_LIMIT, 0)]);
+    }
+    return row;
+  }
+
+  /* Nettoie un journal reçu du réseau ou du stockage : renvoie un journal sûr, ou null s'il est inutilisable. */
+  function normalize(raw) {
+    if (!raw || typeof raw !== "object" || !Array.isArray(raw.P) || !Array.isArray(raw.R)) return null;
+    if (!raw.P.length || raw.P.length > MAX_PLAYERS || raw.R.length > MAX_ROUNDS) return null;
+    var log = {
+      v: 1, id: str(raw.id, 40) || ("g" + Date.now()), at: int(raw.at, 0, 4102444800000, 0),
+      qt: int(raw.qt, 0, 600, 0), mode: str(raw.mode, 20), P: [], R: [], C: []
+    };
+    raw.P.forEach(function (p) {
+      p = p || {};
+      log.P.push({ i: str(p.i, 64), n: str(p.n, 40) || "Joueur", a: str(p.a, 12), h: p.h ? 1 : 0, x: p.x ? 1 : 0 });
+    });
+    var np = log.P.length;
+    raw.R.forEach(function (r) { log.R.push(normalizeRound(r, np)); });
+    (Array.isArray(raw.C) ? raw.C : []).slice(0, MAX_CHEATS).forEach(function (c) {
+      if (!Array.isArray(c)) return;
+      var pi = Math.round(Number(c[0]));
+      if (!(pi >= 0 && pi < np)) return;                 /* joueur inconnu : ignoré (pas ramené au bord) */
+      log.C.push([pi, int(c[1], 1, 99, 1), int(c[2], 1, 3, 1), int(c[3], 1, MAX_ROUNDS, 1)]);
+    });
+    return log;
+  }
+
+  function isAnswer(st) { return st >= 1 && st <= 3; }
+
+  /* ---------- Chiffres clés ---------- */
+  function totals(log) {
+    var t = { players: log.P.length, rounds: log.R.length, answers: 0, correct: 0, wrong: 0, none: 0, accuracy: null, avgTime: null, cheats: log.C.length };
+    var timeSum = 0, timeN = 0;
+    log.R.forEach(function (R) {
+      R.r.forEach(function (e) {
+        if (!isAnswer(e[0])) return;
+        t.answers++;
+        if (e[0] === 1) t.correct++; else if (e[0] === 2) t.wrong++; else t.none++;
+        if (e[0] === 1 || e[0] === 2) { timeSum += e[1]; timeN++; }
+      });
+    });
+    t.accuracy = t.answers ? t.correct / t.answers : null;
+    t.avgTime = timeN ? timeSum / timeN : null;
+    return t;
+  }
+
+  /* ---------- Une ligne par joueur ---------- */
+  function perPlayer(log) {
+    var rows = log.P.map(function (p, idx) {
+      return { idx: idx, id: p.i, name: p.n, avatar: p.a, host: !!p.h, left: !!p.x,
+        correct: 0, wrong: 0, none: 0, absent: 0, answered: 0, accuracy: null, avgTime: null,
+        final: 0, bestGain: 0, cheats: 0, rank: 0, _t: 0, _tn: 0 };
+    });
+    var prev = rows.map(function () { return 0; });
+    log.R.forEach(function (R) {
+      R.r.forEach(function (e, k) {
+        var row = rows[k]; if (!row) return;
+        var st = e[0];
+        if (st === 0) { row.absent++; return; }
+        row.answered++;
+        if (st === 1) row.correct++; else if (st === 2) row.wrong++; else row.none++;
+        if (st === 1 || st === 2) { row._t += e[1]; row._tn++; }
+        row.bestGain = Math.max(row.bestGain, e[2] - prev[k]);
+        prev[k] = e[2];
+        row.final = e[2];
+      });
+    });
+    log.C.forEach(function (c) { var row = rows[c[0]]; if (row) row.cheats = Math.max(row.cheats, c[1]); });
+    rows.forEach(function (r) {
+      r.accuracy = r.answered ? r.correct / r.answered : null;
+      r.avgTime = r._tn ? r._t / r._tn : null;
+      delete r._t; delete r._tn;
+    });
+    rows.slice().sort(function (a, b) { return b.final - a.final || a.idx - b.idx; })
+      .forEach(function (r, i, arr) { r.rank = i > 0 && arr[i - 1].final === r.final ? arr[i - 1].rank : i + 1; });
+    return rows;
+  }
+
+  /* ---------- Évolution des scores : valeurs[0] = 0 avant la 1ʳᵉ question, null = hors partie ---------- */
+  function scoreSeries(log) {
+    return log.P.map(function (p, idx) {
+      var values = [0];
+      log.R.forEach(function (R) { var e = R.r[idx]; values.push(e && e[0] !== 0 ? e[2] : null); });
+      return { idx: idx, name: p.n, avatar: p.a, values: values };
+    });
+  }
+
+  /* ---------- Réussite par thème / difficulté / présence d'un média ---------- */
+  function groupBy(log, keyFn, labelFn) {
+    var map = {}, order = [];
+    log.R.forEach(function (R) {
+      var key = keyFn(R); if (key === null) return;
+      var g = map[key]; if (!g) { g = map[key] = { key: key, label: labelFn ? labelFn(key) : key, answers: 0, correct: 0, questions: 0 }; order.push(key); }
+      g.questions++;
+      R.r.forEach(function (e) { if (!isAnswer(e[0])) return; g.answers++; if (e[0] === 1) g.correct++; });
+    });
+    return order.map(function (k) { var g = map[k]; g.rate = g.answers ? g.correct / g.answers : null; return g; });
+  }
+  function byCategory(log) {
+    return groupBy(log, function (R) { return R.c || "Sans thème"; })
+      .sort(function (a, b) { return (a.rate === null) - (b.rate === null) || b.rate - a.rate || a.label.localeCompare(b.label); });
+  }
+  function byDifficulty(log) {
+    return groupBy(log, function (R) { return R.d; }).sort(function (a, b) { return DIFFS.indexOf(a.key) - DIFFS.indexOf(b.key); });
+  }
+  function byMedia(log) {
+    return groupBy(log, function (R) { return R.m ? "media" : "texte"; }, function (k) { return k === "media" ? "Avec image / vidéo" : "Texte seul"; });
+  }
+
+  /* ---------- Réussite question par question ---------- */
+  function roundStats(log) {
+    return log.R.map(function (R, i) {
+      var a = 0, c = 0, tSum = 0, tN = 0;
+      R.r.forEach(function (e) { if (!isAnswer(e[0])) return; a++; if (e[0] === 1) c++; if (e[0] === 1 || e[0] === 2) { tSum += e[1]; tN++; } });
+      return { round: i + 1, q: R.q, c: R.c, d: R.d, m: R.m, answers: a, correct: c, rate: a ? c / a : null, avgTime: tN ? tSum / tN : null };
+    });
+  }
+  function hardest(log, n) {
+    return roundStats(log).filter(function (r) { return r.answers > 0; })
+      .sort(function (a, b) { return a.rate - b.rate || b.answers - a.answers || a.round - b.round; }).slice(0, n || 5);
+  }
+  function easiest(log, n) {
+    return roundStats(log).filter(function (r) { return r.answers > 0; })
+      .sort(function (a, b) { return b.rate - a.rate || b.answers - a.answers || a.round - b.round; }).slice(0, n || 5);
+  }
+
+  /* ---------- Historique ---------- */
+  function summarize(log) {
+    var rows = perPlayer(log), t = totals(log);
+    var best = rows.slice().sort(function (a, b) { return a.rank - b.rank || a.idx - b.idx; })[0];
+    return { id: log.id, at: log.at, players: log.P.length, rounds: log.R.length, accuracy: t.accuracy, cheats: t.cheats,
+      winner: best ? best.name : "", winnerScore: best ? best.final : 0 };
+  }
+  /* Ajoute une partie en tête de liste (sans doublon d'identifiant) en gardant l'ensemble sous maxBytes. */
+  function addToHistory(list, log, max, maxBytes) {
+    max = max || 12; maxBytes = maxBytes || 1200000;
+    var out = [log].concat((list || []).filter(function (g) { return g && g.id !== log.id; })).slice(0, max);
+    while (out.length > 1 && JSON.stringify(out).length > maxBytes) out.pop();
+    return out;
+  }
+
+  /* ---------- Export CSV (séparateur « ; », ouvrable dans Excel / LibreOffice) ---------- */
+  function csvCell(v) {
+    var s = String(v === null || v === undefined ? "" : v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;           /* neutralise les formules de tableur */
+    return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function toCSV(log) {
+    var names = { 0: "hors partie", 1: "bonne réponse", 2: "mauvaise réponse", 3: "pas de réponse" };
+    var lines = [["question", "thème", "difficulté", "média", "joueur", "résultat", "temps_s", "score_cumulé"].join(";")];
+    log.R.forEach(function (R, i) {
+      R.r.forEach(function (e, k) {
+        lines.push([i + 1 + ". " + R.q, R.c, R.d, R.m ? "oui" : "non", log.P[k].n, names[e[0]], e[0] === 1 || e[0] === 2 ? String(e[1]).replace(".", ",") : "", e[2]].map(csvCell).join(";"));
+      });
+    });
+    return lines.join("\r\n");
+  }
+
+  return { DIFFS: DIFFS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, byCategory: byCategory,
+    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, hardest: hardest, easiest: easiest, summarize: summarize,
+    addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell };
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = V40Analysis;
+if (typeof window !== "undefined") window.V40Analysis = V40Analysis;

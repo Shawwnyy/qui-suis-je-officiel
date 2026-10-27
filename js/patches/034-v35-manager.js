@@ -40,11 +40,16 @@ const answers=Array.isArray(r.answers)?r.answers.slice(0,4).map(a=>clean(a,MAX_A
 const correct=Number(r.correct);
 const difficulty=DIFFS.some(d=>d[0]===r.difficulty)?r.difficulty:"moyen";
 if(!category||!question||answers.length!==4||answers.some(a=>!a)||!(correct>=0&&correct<=3)||!Number.isInteger(correct))return null;
-return{id:String(r.id||uid()).slice(0,40),category,difficulty,question,answers,correct,correction:clean(r.correction,MAX_C),createdAt:Number(r.createdAt)||Date.now(),updatedAt:Number(r.updatedAt)||Date.now()};
+const media=(window.QMedia&&r.media)?window.QMedia.normalize(r.media):null;
+const rec={id:String(r.id||uid()).slice(0,40),category,difficulty,question,answers,correct,correction:clean(r.correction,MAX_C),createdAt:Number(r.createdAt)||Date.now(),updatedAt:Number(r.updatedAt)||Date.now()};
+if(media)rec.media=media;
+return rec;
 }
 /* ---------- Synchronisation avec QUESTIONS ---------- */
 function toRuntime(r){
-return{category:r.category,difficulty:r.difficulty,question:r.question,answers:r.answers.slice(),correct:r.correct,correction:r.correction||("La bonne réponse est « "+r.answers[r.correct]+" »."),source:"perso",v35Custom:true,customId:r.id};
+const q={category:r.category,difficulty:r.difficulty,question:r.question,answers:r.answers.slice(),correct:r.correct,correction:r.correction||("La bonne réponse est « "+r.answers[r.correct]+" »."),source:"perso",v35Custom:true,customId:r.id};
+if(r.media)q.media=r.media;
+return q;
 }
 function addRuntime(r){const q=toRuntime(r);runtime.set(r.id,q);QUESTIONS.push(q);}
 function removeRuntime(id){const q=runtime.get(id);if(!q)return;const i=QUESTIONS.lastIndexOf(q);if(i>=0)QUESTIONS.splice(i,1);runtime.delete(id);}
@@ -92,8 +97,9 @@ const o=officialKey(k);
 if(o)errs.question="Cette question existe déjà dans la banque officielle (thème "+o+").";
 else{const d=store.find(r=>r.id!==ignoreId&&norm(r.question)===k);if(d)errs.question="Tu as déjà créé cette question (thème "+d.category+").";}
 }
+if(v.mediaError)errs.media=v.mediaError;
 if(!ignoreId&&store.length>=MAX_QUESTIONS)errs.global="Limite atteinte : "+MAX_QUESTIONS+" questions personnelles. Supprime-en avant d'en ajouter.";
-return{ok:!Object.keys(errs).length,errs,clean:{category:cat?(v.category==="__new"?withEmoji(cat):cat):"",difficulty:v.difficulty,question:q,answers,correct:c,correction:clean(v.correction,MAX_C)}};
+return{ok:!Object.keys(errs).length,errs,clean:{category:cat?(v.category==="__new"?withEmoji(cat):cat):"",difficulty:v.difficulty,question:q,answers,correct:c,correction:clean(v.correction,MAX_C),media:v.media||null}};
 }
 function withEmoji(name){return /^\s*(\p{Extended_Pictographic}|\p{Regional_Indicator})/u.test(name)?name:"⭐ "+name;}
 /* ---------- Interface ---------- */
@@ -141,14 +147,43 @@ const cats=categoriesOf().sort((a,b)=>a.localeCompare(b,"fr"));
 const customCats=[...new Set(store.map(r=>r.category))].filter(c=>!cats.includes(c));
 return '<option value="">— Choisir un thème —</option>'+[...cats,...customCats].map(c=>'<option value="'+esc(c)+'"'+(c===sel?" selected":"")+'>'+esc(c)+'</option>').join("")+'<option value="__new"'+(sel==="__new"?" selected":"")+'>➕ Nouveau thème…</option>';
 }
+/* ---------- Média de la question (image ou vidéo YouTube) ---------- */
+let mediaData="";
+function mediaToDraft(m){
+if(!m)return{mediaMode:"none",mediaLink:"",mediaData:""};
+if(m.type==="youtube")return{mediaMode:"link",mediaLink:window.QMedia.youtubeUrl(m),mediaData:""};
+if(m.type==="image"&&/^data:/.test(m.url))return{mediaMode:"file",mediaLink:"",mediaData:m.url};
+return{mediaMode:"link",mediaLink:m.url||"",mediaData:""};
+}
+function mediaBlockHTML(d){
+if(!window.QMedia)return"";
+const mode=d.mediaMode||"none";
+return '<label>📎 Image ou vidéo (facultatif)</label><div class="v35q-radio" id="v35qMediaMode">'
++[["none","Aucun"],["link","🔗 Lien (image ou YouTube)"],["file","📁 Image de mon appareil"]].map(([v,l])=>'<label><input type="radio" name="v35qMM" value="'+v+'"'+(mode===v?' checked':'')+'> '+l+'</label>').join('')+'</div>'
++'<div id="v35qMediaLinkWrap" style="display:'+(mode==="link"?"block":"none")+'"><input type="text" id="v35qMediaLink" maxlength="600" autocomplete="off" inputmode="url" placeholder="https://… (image) ou https://youtu.be/… (vidéo)"></div>'
++'<div id="v35qMediaFileWrap" style="display:'+(mode==="file"?"block":"none")+'"><input type="file" id="v35qMediaFile" accept="image/jpeg,image/png,image/webp,image/gif" style="width:100%;font-size:16px"><div class="v35q-hint">L\'image est réduite automatiquement (≈ 900 px) pour rester légère.</div></div>'
++'<div class="v35q-hint" id="e_media"></div><div id="v35qMediaPreview" class="v35q-mediaprev"></div>'
++'<div class="v35q-hint">Les joueurs voient le média au-dessus de la question et peuvent l\'agrandir. Pour une vidéo, prévois un chrono assez long. Un lien d\'image doit commencer par https://.</div>';
+}
+function updateMediaPreview(){
+const box=$("v35qMediaPreview");if(!box||!window.QMedia)return;
+box.textContent="";
+const hint=$("e_media");if(hint){hint.textContent="";hint.style.color="";}
+const f=readForm();
+if(f.mediaMode==="link"&&f.mediaLink.trim()&&f.mediaError){if(hint){hint.textContent="⚠️ "+f.mediaError;hint.style.color="#fca5a5";}return;}
+if(!f.media)return;
+const b=window.QMedia.build(f.media,{onError:m=>{if(hint){hint.textContent="⚠️ "+m;hint.style.color="#fca5a5";}}});
+if(b)box.appendChild(b);
+}
 function formHTML(){
-const d=draft||{category:"",newCat:"",difficulty:"moyen",question:"",answers:["","","",""],correct:"",correction:""};
+const d=draft||{category:"",newCat:"",difficulty:"moyen",question:"",answers:["","","",""],correct:"",correction:"",mediaMode:"none",mediaLink:"",mediaData:""};
 return '<div id="v35qMsg" class="v35q-msg" role="alert" aria-live="assertive"></div>'
 +(editingId?'<div class="v35q-msg warn show">✏️ Tu modifies une question existante.</div>':'')
 +'<label for="v35qCat">Thème</label><select id="v35qCat">'+themeOptions(d.category)+'</select><div class="v35q-hint" id="e_category"></div>'
 +'<div id="v35qNewWrap" style="display:'+(d.category==="__new"?"block":"none")+'"><label for="v35qNewCat">Nom du nouveau thème</label><input type="text" id="v35qNewCat" maxlength="30" autocomplete="off" placeholder="Ex. 🚲 Cyclisme"><div class="v35q-hint" id="e_newCat"></div></div>'
 +'<label for="v35qDiff">Difficulté</label><select id="v35qDiff">'+DIFFS.map(([v,l])=>'<option value="'+v+'"'+(d.difficulty===v?" selected":"")+'>'+l+'</option>').join("")+'</select>'
 +'<label for="v35qQ">Question <span class="v35q-hint" id="v35qQc"></span></label><textarea id="v35qQ" maxlength="'+(MAX_Q+50)+'" placeholder="Écris ta question…" autocomplete="off"></textarea><div class="v35q-hint" id="e_question"></div>'
++mediaBlockHTML(d)
 +'<label>Réponses — coche la bonne</label>'
 +[0,1,2,3].map(i=>'<div class="v35q-ans"><input type="radio" name="v35qCorrect" value="'+i+'" id="v35qR'+i+'" aria-label="Bonne réponse '+(i+1)+'"><input type="text" id="v35qA'+i+'" maxlength="'+(MAX_A+30)+'" autocomplete="off" placeholder="Réponse '+(i+1)+'"></div><div class="v35q-hint" id="e_a'+i+'" style="margin:-4px 0 6px 52px"></div>').join('')
 +'<div class="v35q-hint" id="e_correct"></div>'
@@ -160,19 +195,26 @@ function applyDraftToForm(){
 const d=draft;if(!d)return;
 const set=(id,v)=>{const e=$(id);if(e)e.value=v;};
 set("v35qNewCat",d.newCat||"");set("v35qQ",d.question||"");(d.answers||[]).forEach((a,i)=>set("v35qA"+i,a));set("v35qExp",d.correction||"");
+mediaData=d.mediaData||"";set("v35qMediaLink",d.mediaLink||"");setTimeout(updateMediaPreview,0);
 if(d.correct!==""&&d.correct!=null){const r=$("v35qR"+d.correct);if(r)r.checked=true;}
 updateCount();
 }
 function readForm(){
 const val=id=>{const e=$(id);return e?e.value:"";};
 const r=document.querySelector('input[name="v35qCorrect"]:checked');
-return{category:val("v35qCat"),newCat:val("v35qNewCat"),difficulty:val("v35qDiff"),question:val("v35qQ"),answers:[0,1,2,3].map(i=>val("v35qA"+i)),correct:r?r.value:"",correction:val("v35qExp")};
+const mm=document.querySelector('input[name="v35qMM"]:checked');const mediaMode=mm?mm.value:"none";
+let media=null,mediaError="";
+if(window.QMedia){
+if(mediaMode==="link"){const x=window.QMedia.fromInput(val("v35qMediaLink"));if(x.error)mediaError=x.error;else if(!x.media)mediaError="Colle un lien, ou choisis « Aucun ».";else media=x.media;}
+else if(mediaMode==="file"){if(!mediaData)mediaError="Choisis une image sur ton appareil, ou choisis « Aucun ».";else{const n=window.QMedia.normalize({type:"image",url:mediaData});if(n)media=n;else mediaError="Image invalide ou trop lourde.";}}
+}
+return{category:val("v35qCat"),newCat:val("v35qNewCat"),difficulty:val("v35qDiff"),question:val("v35qQ"),answers:[0,1,2,3].map(i=>val("v35qA"+i)),correct:r?r.value:"",correction:val("v35qExp"),mediaMode,mediaLink:val("v35qMediaLink"),mediaData,media,mediaError};
 }
 function updateCount(){const q=$("v35qQ"),c=$("v35qQc");if(q&&c)c.textContent="("+q.value.length+"/"+MAX_Q+")";}
 function showErrors(errs){
 document.querySelectorAll('#v35qBody .bad').forEach(e=>e.classList.remove("bad"));
 document.querySelectorAll('#v35qBody [id^="e_"]').forEach(e=>{e.textContent="";e.style.color="";});
-const map={category:"v35qCat",newCat:"v35qNewCat",difficulty:"v35qDiff",question:"v35qQ",a0:"v35qA0",a1:"v35qA1",a2:"v35qA2",a3:"v35qA3",correction:"v35qExp"};
+const map={category:"v35qCat",newCat:"v35qNewCat",difficulty:"v35qDiff",question:"v35qQ",a0:"v35qA0",a1:"v35qA1",a2:"v35qA2",a3:"v35qA3",correction:"v35qExp",media:"v35qMediaLink"};
 let first=null;
 Object.entries(errs).forEach(([k,m])=>{
 const h=$("e_"+k);if(h){h.textContent="⚠️ "+m;h.style.color="#fca5a5";}
@@ -192,6 +234,7 @@ if(editingId){
 const r=store.find(x=>x.id===editingId);
 if(!r){editingId=null;showErrors({global:"Cette question n'existe plus."});return false;}
 Object.assign(r,{category:c.category,difficulty:c.difficulty,question:c.question,answers:c.answers,correct:c.correct,correction:c.correction,updatedAt:now});
+if(c.media)r.media=c.media;else delete r.media;
 removeRuntime(r.id);addRuntime(r);
 editingId=null;draft=null;persist();
 toast("✅ Question modifiée");tab="list";renderAll();
@@ -200,9 +243,11 @@ const msg=$("v35qBody");if(msg)msg.insertAdjacentHTML("afterbegin",'<div class="
 return true;
 }
 const rec={id:uid(),category:c.category,difficulty:c.difficulty,question:c.question,answers:c.answers,correct:c.correct,correction:c.correction,createdAt:now,updatedAt:now};
+if(c.media)rec.media=c.media;
 store.push(rec);addRuntime(rec);
 const ok=persist();
-draft={category:v.category==="__new"?c.category:v.category,newCat:"",difficulty:v.difficulty,question:"",answers:["","","",""],correct:"",correction:""};
+mediaData="";
+draft={category:v.category==="__new"?c.category:v.category,newCat:"",difficulty:v.difficulty,question:"",answers:["","","",""],correct:"",correction:"",mediaMode:"none",mediaLink:"",mediaData:""};
 afterChange(c.category,newTheme);
 tab="create";renderAll();
 const msg=$("v35qMsg");if(msg){msg.className="v35q-msg "+(ok?"ok":"warn")+" show";msg.textContent=ok?"✅ Question enregistrée dans « "+c.category+" ». Tu peux en ajouter une autre.":"⚠️ Question ajoutée pour cette session, mais impossible de l'enregistrer durablement (stockage indisponible).";}
@@ -223,7 +268,7 @@ if(!rows.length)return h+'<div class="v35q-msg warn show" style="margin-top:16px
 h+='<div class="v35q-hint" style="margin-top:8px">'+rows.length+' question'+(rows.length>1?'s':'')+'</div>';
 rows.slice(0,listLimit).forEach(r=>{
 const dl=(DIFFS.find(d=>d[0]===r.difficulty)||[0,r.difficulty])[1];
-h+='<div class="v35q-row" data-id="'+esc(r.id)+'"><div class="t">'+esc(r.question)+'</div><div class="m"><span class="v35-src perso">⭐ Perso</span><span>'+esc(r.category)+'</span><span>· '+esc(dl)+'</span></div><ul>'+r.answers.map((a,i)=>'<li'+(i===r.correct?' class="ok"':'')+'>'+esc(a)+(i===r.correct?' ✓':'')+'</li>').join('')+'</ul>'
+h+='<div class="v35q-row" data-id="'+esc(r.id)+'"><div class="t">'+esc(r.question)+'</div><div class="m"><span class="v35-src perso">⭐ Perso</span><span>'+esc(r.category)+'</span><span>· '+esc(dl)+'</span>'+(r.media&&window.QMedia?'<span>· '+esc(window.QMedia.label(r.media))+'</span>':'')+'</div><ul>'+r.answers.map((a,i)=>'<li'+(i===r.correct?' class="ok"':'')+'>'+esc(a)+(i===r.correct?' ✓':'')+'</li>').join('')+'</ul>'
 +(confirmDel===r.id?'<div class="v35q-msg warn show" style="margin-top:10px">Supprimer définitivement cette question ?</div><div class="b"><button type="button" class="danger" data-act="delYes" data-id="'+esc(r.id)+'">🗑️ Oui, supprimer</button><button type="button" data-act="delNo">Non, garder</button></div>'
 :'<div class="b"><button type="button" data-act="edit" data-id="'+esc(r.id)+'">✏️ Modifier</button><button type="button" class="danger" data-act="del" data-id="'+esc(r.id)+'">🗑️ Supprimer</button></div>')+'</div>';
 });
@@ -308,7 +353,7 @@ else if(act==="clearForm"){draft=null;renderAll();}
 else if(act==="cancelEdit"){editingId=null;draft=null;tab="list";renderAll();}
 else if(act==="edit"){
 const r=store.find(x=>x.id===t.dataset.id);if(!r)return;
-editingId=r.id;draft={category:r.category,newCat:"",difficulty:r.difficulty,question:r.question,answers:r.answers.slice(),correct:String(r.correct),correction:r.correction||""};tab="create";renderAll();
+editingId=r.id;draft=Object.assign({category:r.category,newCat:"",difficulty:r.difficulty,question:r.question,answers:r.answers.slice(),correct:String(r.correct),correction:r.correction||""},window.QMedia?mediaToDraft(r.media):{});tab="create";renderAll();
 }
 else if(act==="del"){confirmDel=t.dataset.id;renderAll();const row=document.querySelector('.v35q-row[data-id="'+CSS.escape(confirmDel)+'"]');if(row&&row.scrollIntoView)row.scrollIntoView({block:"nearest"});}
 else if(act==="delNo"){confirmDel=null;renderAll();}
@@ -332,12 +377,22 @@ else if(act==="import"){const a=$("v35qImport");const txt=a?a.value.trim():"";if
 function onInput(e){
 const t=e.target;
 if(t.id==="v35qQ")updateCount();
+if(t.id==="v35qMediaLink"){clearTimeout(onInput.m);onInput.m=setTimeout(updateMediaPreview,450);}
 if(t.id==="v35qSearch"){window.__v35Filter=Object.assign(window.__v35Filter||{cat:""},{q:t.value});clearTimeout(onInput.t);onInput.t=setTimeout(()=>{listLimit=PAGE;const pos=t.selectionStart;renderAll();const s=$("v35qSearch");if(s){s.focus();try{s.setSelectionRange(pos,pos);}catch(_){}}},250);}
 if(t.classList&&t.classList.contains("bad"))t.classList.remove("bad");
 }
 function onChange(e){
 const t=e.target;
 if(t.id==="v35qCat"){const w=$("v35qNewWrap");if(w)w.style.display=t.value==="__new"?"block":"none";}
+if(t.name==="v35qMM"){
+const lw=$("v35qMediaLinkWrap"),fw=$("v35qMediaFileWrap");if(lw)lw.style.display=t.value==="link"?"block":"none";if(fw)fw.style.display=t.value==="file"?"block":"none";
+updateMediaPreview();
+}
+if(t.id==="v35qMediaFile"&&t.files&&t.files[0]&&window.QMedia){
+const hint=$("e_media");if(hint){hint.textContent="⏳ Préparation de l'image…";hint.style.color="";}
+window.QMedia.fileToDataUrl(t.files[0]).then(url=>{mediaData=url;updateMediaPreview();const h=$("e_media");if(h){h.textContent="✅ Image prête ("+Math.round(url.length*0.75/1024)+" Ko).";h.style.color="";}})
+.catch(err=>{mediaData="";const h=$("e_media");if(h){h.textContent="⚠️ "+(err&&err.message||"Image refusée.");h.style.color="#fca5a5";}updateMediaPreview();});
+}
 if(t.id==="v35qFilterCat"){window.__v35Filter=Object.assign(window.__v35Filter||{q:""},{cat:t.value});listLimit=PAGE;renderAll();}
 if(t.name==="v35qSrc"){setSrcMode(t.value);renderAll();}
 if(t.id==="v35qFile"&&t.files&&t.files[0]){
