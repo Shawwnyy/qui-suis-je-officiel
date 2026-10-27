@@ -1,0 +1,374 @@
+/* =============================================================================
+   V40 — Export PDF des statistiques (tableaux ET graphiques), sans aucune bibliothèque externe.
+
+   Le PDF est écrit directement (police Helvetica intégrée à tous les lecteurs, texte et graphiques vectoriels :
+   net à n'importe quel zoom, texte sélectionnable). Fonctionne hors connexion. Aucun accès au DOM : testable avec Node.
+   V40Pdf.build(log)   → Uint8Array (le fichier PDF)
+   V40Pdf.download(log) → télécharge le fichier dans le navigateur
+   ============================================================================= */
+var V40Pdf = (function () {
+  "use strict";
+  var A = (typeof V40Analysis !== "undefined") ? V40Analysis : (typeof require === "function" ? require("./analysis.js") : null);
+
+  /* Largeurs des caractères (pour 1000 unités) de Helvetica et Helvetica-Bold, codes 32 à 255 (encodage Windows-1252). */
+  var W_REG = [278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584, 761, 556, 0, 222, 556, 333, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0, 0, 222, 222, 333, 333, 350, 556, 1000, 333, 1000, 500, 333, 944, 0, 500, 667, 278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 333, 400, 584, 333, 333, 333, 556, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611, 667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, 556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278, 556, 556, 556, 556, 556, 556, 556, 584, 611, 556, 556, 556, 556, 500, 556, 500];
+  var W_BOLD = [278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584, 761, 556, 0, 278, 556, 500, 1000, 556, 556, 333, 1000, 667, 333, 1000, 0, 611, 0, 0, 278, 278, 500, 500, 350, 556, 1000, 333, 1000, 556, 333, 944, 0, 500, 667, 278, 333, 556, 556, 556, 556, 280, 556, 333, 737, 370, 556, 584, 333, 737, 333, 400, 584, 333, 333, 333, 611, 556, 278, 333, 333, 365, 556, 834, 834, 834, 611, 722, 722, 722, 722, 722, 722, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, 556, 556, 556, 556, 556, 556, 889, 556, 556, 556, 556, 556, 278, 278, 278, 278, 611, 611, 611, 611, 611, 611, 611, 584, 611, 611, 611, 611, 611, 556, 611, 556];
+  /* Caractères Windows-1252 hors Latin-1 (0x80–0x9F). */
+  var CP = { "€": 128, "‚": 130, "ƒ": 131, "„": 132, "…": 133, "†": 134, "‡": 135, "ˆ": 136, "‰": 137, "Š": 138, "‹": 139, "Œ": 140, "Ž": 142, "‘": 145, "’": 146, "“": 147, "”": 148, "•": 149, "–": 150, "—": 151, "˜": 152, "™": 153, "š": 154, "›": 155, "œ": 156, "ž": 158, "Ÿ": 159 };
+
+  /* Texte → octets Windows-1252 ; les emojis et symboles absents de la police sont retirés. */
+  function toCp(s) {
+    var out = [];
+    s = String(s == null ? "" : s).normalize("NFC").replace(/ | /g, " ").replace(/[‐‑‒]/g, "-").replace(/[→▶]/g, ">").replace(/✓/g, "v");
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charCodeAt(i);
+      if (c === 0x200d || (c >= 0xfe00 && c <= 0xfe0f) || (c >= 0xd800 && c <= 0xdfff)) continue;   /* jointures, sélecteurs de variante, emojis (paires de substitution) */
+      if (c >= 32 && c < 127) out.push(c);
+      else if (c >= 160 && c <= 255) out.push(c);
+      else if (CP[s.charAt(i)]) out.push(CP[s.charAt(i)]);
+      else if (c === 9 || c === 10 || c === 13) out.push(32);
+    }
+    return out;
+  }
+  var REV = {}; Object.keys(CP).forEach(function (ch) { REV[CP[ch]] = ch; });
+  /* Texte nettoyé : reste en Unicode (les octets Windows-1252 sont reconvertis), sans emoji ni retour à la ligne. */
+  function clean(s) { return toCp(s).map(function (b) { return REV[b] || String.fromCharCode(b); }).join("").replace(/\s+/g, " ").trim(); }
+  function widthOf(s, size, bold) {
+    var t = bold ? W_BOLD : W_REG, bytes = toCp(s), sum = 0;
+    for (var i = 0; i < bytes.length; i++) sum += t[bytes[i] - 32] || 0;
+    return sum * size / 1000;
+  }
+  function fit(s, maxW, size, bold) {
+    s = clean(s);
+    if (widthOf(s, size, bold) <= maxW) return s;
+    while (s.length > 1 && widthOf(s + "…", size, bold) > maxW) s = s.slice(0, -1);
+    return s.replace(/\s+$/, "") + "…";
+  }
+  function wrap(s, maxW, size, bold) {
+    var words = clean(s).split(" "), lines = [], cur = "";
+    words.forEach(function (w) {
+      var t = cur ? cur + " " + w : w;
+      if (widthOf(t, size, bold) <= maxW || !cur) cur = t; else { lines.push(cur); cur = w; }
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function pdfStr(bytes) {
+    var o = "(";
+    for (var i = 0; i < bytes.length; i++) {
+      var c = bytes[i];
+      if (c === 40 || c === 41 || c === 92) o += "\\" + String.fromCharCode(c);
+      else if (c < 32 || c > 126) o += "\\" + ("00" + c.toString(8)).slice(-3);
+      else o += String.fromCharCode(c);
+    }
+    return o + ")";
+  }
+  function num(n) { return (Math.round(n * 100) / 100).toString(); }
+  function rgb(hex) {
+    if (!/^#[0-9a-f]{6}$/i.test(String(hex))) throw new Error("Couleur invalide : " + hex);
+    var h = String(hex).replace("#", "");
+    return [0, 2, 4].map(function (i) { return num(parseInt(h.substr(i, 2), 16) / 255); }).join(" ");
+  }
+
+  /* ---------- Écrivain PDF minimal (A4 portrait, origine en haut à gauche, unité = point) ---------- */
+  var PW = 595.28, PH = 841.89;
+  function Writer(meta) {
+    this.pages = []; this.cur = null; this.meta = meta || {};
+    this.addPage();
+  }
+  Writer.prototype.addPage = function () { this.cur = []; this.pages.push(this.cur); return this.pages.length; };
+  Writer.prototype.raw = function (s) { this.cur.push(s); };
+  Writer.prototype.text = function (x, y, s, o) {
+    o = o || {}; var size = o.size || 10, bold = !!o.bold, str = o.maxW ? fit(s, o.maxW, size, bold) : clean(s);
+    if (!str) return;
+    var w = widthOf(str, size, bold);
+    if (o.align === "right") x -= w; else if (o.align === "center") x -= w / 2;
+    this.raw("BT /" + (bold ? "F2" : "F1") + " " + num(size) + " Tf " + rgb(o.color || "#1a1a19") + " rg 1 0 0 1 " + num(x) + " " + num(PH - y) + " Tm " + pdfStr(toCp(str)) + " Tj ET");
+  };
+  Writer.prototype.line = function (x1, y1, x2, y2, o) {
+    o = o || {};
+    this.raw("q " + rgb(o.color || "#d4d3cf") + " RG " + num(o.w || 0.5) + " w " + (o.dash ? "[" + o.dash.join(" ") + "] 0 d " : "") + num(x1) + " " + num(PH - y1) + " m " + num(x2) + " " + num(PH - y2) + " l S Q");
+  };
+  Writer.prototype.poly = function (pts, o) {
+    if (pts.length < 2) return; o = o || {};
+    var d = pts.map(function (p, i) { return num(p[0]) + " " + num(PH - p[1]) + (i ? " l" : " m"); }).join(" ");
+    this.raw("q " + rgb(o.color || "#3987e5") + " RG " + num(o.w || 1.6) + " w 1 J 1 j " + d + " S Q");
+  };
+  Writer.prototype.rect = function (x, y, w, h, o) {
+    o = o || {}; var op = o.fill && o.stroke ? "B" : (o.fill ? "f" : "S");
+    this.raw("q " + (o.fill ? rgb(o.fill) + " rg " : "") + (o.stroke ? rgb(o.stroke) + " RG " + num(o.w || 0.5) + " w " : (o.fill ? "" : rgb("#d4d3cf") + " RG 0.5 w ")) + num(x) + " " + num(PH - y - h) + " " + num(w) + " " + num(h) + " re " + op + " Q");
+  };
+  Writer.prototype.dot = function (cx, cy, r, color) {
+    var k = 0.5523 * r, X = cx, Y = PH - cy;
+    this.raw("q " + rgb(color) + " rg " + num(X + r) + " " + num(Y) + " m " + num(X + r) + " " + num(Y + k) + " " + num(X + k) + " " + num(Y + r) + " " + num(X) + " " + num(Y + r) + " c " + num(X - k) + " " + num(Y + r) + " " + num(X - r) + " " + num(Y + k) + " " + num(X - r) + " " + num(Y) + " c " + num(X - r) + " " + num(Y - k) + " " + num(X - k) + " " + num(Y - r) + " " + num(X) + " " + num(Y - r) + " c " + num(X + k) + " " + num(Y - r) + " " + num(X + r) + " " + num(Y - k) + " " + num(X + r) + " " + num(Y) + " c f Q");
+  };
+  Writer.prototype.finish = function () {
+    var objs = [], self = this;
+    function add(s) { objs.push(s); return objs.length; }
+    add("<< /Type /Catalog /Pages 2 0 R >>");
+    add("");                                                                   /* 2 : liste des pages, remplie plus bas */
+    add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+    add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+    var meta = this.meta, info = add("<< /Title " + pdfStr(toCp(meta.title || "")) + " /Author " + pdfStr(toCp(meta.author || "")) + " /Creator " + pdfStr(toCp("Qui suis-je ?")) + " >>");
+    var kids = [];
+    this.pages.forEach(function (ops) {
+      var content = ops.join("\n"), cid = add("<< /Length " + content.length + " >>\nstream\n" + content + "\nendstream");
+      kids.push(add("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + num(PW) + " " + num(PH) + "] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents " + cid + " 0 R >>") + " 0 R");
+    });
+    objs[1] = "<< /Type /Pages /Count " + kids.length + " /Kids [" + kids.join(" ") + "] >>";
+    var out = "%PDF-1.4\n", offs = [];
+    objs.forEach(function (o, i) { offs.push(out.length); out += (i + 1) + " 0 obj\n" + o + "\nendobj\n"; });
+    var xref = out.length;
+    out += "xref\n0 " + (objs.length + 1) + "\n0000000000 65535 f \n" + offs.map(function (o) { return ("0000000000" + o).slice(-10) + " 00000 n \n"; }).join("");
+    out += "trailer\n<< /Size " + (objs.length + 1) + " /Root 1 0 R /Info " + info + " 0 R >>\nstartxref\n" + xref + "\n%%EOF\n";
+    var bytes = new Uint8Array(out.length);
+    for (var i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 255;
+    return bytes;
+  };
+
+  /* ---------- Mise en page du rapport ---------- */
+  var C = { ink: "#1a1a19", sub: "#52514e", mute: "#6f6e69", grid: "#e1e0dc", line: "#c9c8c3", band: "#f4f3f0", head: "#2d2a4a",
+    good: "#0c8a0c", bad: "#d03b3b", none: "#6f6e69", accent: "#4c1d95" };
+  var SERIES = ["#2a6fd6", "#c8501a", "#12856a", "#a86e00", "#c23d73", "#2f7d00", "#6f63d6", "#d03b3b"];   /* validés pour fond clair */
+  var M = 40, CW = PW - 2 * M;                                                                          /* marges et largeur utile */
+
+  function pct(x) { return x === null || x === undefined ? "–" : Math.round(x * 100) + " %"; }
+  function secs(x) { return x === null || x === undefined ? "–" : x.toFixed(1).replace(".", ",") + " s"; }
+  function dateFr(ms) { try { return new Date(ms || Date.now()).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" }); } catch (e) { return ""; } }
+  var DIFF = { facile: "Facile", moyen: "Moyen", difficile: "Difficile", impossible: "Impossible" };
+  var LEVEL = { 1: "Avertissement", 2: "Malus", 3: "Exclusion" };
+
+  function build(log, opts) {
+    opts = opts || {};
+    if (!log || !log.P || !log.R) throw new Error("Aucune partie à exporter.");
+    var t = A.totals(log), rows = A.perPlayer(log), W = new Writer({ title: "Statistiques de la partie - Qui suis-je ?", author: "Qui suis-je ?" });
+    var y = 0, pageNo = 1;
+
+    function header(sub) {
+      W.rect(0, 0, PW, 54, { fill: C.head });
+      W.text(M, 26, "Qui suis-je ? — Statistiques", { size: 17, bold: true, color: "#ffffff" });
+      W.text(M, 43, sub || (dateFr(log.at) + " · " + log.P.length + " joueur" + (log.P.length > 1 ? "s" : "") + " · " + log.R.length + " question" + (log.R.length > 1 ? "s" : "")), { size: 9.5, color: "#d9d6f2" });
+      y = 78;
+    }
+    function newPage(sub) { W.addPage(); pageNo++; header(sub || "Statistiques de la partie (suite)"); }
+    function room(h, sub) { if (y + h > PH - 46) newPage(sub); }
+    function title(s, keep) { room(48 + (keep || 0)); W.text(M, y, s, { size: 13, bold: true, color: C.accent }); W.line(M, y + 5, M + CW, y + 5, { color: C.accent, w: 0.8 }); y += 22; }
+    function note(s) { wrap(s, CW, 8.5, false).forEach(function (l) { room(12); W.text(M, y, l, { size: 8.5, color: C.mute }); y += 11; }); y += 4; }
+
+    /* Tableau générique : cols = [{h, w (largeur relative), a: "left"|"right"|"center", f(row) → texte, color(row) → couleur}] */
+    function table(cols, data, o) {
+      o = o || {}; var fs = o.size || 9, rh = o.rh || 16, total = cols.reduce(function (s, c) { return s + c.w; }, 0), xs = [], x = M;
+      cols.forEach(function (c) { c.pw = c.w / total * CW; xs.push(x); x += c.pw; });
+      function head() {
+        W.rect(M, y - 11, CW, rh, { fill: C.band });
+        cols.forEach(function (c, i) { var tx = c.a === "right" ? xs[i] + c.pw - 4 : (c.a === "center" ? xs[i] + c.pw / 2 : xs[i] + 4); W.text(tx, y, c.h, { size: fs - 0.5, bold: true, color: C.sub, align: c.a || "left", maxW: c.pw - 8 }); });
+        y += rh;
+      }
+      if (y + rh * 3 > PH - 46) newPage();
+      head();
+      data.forEach(function (r, ri) {
+        if (y + rh > PH - 46) { newPage(); head(); }
+        if (ri % 2 === 1) W.rect(M, y - 11, CW, rh, { fill: "#faf9f7" });
+        cols.forEach(function (c, i) {
+          var tx = c.a === "right" ? xs[i] + c.pw - 4 : (c.a === "center" ? xs[i] + c.pw / 2 : xs[i] + 4);
+          W.text(tx, y, c.f(r, ri), { size: fs, bold: !!(c.bold && c.bold(r)), color: (c.color && c.color(r)) || C.ink, align: c.a || "left", maxW: c.pw - 8 });
+        });
+        y += rh;
+      });
+      W.line(M, y - 11, M + CW, y - 11, { color: C.line, w: 0.5 });
+      y += 12;
+    }
+
+    /* ----- Page 1 : chiffres clés ----- */
+    header();
+    var kpis = [["Joueurs", String(t.players)], ["Questions", String(t.rounds)], ["Réussite", pct(t.accuracy)], ["Temps moyen", secs(t.avgTime)], ["Infractions", String(t.cheats)]];
+    var kw = (CW - 4 * 10) / 5;
+    kpis.forEach(function (k, i) {
+      var x = M + i * (kw + 10);
+      W.rect(x, y - 14, kw, 52, { fill: "#faf9f7", stroke: C.grid, w: 0.8 });
+      W.text(x + 10, y + 3, k[0], { size: 8.5, color: C.sub, maxW: kw - 16 });
+      W.text(x + 10, y + 26, k[1], { size: 18, bold: true, color: i === 4 && t.cheats ? C.bad : C.ink, maxW: kw - 16 });
+    });
+    y += 58;
+
+    /* ----- Classement ----- */
+    var ranked0 = rows;
+    title("Classement des joueurs", 16 * Math.min(ranked0.length + 1, 14));
+    var ranked = rows.slice().sort(function (a, b) { return a.rank - b.rank || a.idx - b.idx; });
+    table([
+      { h: "#", w: 4, a: "center", f: function (r) { return String(r.rank); } },
+      { h: "Joueur", w: 24, f: function (r) { return r.name + (r.host ? " (hôte)" : "") + (r.left ? " — parti" : ""); }, bold: function (r) { return r.rank === 1; } },
+      { h: "Score", w: 9, a: "right", f: function (r) { return String(r.final); }, bold: function () { return true; } },
+      { h: "Justes", w: 8, a: "right", f: function (r) { return String(r.correct); } },
+      { h: "Fausses", w: 8, a: "right", f: function (r) { return String(r.wrong); } },
+      { h: "Sans rép.", w: 9, a: "right", f: function (r) { return String(r.none); } },
+      { h: "Réussite", w: 9, a: "right", f: function (r) { return pct(r.accuracy); } },
+      { h: "Temps moy.", w: 10, a: "right", f: function (r) { return secs(r.avgTime); } },
+      { h: "Infract.", w: 8, a: "right", f: function (r) { return String(r.cheats); }, color: function (r) { return r.cheats ? C.bad : C.ink; } }
+    ], ranked);
+
+    /* ----- Évolution des scores (courbes vectorielles) ----- */
+    var series = A.scoreSeries(log), order = ranked.slice(0, SERIES.length);
+    if (log.R.length >= 1) {
+      var ch = 190, cw = CW - 4;
+      room(ch + 70); title("Évolution des scores");
+      var vmin = 0, vmax = 10;
+      order.forEach(function (r) { series[r.idx].values.forEach(function (v) { if (v !== null) { vmax = Math.max(vmax, v); vmin = Math.min(vmin, v); } }); });
+      var step = niceStep((vmax - vmin) / 4), top = Math.ceil(vmax / step) * step, bot = Math.floor(vmin / step) * step;
+      var px0 = M + 38, px1 = M + cw - 16, py0 = y + 4, py1 = y + ch - 24, n = log.R.length;
+      for (var g = bot; g <= top + 1e-9; g += step) {
+        var gy = py1 - (g - bot) / (top - bot) * (py1 - py0);
+        W.line(px0, gy, px1, gy, { color: g === 0 ? C.line : C.grid, w: g === 0 ? 0.8 : 0.5 });
+        W.text(px0 - 6, gy + 3, String(Math.round(g)), { size: 8, color: C.mute, align: "right" });
+      }
+      var tickEvery = Math.max(1, Math.ceil(n / 12));
+      for (var q = 0; q <= n; q += tickEvery) { var gx = px0 + (n ? q / n : 0) * (px1 - px0); W.text(gx, py1 + 13, String(q), { size: 8, color: C.mute, align: "center" }); }
+      W.text((px0 + px1) / 2, py1 + 24, "Numéro de la question", { size: 8, color: C.mute, align: "center" });
+      order.forEach(function (r, si) {
+        var vals = series[r.idx].values, seg = [], last = null;
+        function flush() { if (seg.length > 1) W.poly(seg, { color: SERIES[si], w: 1.7 }); seg = []; }
+        vals.forEach(function (v, q2) {
+          if (v === null) { flush(); return; }
+          var X = px0 + (n ? q2 / n : 0) * (px1 - px0), Y = py1 - (v - bot) / (top - bot) * (py1 - py0);
+          seg.push([X, Y]); last = [X, Y];
+        });
+        flush();
+        if (last) { W.dot(last[0], last[1], 3, SERIES[si]); }
+      });
+      y += ch + 20;
+      var lx = M, ly = y;                                                        /* légende : toujours présente (≥ 2 séries) */
+      order.forEach(function (r, si) {
+        var label = fit(r.name, 90, 8.5, false), lw = widthOf(label, 8.5, false) + 26;
+        if (lx + lw > M + CW) { lx = M; ly += 14; }
+        W.rect(lx, ly - 6, 14, 3.4, { fill: SERIES[si] }); W.dot(lx + 7, ly - 4.3, 3, SERIES[si]);
+        W.text(lx + 19, ly, label, { size: 8.5, color: C.sub }); lx += lw + 8;
+      });
+      y = ly + 16;
+      if (ranked.length > SERIES.length) note("Courbes des " + SERIES.length + " premiers du classement ; tous les joueurs figurent dans les tableaux.");
+    }
+
+    /* ----- Barres horizontales : réussite par thème / difficulté / média ----- */
+    function bars(titleText, items, labelOf) {
+      if (!items.length) return;
+      title(titleText, Math.min(items.length, 8) * 17);
+      var lw = 150, bx = M + lw, bw = CW - lw - 90;
+      items.forEach(function (it) {
+        room(18);
+        W.text(M, y, labelOf(it), { size: 9, color: C.ink, maxW: lw - 8 });
+        W.rect(bx, y - 9, bw, 10, { fill: C.band });
+        if (it.rate !== null) W.rect(bx, y - 9, Math.max(1.5, bw * it.rate), 10, { fill: it.rate >= 0.5 ? C.good : C.bad });
+        W.text(bx + bw + 8, y, pct(it.rate) + "  (" + it.correct + "/" + it.answers + ")", { size: 8.5, color: C.sub });
+        y += 17;
+      });
+      y += 8;
+    }
+    bars("Réussite par thème", A.byCategory(log).slice(0, 24), function (g) { return g.label; });
+    bars("Réussite par difficulté", A.byDifficulty(log), function (g) { return (DIFF[g.key] || g.key) + " (" + g.questions + " q.)"; });
+    var med = A.byMedia(log); if (med.length > 1) bars("Questions avec image ou vidéo", med, function (g) { return g.label + " (" + g.questions + " q.)"; });
+    note("Barre verte : au moins la moitié de bonnes réponses ; rouge : moins de la moitié. Le pourcentage et le détail (bonnes / réponses) sont écrits à droite.");
+
+    /* ----- Questions les plus difficiles / faciles ----- */
+    function qTable(label, list) {
+      if (!list.length) return;
+      title(label, 16 * (list.length + 1));
+      table([
+        { h: "N°", w: 5, a: "center", f: function (r) { return String(r.round); } },
+        { h: "Question", w: 52, f: function (r) { return r.q; } },
+        { h: "Thème", w: 22, f: function (r) { return r.c; } },
+        { h: "Réussite", w: 10, a: "right", f: function (r) { return pct(r.rate); } },
+        { h: "Temps", w: 9, a: "right", f: function (r) { return secs(r.avgTime); } }
+      ], list, { size: 8.5 });
+    }
+    qTable("Les 5 questions les plus difficiles", A.hardest(log, 5));
+    qTable("Les 5 questions les plus faciles", A.easiest(log, 5));
+
+    /* ----- Matrice joueurs × questions ----- */
+    var np = log.P.length, nr = log.R.length;
+    if (nr >= 1 && np >= 1) {
+      var perPage = Math.min(nr, 60), labelW = 110, cell = Math.min(11, Math.floor((CW - labelW) / perPage * 10) / 10), rh2 = 12;
+      for (var from = 0; from < nr; from += perPage) {
+        var to = Math.min(nr, from + perPage), need = 30 + np * rh2 + 30;
+        if (from === 0) { room(Math.min(need, 300)); title("Réponses de chaque joueur, question par question"); } else { newPage(); title("Réponses de chaque joueur (questions " + (from + 1) + " à " + to + ")"); }
+        if (np * rh2 + 60 > PH - 120) { note("Trop de joueurs pour afficher la grille : consulte le fichier CSV."); break; }
+        room(np * rh2 + 40);
+        var gx0 = M + labelW;
+        for (var qq = from; qq < to; qq++) if ((qq + 1) % 5 === 0 || qq === from) W.text(gx0 + (qq - from) * cell + cell / 2, y - 3, String(qq + 1), { size: 6.5, color: C.mute, align: "center" });
+        y += 4;
+        rows.forEach(function (r) {
+          if (y + rh2 > PH - 46) newPage();
+          W.text(M, y + 7.5, r.name, { size: 8.5, color: C.ink, maxW: labelW - 8 });
+          for (var qi = from; qi < to; qi++) {
+            var e = log.R[qi].r[r.idx], cx = gx0 + (qi - from) * cell, st = e ? e[0] : 0, s = cell - 1.2;
+            if (st === 1) W.rect(cx, y, s, rh2 - 2, { fill: C.good });
+            else if (st === 2) { W.rect(cx, y, s, rh2 - 2, { fill: C.bad }); W.line(cx + 1, y + 1.5, cx + s - 1, y + rh2 - 3.5, { color: "#ffffff", w: 0.8 }); W.line(cx + s - 1, y + 1.5, cx + 1, y + rh2 - 3.5, { color: "#ffffff", w: 0.8 }); }
+            else if (st === 3) W.rect(cx, y, s, rh2 - 2, { stroke: C.none, w: 0.9 });
+            else W.rect(cx, y + (rh2 - 2) / 2 - 0.4, s, 0.8, { fill: C.grid });
+          }
+          y += rh2;
+        });
+        y += 18;
+        room(14);
+        var legend = [["good", "Bonne réponse"], ["bad", "Mauvaise réponse"], ["none", "Pas de réponse"], ["abs", "Pas dans la partie"]], lx2 = M;
+        legend.forEach(function (l) {
+          if (l[0] === "good") W.rect(lx2, y - 8, 9, 9, { fill: C.good });
+          else if (l[0] === "bad") { W.rect(lx2, y - 8, 9, 9, { fill: C.bad }); W.line(lx2 + 1.5, y - 6.5, lx2 + 7.5, y - 0.5, { color: "#ffffff", w: 0.8 }); W.line(lx2 + 7.5, y - 6.5, lx2 + 1.5, y - 0.5, { color: "#ffffff", w: 0.8 }); }
+          else if (l[0] === "none") W.rect(lx2, y - 8, 9, 9, { stroke: C.none, w: 0.9 });
+          else W.rect(lx2, y - 4, 9, 0.8, { fill: C.line });
+          W.text(lx2 + 13, y, l[1], { size: 8, color: C.sub }); lx2 += 13 + widthOf(l[1], 8, false) + 16;
+        });
+        y += 20;
+      }
+    }
+
+    /* ----- Détail question par question ----- */
+    title("Détail des questions", 16 * 6);
+    table([
+      { h: "N°", w: 5, a: "center", f: function (r) { return String(r.round); } },
+      { h: "Question", w: 46, f: function (r) { return r.q + (r.m ? "  [image/vidéo]" : ""); } },
+      { h: "Thème", w: 19, f: function (r) { return r.c; } },
+      { h: "Niveau", w: 9, f: function (r) { return DIFF[r.d] || r.d; } },
+      { h: "Réussite", w: 10, a: "right", f: function (r) { return pct(r.rate); } },
+      { h: "Temps", w: 8, a: "right", f: function (r) { return secs(r.avgTime); } }
+    ], A.roundStats(log), { size: 8, rh: 14 });
+
+    /* ----- Infractions ----- */
+    if (log.C.length) {
+      title("Infractions détectées (triche)", 16 * Math.min(log.C.length + 1, 8));
+      table([
+        { h: "Joueur", w: 30, f: function (c) { return log.P[c[0]].n; } },
+        { h: "Infraction n°", w: 14, a: "right", f: function (c) { return String(c[1]); } },
+        { h: "Sanction", w: 26, f: function (c) { return LEVEL[c[2]] || String(c[2]); }, color: function (c) { return c[2] >= 2 ? C.bad : C.ink; }, bold: function (c) { return c[2] >= 2; } },
+        { h: "À la question n°", w: 18, a: "right", f: function (c) { return String(c[3]); } }
+      ], log.C);
+      note("Avertissement jusqu'à 2 infractions, malus de score à partir de la 3e, exclusion de la partie à partir de la 5e.");
+    }
+
+    /* ----- Pieds de page ----- */
+    var N = W.pages.length;
+    for (var p = 0; p < N; p++) {
+      W.cur = W.pages[p];
+      W.line(M, PH - 32, M + CW, PH - 32, { color: C.grid, w: 0.5 });
+      W.text(M, PH - 20, "Qui suis-je ? — statistiques", { size: 8, color: C.mute });
+      W.text(M + CW, PH - 20, "Page " + (p + 1) + " / " + N, { size: 8, color: C.mute, align: "right" });
+    }
+    return W.finish();
+  }
+  function niceStep(raw) {
+    if (!(raw > 0)) return 1;
+    var p = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10)), f = raw / p;
+    return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
+  }
+
+  function download(log) {
+    var bytes = build(log), blob = new Blob([bytes], { type: "application/pdf" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "qui-suis-je-statistiques-" + new Date(log.at || Date.now()).toISOString().slice(0, 10) + ".pdf";
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+
+  return { build: build, download: download, _clean: clean, _width: widthOf, _toCp: toCp, _fit: fit };
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = V40Pdf;
+if (typeof window !== "undefined") window.V40Pdf = V40Pdf;

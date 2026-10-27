@@ -1,0 +1,28 @@
+/* Thème : 🏃 Athlétisme — "d|question|bonne|faux1|faux2|faux3" (d: f=facile m=moyen d=difficile i=impossible) */
+V35_BANK["🏃 Athlétisme"]=[
+"f|Quelle est la distance du semi-marathon ?|21,097 km|20 km|25 km|10 km",
+"f|Quel athlète jamaïcain détient les records du monde du 100 m et du 200 m ?|Usain Bolt|Yohan Blake|Carl Lewis|Justin Gatlin",
+"f|Quelle distance parcourt-on sur une piste d'athlétisme classique en un tour ?|400 mètres|200 mètres|500 mètres|1 000 mètres",
+"f|Quelle épreuve consiste à franchir des obstacles en courant ?|Le 110 m haies|Le relais|Le marathon|Le lancer de javelot",
+"f|Quelle épreuve utilise une perche pour franchir une barre ?|Le saut à la perche|Le saut en hauteur|Le triple saut|Le saut en longueur",
+"f|Avec quel objet fait-on le lancer du poids ?|Une boule métallique|Une lance|Un disque|Un marteau",
+"f|Combien d'athlètes composent une équipe de relais 4 x 100 m ?|Quatre|Deux|Six|Trois",
+"m|Combien d'épreuves comporte un décathlon ?|Dix|Sept|Huit|Douze",
+"m|Combien d'épreuves comporte un heptathlon ?|Sept|Cinq|Huit|Dix",
+"m|Quel athlète français a battu le record du monde de saut à la perche avec plus de 6 m ?|Renaud Lavillenie|Jean Galfione|Romain Mesnil|Thiemo Lemaitre",
+"m|Quel Éthiopien est une légende du 5 000 m et du 10 000 m ?|Kenenisa Bekele|Eliud Kipchoge|Mo Farah|David Rudisha",
+"m|Quel Kényan a couru un marathon en moins de deux heures lors d'une tentative spéciale à Vienne en 2019 ?|Eliud Kipchoge|David Rudisha|Kipchoge Keino|Wilson Kipsang",
+"m|Quel coureur américain a gagné quatre médailles d'or aux Jeux de 1984 à Los Angeles ?|Carl Lewis|Jesse Owens|Michael Johnson|Maurice Greene",
+"m|Quel est le nom du lancer qui utilise un boulet attaché à un câble ?|Le lancer du marteau|Le lancer du poids|Le lancer du disque|Le lancer du javelot",
+"m|Quelle athlète française a remporté le 400 m aux Jeux de 1992 et de 1996 ?|Marie-José Pérec|Muriel Hurtis|Christine Arron|Laura Flessel",
+"d|Quelle distance sépare les haies du 110 m haies ?|9,14 m|10 m|8 m|13,72 m",
+"d|Quel athlète a gagné le 100 m aux Jeux de 2008, 2012 et 2016 ?|Usain Bolt|Justin Gatlin|Yohan Blake|Asafa Powell",
+"d|Quel est le record du monde du 100 m masculin ?|9,58 s|9,69 s|9,79 s|9,48 s",
+"d|Quelle athlète américaine a battu le record du monde du 100 m haies et remporté le 400 m haies ?|Sydney McLaughlin-Levrone|Allyson Felix|Florence Griffith-Joyner|Gail Devers",
+"d|Quel Suédois a battu plusieurs fois le record du monde de saut à la perche, dépassant 6,20 m ?|Armand Duplantis|Sergueï Bubka|Renaud Lavillenie|Sam Kendricks",
+"d|Quel Ukrainien a dominé le saut à la perche dans les années 1980 et 1990 ?|Sergueï Bubka|Armand Duplantis|Jean Galfione|Maksim Tarassov",
+"d|Quel athlète américain a remporté quatre médailles d'or aux Jeux de Berlin en 1936 ?|Jesse Owens|Carl Lewis|Emil Zátopek|Paavo Nurmi",
+"d|Quel coureur tchèque a réalisé le triplé 5 000, 10 000 m et marathon aux Jeux de 1952 ?|Emil Zátopek|Paavo Nurmi|Abebe Bikila|Lasse Virén",
+"d|Quel marathonien éthiopien a gagné les Jeux de Rome de 1960 pieds nus ?|Abebe Bikila|Haile Gebrselassie|Kenenisa Bekele|Tirunesh Dibaba",
+"d|Dans quel pays ont eu lieu les championnats du monde d'athlétisme de 2023, à Budapest ?|La Hongrie|La Roumanie|La Pologne|L'Autriche"
+];

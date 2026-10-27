@@ -1,0 +1,26 @@
+/* Thème : 🗼 Monuments du monde — "d|question|bonne|faux1|faux2|faux3" (d: f=facile m=moyen d=difficile i=impossible) */
+V35_BANK["🗼 Monuments du monde"]=[
+"f|Dans quelle ville se trouve la tour Eiffel ?|Paris|Lyon|Londres|Bruxelles",
+"f|Dans quelle ville se trouve le Colisée ?|Rome|Athènes|Florence|Naples",
+"f|Dans quel pays se trouvent les grandes pyramides de Gizeh ?|L'Égypte|Le Mexique|Le Soudan|La Jordanie",
+"f|Quel monument de New York a été offert par la France ?|La statue de la Liberté|L'Empire State Building|Le pont de Brooklyn|Le Flatiron",
+"f|Dans quel pays se trouve le Taj Mahal ?|L'Inde|Le Pakistan|Le Bangladesh|L'Iran",
+"f|Dans quelle ville se trouve la Sagrada Família ?|Barcelone|Madrid|Séville|Valence",
+"m|Quelle ville abrite l'Acropole et le Parthénon ?|Athènes|Rome|Istanbul|Thessalonique",
+"m|Quel architecte a conçu la Sagrada Família ?|Antoni Gaudí|Le Corbusier|Gustave Eiffel|Oscar Niemeyer",
+"m|Quelle est la fonction du Taj Mahal ?|Un mausolée|Un palais royal|Une mosquée de quartier|Un fort militaire",
+"m|Dans quelle ville se trouve la basilique Sainte-Sophie ?|Istanbul|Athènes|Le Caire|Jérusalem",
+"m|Quelle statue gigantesque domine Rio de Janeiro ?|Le Christ rédempteur|La Mère Patrie|Le Penseur|Le Moai",
+"m|Quel pont rouge célèbre relie San Francisco à Marin County ?|Le Golden Gate|Le pont de Brooklyn|Le pont de Londres|Le pont Rialto",
+"m|Quel gratte-ciel de 828 mètres est le plus haut du monde ?|Le Burj Khalifa|La tour de Shanghai|La Skytree de Tokyo|Le Taipei 101",
+"d|Quel monument de Rome est un ancien temple dédié à tous les dieux ?|Le Panthéon|Le Colisée|Le Forum|Le Latran",
+"d|Quel monument cambodgien est le plus grand édifice religieux du monde ?|Angkor Vat|Borobudur|Bagan|Le Wat Pho",
+"d|Dans quel pays se trouve le temple de Borobudur ?|L'Indonésie|La Thaïlande|La Birmanie|Le Cambodge",
+"d|Quel ingénieur a conçu l'armature métallique de la statue de la Liberté ?|Gustave Eiffel|Le Corbusier|Haussmann|Viollet-le-Duc",
+"d|Dans quelle ville se trouve l'Alhambra ?|Grenade|Séville|Cordoue|Tolède",
+"d|Dans quelle ville se trouve le palais de Versailles ?|Versailles|Paris|Fontainebleau|Saint-Germain-en-Laye",
+"d|Quel monument de Londres est un ancien palais et forteresse qui abrite les joyaux de la Couronne ?|La tour de Londres|Buckingham Palace|Westminster|Tower Bridge",
+"d|Quelle cité inca est perchée dans les Andes près de Cuzco ?|Machu Picchu|Chichén Itzá|Teotihuacán|Tikal",
+"d|Quel opéra emblématique aux voiles blanches se trouve à Sydney ?|L'opéra de Sydney|L'opéra Garnier|La Scala|Le Covent Garden",
+"d|Près de quelle capitale se trouve le site de Teotihuacán ?|Mexico|Lima|Bogotá|La Havane"
+];
