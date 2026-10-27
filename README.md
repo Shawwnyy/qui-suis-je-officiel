@@ -4,7 +4,7 @@ Un jeu de quiz **multijoueur en ligne** (FR / EN) qui tourne entièrement dans l
 partie, les autres rejoignent avec un code, et les questions s'enchaînent avec scores, pouvoirs, bonus, chat et podium.
 Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **aucun serveur n'est nécessaire** pour jouer.
 
-- **157 thèmes**, environ **15 800 questions** (4 niveaux : facile, moyen, difficile, impossible)
+- **157 thèmes**, environ **15 800 questions** de texte, plus **≈ 700 questions avec image ajoutées à tous les thèmes** (tirées à chaque partie) (4 niveaux : facile, moyen, difficile, impossible)
 - Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, Word, PowerPoint, ODP, Excel, EPUB, page web, audio, vidéo…)
 - **Modération stricte** du chat (voir plus bas)
 - **Anti-triche progressif** : avertissements, malus, puis exclusion jusqu'à la fin de la partie
@@ -43,6 +43,7 @@ js/
                         + visual-questions.js (thème « Questions en images », généré à chaque partie)
                         + road-questions.js (thème « Code de la route en images », généré à chaque partie)
                         + image-themes.js (thèmes « Drapeaux en images » et « Lire l'heure », générés à chaque partie)
+                        + image-mix.js (questions avec image ajoutées à TOUS les thèmes, sans rien remplacer)
   media/                media.js : validation et affichage des images / vidéos YouTube / illustrations SVG
   stats/                analysis.js (calculs), charts.js (graphiques SVG), pdf.js (export PDF), stats.js (capture + tableau de bord)
 php/
@@ -176,6 +177,17 @@ Le thème **🚦 Code de la route en images** fonctionne de la même façon (≈
 
 Les thèmes **🏳️ Drapeaux en images** (30 drapeaux à bandes, croix nordiques, disques et croix suisse, sans armoiries) et **🕐 Lire l'heure** (horloge à aiguilles : heures pleines, quarts d'heure, puis toutes les 5 minutes) suivent la même règle ; `tests/images.test.js` relit les couleurs dessinées et l'angle des aiguilles.
 
+### Des images dans tous les thèmes (`js/data/image-mix.js`)
+
+Chaque thème reçoit, **en plus** de ses questions de texte (aucune n'est remplacée ni supprimée), quelques questions avec image — environ 12 % de la taille du thème, entre 3 et 8 — retirées au sort à chaque partie. Il y en a ≈ 700 en tout, sur les 157 thèmes :
+
+- **Pictogrammes** pour ≈ 100 thèmes à contenu visuel (« Quel est cet animal ? », « Quel instrument ? », « Quelle pièce d'échecs ? », « Quel fruit ? », symboles de la météo, du corps humain, de l'espace…) et **devinettes en émojis** (films, Disney & Pixar, contes et fables, séries, mangas, Pokémon, Harry Potter). Les émojis s'affichent avec la police d'émojis de l'appareil du joueur, donc leur dessin varie légèrement d'un téléphone à l'autre.
+- **Drapeaux, capitales, horloges, panneaux routiers** repris des générateurs existants pour Géographie, Pays, Europe, Afrique, Capitales, Drapeaux, Temps, Code de la route, Automobile…
+- **Polygones, fractions coloriées et opérations affichées en grand** pour Géométrie, Mathématiques et Calcul mental.
+- **Illustration d'ambiance** (l'émoji du thème sur un fond coloré) sur ≈ 8 % des questions des thèmes sans contenu visuel naturel (Histoire, Philosophie, Langues…). Elle est **purement décorative** : elle ne donne et ne contredit aucune réponse, et elle est retirée puis retirée au sort à chaque partie. Ce n'est pas une image propre à la question.
+
+`tests/mix.test.js` relit chaque dessin (émoji, nombre de côtés, parts coloriées, opération, drapeau) et vérifie que la bonne réponse correspond, avec des tables indépendantes du générateur.
+
 Les dessins sont des schémas simplifiés, pas des reproductions officielles des panneaux. `tests/road.test.js` relit chaque dessin (panneau, bras de l'intersection, lampe allumée, météo) et vérifie la bonne réponse indépendamment du générateur.
 
 ## 📊 Statistiques et graphiques
@@ -219,6 +231,7 @@ node tests/media.test.js                 # liens YouTube / images, filtrage SVG,
 node tests/visual.test.js                # chaque question en image est cohérente avec son dessin
 node tests/road.test.js                  # code de la route en images : chaque réponse est recalculée en relisant le dessin
 node tests/images.test.js                # drapeaux et horloges : la réponse est relue sur le dessin (couleurs, angle des aiguilles)
+node tests/mix.test.js                   # images dans tous les thèmes : chaque réponse est recalculée en relisant le dessin
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 node tests/pdf.test.js                   # export PDF : structure du fichier, métriques, caractères, pagination
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)

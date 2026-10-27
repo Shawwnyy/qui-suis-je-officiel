@@ -116,7 +116,7 @@ var V41Images = (function () {
     for (var i = QUESTIONS.length - 1; i >= 0; i--) if (QUESTIONS[i] && QUESTIONS[i].v41Img) QUESTIONS.splice(i, 1);
     var pool = build(); pool.forEach(function (q) { QUESTIONS.push(q); }); return pool.length;
   }
-  return { FLAGS_THEME: FLAGS_THEME, CLOCK_THEME: CLOCK_THEME, FLAGS: FLAGS, build: build, register: register, valid: valid };
+  return { FLAGS_THEME: FLAGS_THEME, CLOCK_THEME: CLOCK_THEME, FLAGS: FLAGS, flagSvg: flagSvg, clockSvg: clockSvg, fmt: fmt, build: build, register: register, valid: valid };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V41Images;
 if (typeof QUESTIONS !== "undefined") {
