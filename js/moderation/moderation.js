@@ -286,8 +286,63 @@
   }
   function resetStrikes(id) { if (id == null) strikes = Object.create(null); else delete strikes[id]; }
 
+  /* ---------- Épellation répartie sur plusieurs messages (b / i / t / e) ----------
+     Un message ne contient qu'une ou deux lettres : le filtre « message par message » ne voit rien.
+     On garde donc, pour chaque expéditeur, ses derniers « morceaux » (1 ou 2 caractères) sur 30 secondes,
+     même si d'autres messages normaux sont intercalés, et on analyse les lettres mises bout à bout.
+       · les morceaux forment un mot interdit  → bannissement ;
+       · 3 lettres isolées différentes (ou plus) en 30 s → bannissement (contournement évident) ;
+       · 3 lettres isolées seulement 2 à 2 différentes (« a b a ») → message supprimé + avertissement.                                              */
+  var SEQ_WINDOW_MS = 30000, SEQ_KEEP = 10;
+  var seqState = Object.create(null);
+  function pieceOf(raw) {
+    var t = prep(raw), letters = "", n = 0;
+    for (var i = 0; i < t.length; i++) {
+      var c = t.charAt(i);
+      if (c >= "a" && c <= "z") { letters += c; n++; }
+      else if (LEET_DIG[c]) { letters += LEET_DIG[c]; n++; }
+      else if (c >= "0" && c <= "9") { n++; }
+    }
+    /* au-delà de deux caractères, ce n'est plus un morceau ; un nombre seul (compte à rebours 3, 2, 1) n'en est pas un */
+    if (n < 1 || n > 2 || !/[a-z]/.test(t)) return null;
+    return { letters: letters, single: n === 1 };
+  }
+  function sequence(id, raw, now, mid) {
+    now = now || Date.now();
+    var ok = { blocked: false, ban: false, reason: "", label: "", run: [], letters: "" };
+    if (id == null) return ok;
+    var list = (seqState[id] || []).filter(function (e) { return now - e.t <= SEQ_WINDOW_MS; });
+    var pc = pieceOf(raw);
+    if (!pc) { if (list.length) seqState[id] = list; else delete seqState[id]; return ok; }
+    list.push({ t: now, letters: pc.letters, single: pc.single, mid: mid == null ? "" : String(mid) });
+    if (list.length > SEQ_KEEP) list = list.slice(list.length - SEQ_KEEP);
+    seqState[id] = list;
+    /* mots interdits formés par les k derniers morceaux (k = 2…8) */
+    for (var k = 2; k <= Math.min(list.length, 8); k++) {
+      var tail = list.slice(list.length - k), joined = tail.map(function (e) { return e.letters; }).join("");
+      if (joined.length < 3) continue;
+      var v = check(joined, { vertical: false });
+      if (v.blocked) {
+        return { blocked: true, ban: true, reason: "epellation", label: "mot interdit épelé en plusieurs messages", run: tail.map(function (e) { return e.mid; }), letters: joined, word: v.label || "" };
+      }
+    }
+    var singles = list.filter(function (e) { return e.single; });
+    var distinct = Object.create(null); singles.forEach(function (e) { distinct[e.letters] = true; });
+    var nd = Object.keys(distinct).length;
+    if (singles.length >= 3 && nd >= 3) {
+      return { blocked: true, ban: true, reason: "epellation", label: "message épelé lettre par lettre", run: singles.map(function (e) { return e.mid; }), letters: singles.map(function (e) { return e.letters; }).join("") };
+    }
+    if (singles.length >= 3 && nd >= 2) {   /* 3 lettres dont 2 seulement différentes (« a b a ») : message supprimé + avertissement */
+      return { blocked: true, ban: false, reason: "epellation", label: "message épelé lettre par lettre", run: singles.map(function (e) { return e.mid; }), letters: singles.map(function (e) { return e.letters; }).join("") };
+    }
+    return ok;
+  }
+  function resetSequence(id) { if (id == null) seqState = Object.create(null); else delete seqState[id]; }
+
   var Moderation = {
-    version: "2.0",
+    version: "2.1",
+    sequence: sequence,
+    resetSequence: resetSequence,
     check: check,
     strike: strike,
     resetStrikes: resetStrikes,

@@ -39,6 +39,19 @@ t("Max : 3 infractions", pl[2].cheats === 3);
 t("Léa : plus gros gain = 1100 (Q2)", pl[0].bestGain === 1100);
 t("réussite Léa 75 %", Math.abs(pl[0].accuracy - 0.75) < 1e-9);
 
+/* --- séries, rapidité, répartition des temps, faits marquants --- */
+t("Léa : meilleure série 2, réponse la plus rapide 1,5 s", pl[0].bestStreak === 2 && pl[0].fastest === 1.5);
+t("Tom : série 2 (Q3-Q4), plus rapide 2 s", pl[1].bestStreak === 2 && pl[1].fastest === 2);
+t("Max : aucune série, aucun temps de bonne réponse", pl[2].bestStreak === 0 && pl[2].fastest === null);
+const hist = A.timeHistogram(log);
+t("histogramme : 9 réponses chronométrées en 5 tranches de 4 s", hist.n === 9 && hist.width === 4 && hist.buckets.length === 5);
+t("histogramme : 0–4 s = 4 bonnes ; 4–8 s = 2 bonnes + 2 mauvaises ; 8–12 s = 1 mauvaise", hist.buckets[0].correct === 4 && hist.buckets[0].wrong === 0 && hist.buckets[1].correct === 2 && hist.buckets[1].wrong === 2 && hist.buckets[2].wrong === 1);
+t("histogramme : le total des tranches = n", hist.buckets.reduce((a, b) => a + b.correct + b.wrong, 0) === hist.n);
+t("histogramme : partie vide", A.timeHistogram(A.normalize({ P: [{ i: "a", n: "A" }], R: [] })).n === 0);
+const hl = A.highlights(log);
+t("faits marquants : série, rapidité, gain, réussite", hl.map(h => h.key).join() === "streak,fastest,gain,accuracy" && hl.every(h => h.name === "Léa"));
+t("faits marquants : partie vide sans erreur", A.highlights(A.normalize({ P: [{ i: "a", n: "A" }], R: [] })).length === 0);
+
 /* --- courbes --- */
 const ser = A.scoreSeries(log);
 t("courbe : départ à 0 puis un point par question", ser[0].values.length === 5 && ser[0].values[0] === 0 && ser[0].values[4] === 2600);

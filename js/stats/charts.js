@@ -265,7 +265,7 @@ var V40Charts = (function () {
       });
       if (!parts.length) g.appendChild(sv("text", { x: bx + 8, y: y + 16, "font-size": 12, fill: C.muted, text: "aucune réponse" }));
       hover(g, function () {
-        return { title: r.label, sub: r.total + " question" + (r.total > 1 ? "s" : ""), rows: r.parts.map(function (p) { return { color: p.color, label: (p.glyph ? p.glyph + " " : "") + p.name, value: p.value + (r.total ? " (" + Math.round(p.value / r.total * 100) + " %)" : "") }; }) };
+        return { title: r.label, sub: r.total + " " + (o.unit || "question") + (r.total > 1 ? "s" : ""), rows: r.parts.map(function (p) { return { color: p.color, label: (p.glyph ? p.glyph + " " : "") + p.name, value: p.value + (r.total ? " (" + Math.round(p.value / r.total * 100) + " %)" : "") }; }) };
       });
       svg.appendChild(g);
     });

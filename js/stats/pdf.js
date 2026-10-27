@@ -262,6 +262,36 @@ var V40Pdf = (function () {
       });
       y += 8;
     }
+    /* ----- Faits marquants, séries, rapidité, répartition des temps ----- */
+    function valueBars(titleText, items, fillColor) {
+      if (!items.length) return;
+      title(titleText, Math.min(items.length, 8) * 17);
+      var lw = 150, bx = M + lw, bw = CW - lw - 110, top = Math.max.apply(null, items.map(function (it) { return it.value; }).concat([1e-9]));
+      items.forEach(function (it) {
+        room(18);
+        W.text(M, y, it.label, { size: 9, color: C.ink, maxW: lw - 8 });
+        W.rect(bx, y - 9, bw, 10, { fill: C.band });
+        if (it.value > 0) W.rect(bx, y - 9, Math.max(1.5, bw * it.value / top), 10, { fill: fillColor || C.accent });
+        W.text(bx + bw + 8, y, it.text, { size: 8.5, color: C.sub });
+        y += 17;
+      });
+      y += 8;
+    }
+    var hl = A.highlights(log), HL = { streak: "Plus longue série de bonnes réponses", fastest: "Réponse correcte la plus rapide", gain: "Plus gros gain en une question", accuracy: "Meilleure réussite" };
+    if (hl.length) {
+      title("Faits marquants", 16 * (hl.length + 1));
+      table([
+        { h: "Distinction", w: 4, f: function (h) { return HL[h.key]; } },
+        { h: "Joueur", w: 3, f: function (h) { return h.name; } },
+        { h: "Résultat", w: 3, a: "right", f: function (h) { return h.key === "streak" ? h.row.bestStreak + " d'affilée" : h.key === "fastest" ? secs(h.row.fastest) : h.key === "gain" ? "+" + Math.round(h.row.bestGain) + " pts" : pct(h.row.accuracy) + " (" + h.row.correct + "/" + h.row.answered + ")"; } }
+      ], hl);
+      y += 8;
+    }
+    var prows = A.perPlayer(log);
+    valueBars("Meilleure série de bonnes réponses", prows.slice().sort(function (a, b) { return b.bestStreak - a.bestStreak || a.idx - b.idx; }).slice(0, 20).map(function (r) { return { label: r.name, value: r.bestStreak, text: r.bestStreak + " d'affilée" }; }));
+    valueBars("Temps de réponse moyen", prows.filter(function (r) { return r.avgTime !== null; }).sort(function (a, b) { return a.avgTime - b.avgTime; }).slice(0, 20).map(function (r) { return { label: r.name, value: r.avgTime, text: secs(r.avgTime) }; }));
+    var th = A.timeHistogram(log);
+    if (th.n) valueBars("Répartition des temps de réponse", th.buckets.map(function (b) { return { label: b.label, value: b.correct + b.wrong, text: (b.correct + b.wrong) + "  (✓" + b.correct + " ✗" + b.wrong + ")" }; }));
     bars("Réussite par thème", A.byCategory(log).slice(0, 24), function (g) { return g.label; });
     bars("Réussite par difficulté", A.byDifficulty(log), function (g) { return (DIFF[g.key] || g.key) + " (" + g.questions + " q.)"; });
     var med = A.byMedia(log); if (med.length > 1) bars("Questions avec image ou vidéo", med, function (g) { return g.label + " (" + g.questions + " q.)"; });

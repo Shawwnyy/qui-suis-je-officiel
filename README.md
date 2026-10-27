@@ -4,12 +4,12 @@ Un jeu de quiz **multijoueur en ligne** (FR / EN) qui tourne entièrement dans l
 partie, les autres rejoignent avec un code, et les questions s'enchaînent avec scores, pouvoirs, bonus, chat et podium.
 Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **aucun serveur n'est nécessaire** pour jouer.
 
-- **151 thèmes**, environ **13 600 questions** (4 niveaux : facile, moyen, difficile, impossible)
+- **157 thèmes**, environ **15 800 questions** de texte, plus **≈ 700 questions avec image ajoutées à tous les thèmes** (tirées à chaque partie) (4 niveaux : facile, moyen, difficile, impossible)
 - Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, Word, PowerPoint, ODP, Excel, EPUB, page web, audio, vidéo…)
 - **Modération stricte** du chat (voir plus bas)
 - **Anti-triche progressif** : avertissements, malus, puis exclusion jusqu'à la fin de la partie
-- **Questions avec image ou vidéo YouTube** (agrandissables), dont un thème de questions en images (« de quelle couleur est le pull ? »)
-- **Statistiques et graphiques** de chaque partie, historique des 12 dernières parties, export **PDF** (tableaux + graphiques) et CSV
+- **Questions avec image ou vidéo YouTube** (agrandissables), dont quatre thèmes dessinés par le jeu : questions en images (« de quelle couleur est le pull ? »), **Code de la route en images** (panneaux, feux, priorités à une intersection, rond-point, vitesse selon la météo), **Drapeaux en images** et **Lire l'heure** (horloge à aiguilles)
+- **Statistiques et graphiques** de chaque partie (classement, évolution des scores, séries de bonnes réponses, réponses les plus rapides, répartition des temps, faits marquants), historique des 12 dernières parties, export **PDF** (tableaux + graphiques) et CSV
 
 ## ▶️ Lancer le jeu
 
@@ -41,11 +41,14 @@ js/
                         lecture des fichiers et des liens (extract.js), interface (ui.js)
   data/                 questions : banque d'origine + data/bank/NNN-theme.js (un fichier par thème)
                         + visual-questions.js (thème « Questions en images », généré à chaque partie)
+                        + road-questions.js (thème « Code de la route en images », généré à chaque partie)
+                        + image-themes.js (thèmes « Drapeaux en images » et « Lire l'heure », générés à chaque partie)
+                        + image-mix.js (questions avec image ajoutées à TOUS les thèmes, sans rien remplacer)
   media/                media.js : validation et affichage des images / vidéos YouTube / illustrations SVG
   stats/                analysis.js (calculs), charts.js (graphiques SVG), pdf.js (export PDF), stats.js (capture + tableau de bord)
 php/
   qcm.php               OPTIONNEL — extraction, lecture de liens, transcription et mode IA côté serveur (voir plus bas)
-tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, statistiques, PDF)
+tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route / drapeaux / horloges en images, statistiques, PDF)
 ```
 
 Ce sont des scripts classiques (pas de bundler, pas de build) : **l'ordre des balises `<script>` de `index.html` compte**.
@@ -59,6 +62,8 @@ Détection notamment de :
 - texte écrit **lettre par lettre sur plusieurs lignes** (`B` ⏎ `I` ⏎ `T` ⏎ `E`), même avec des lignes vides ou du texte autour ;
 - lettres séparées par des espaces ou des symboles (`b i t e`, `b.i.t.e`, `b!i!t!e`) ;
 - astuces classiques : accents, majuscules mélangées, lettres étirées (`biiiite`), leet (`p@ute`, `m3rde`), caractères de largeur nulle, lettres homoglyphes (cyrillique, grec, pleine largeur).
+
+**Contournement par épellation (bannissement).** Envoyer un mot lettre par lettre (« b », « i », « t », « e » en quatre messages) ne trompe plus le filtre : l'hôte garde les « morceaux » (1 ou 2 caractères) de chaque joueur pendant 30 secondes, même si d'autres messages sont intercalés. Si les morceaux forment un mot interdit, ou si le joueur envoie **3 lettres isolées différentes** en 30 s, il est **banni automatiquement** : ses morceaux disparaissent du chat de tout le monde, il est retiré de la partie, son pseudo et son identifiant sont refusés s'il tente de revenir (jusqu'à ce que l'hôte ferme la page), les autres joueurs sont prévenus et l'hôte retrouve la ligne dans son journal. Trois lettres seulement 2 à 2 différentes (« a b a ») suppriment le message avec un avertissement. Les nombres seuls (compte à rebours « 3, 2, 1 ») et les réponses courtes (« ok », « A », « B ») ne sont pas touchés. Limite : un joueur banni peut revenir avec un autre pseudo.
 
 Sanctions progressives par joueur : 1ᵉʳ message interdit → avertissement ; 2ᵉ → sourdine 1 min ; 3ᵉ → 5 min ; 4ᵉ et suivants → 15 min.
 La sourdine se lève d'elle-même à la fin de sa durée (le joueur est prévenu) et le compteur repart à zéro après 10 minutes sans infraction. Le journal de modération est visible côté hôte.
@@ -164,6 +169,27 @@ Il est conservé à l'export / import des questions.
 Le thème intégré **🖼️ Questions en images** crée à chaque partie de petites scènes (personnes avec un pull, un pantalon ou un chapeau de couleur, formes, ballons, étoiles…).
 Les réponses sont **calculées à partir de ce qui est dessiné** (`tests/visual.test.js` relit chaque dessin pour le vérifier). Ce sont des illustrations originales, en français.
 
+Le thème **🚦 Code de la route en images** fonctionne de la même façon (≈ 110 questions par partie, nouveaux dessins à chaque partie) :
+- **Panneaux** (≈ 26 : danger, interdiction, obligation, indication, stop, cédez le passage, route à priorité, limitations de vitesse) : « Que signifie ce panneau ? », famille, forme, vitesse, « Quel panneau signifie… ? » (4 panneaux A à D).
+- **Feux tricolores** : que doit faire le conducteur selon la lampe allumée ?
+- **Mises en situation** : intersection vue de dessus avec deux véhicules de couleurs différentes : priorité à droite, Stop, Cédez le passage, route à priorité (losange).
+- **Conditions** : vitesse maximale selon la route (autoroute, route à chaussées séparées, agglomération) et la météo (sec / pluie).
+
+Les thèmes **🏳️ Drapeaux en images** (30 drapeaux à bandes, croix nordiques, disques et croix suisse, sans armoiries) et **🕐 Lire l'heure** (horloge à aiguilles : heures pleines, quarts d'heure, puis toutes les 5 minutes) suivent la même règle ; `tests/images.test.js` relit les couleurs dessinées et l'angle des aiguilles.
+
+### Des images dans tous les thèmes (`js/data/image-mix.js`)
+
+Chaque thème reçoit, **en plus** de ses questions de texte (aucune n'est remplacée ni supprimée), quelques questions avec image — environ 12 % de la taille du thème, entre 3 et 8 — retirées au sort à chaque partie. Il y en a ≈ 700 en tout, sur les 157 thèmes :
+
+- **Pictogrammes** pour ≈ 100 thèmes à contenu visuel (« Quel est cet animal ? », « Quel instrument ? », « Quelle pièce d'échecs ? », « Quel fruit ? », symboles de la météo, du corps humain, de l'espace…) et **devinettes en émojis** (films, Disney & Pixar, contes et fables, séries, mangas, Pokémon, Harry Potter). Les émojis s'affichent avec la police d'émojis de l'appareil du joueur, donc leur dessin varie légèrement d'un téléphone à l'autre.
+- **Drapeaux, capitales, horloges, panneaux routiers** repris des générateurs existants pour Géographie, Pays, Europe, Afrique, Capitales, Drapeaux, Temps, Code de la route, Automobile…
+- **Polygones, fractions coloriées et opérations affichées en grand** pour Géométrie, Mathématiques et Calcul mental.
+- **Illustration d'ambiance** (l'émoji du thème sur un fond coloré) sur ≈ 8 % des questions des thèmes sans contenu visuel naturel (Histoire, Philosophie, Langues…). Elle est **purement décorative** : elle ne donne et ne contredit aucune réponse, et elle est retirée puis retirée au sort à chaque partie. Ce n'est pas une image propre à la question.
+
+`tests/mix.test.js` relit chaque dessin (émoji, nombre de côtés, parts coloriées, opération, drapeau) et vérifie que la bonne réponse correspond, avec des tables indépendantes du générateur.
+
+Les dessins sont des schémas simplifiés, pas des reproductions officielles des panneaux. `tests/road.test.js` relit chaque dessin (panneau, bras de l'intersection, lampe allumée, météo) et vérifie la bonne réponse indépendamment du générateur.
+
 ## 📊 Statistiques et graphiques
 
 Le bouton **📊** (barre latérale, écran des résultats ou accueil) ouvre un tableau de bord. Pendant la partie, l'hôte note chaque réponse et envoie le journal à tous
@@ -203,6 +229,9 @@ node tests/bank.test.js                  # valide toutes les questions (format, 
 node tests/bank.test.js "Football|Chess"   # ne valider que certains thèmes (expression régulière)
 node tests/media.test.js                 # liens YouTube / images, filtrage SVG, politique anti-triche
 node tests/visual.test.js                # chaque question en image est cohérente avec son dessin
+node tests/road.test.js                  # code de la route en images : chaque réponse est recalculée en relisant le dessin
+node tests/images.test.js                # drapeaux et horloges : la réponse est relue sur le dessin (couleurs, angle des aiguilles)
+node tests/mix.test.js                   # images dans tous les thèmes : chaque réponse est recalculée en relisant le dessin
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 node tests/pdf.test.js                   # export PDF : structure du fichier, métriques, caractères, pagination
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)
