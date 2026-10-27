@@ -33,6 +33,7 @@ css/
   features.css          styles des fonctionnalités (chat, pouvoirs, podium…)
   qcm.css               styles de la fenêtre « QCM depuis un cours »
   v40.css               anti-triche, questions avec média, statistiques
+  v43.css               voix off (réglages) et carte de justification de la réponse
 js/
   core/                 moteur du jeu (réseau, joueurs, questions, scores…)
   patches/              évolutions successives, chargées dans l'ordre des numéros
@@ -46,9 +47,11 @@ js/
                         + image-mix.js (questions avec image ajoutées à TOUS les thèmes, sans rien remplacer)
   media/                media.js : validation et affichage des images / vidéos YouTube / illustrations SVG
   stats/                analysis.js (calculs), charts.js (graphiques SVG), pdf.js (export PDF), stats.js (capture + tableau de bord)
+  voice/                voice.js : voix off (la question est lue à voix haute, synthèse vocale du navigateur)
+  justif/               justif.js : justification après chaque réponse (bonne ou mauvaise)
 php/
   qcm.php               OPTIONNEL — extraction, lecture de liens, transcription et mode IA côté serveur (voir plus bas)
-tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route / drapeaux / horloges en images, statistiques, PDF)
+tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route / drapeaux / horloges en images, statistiques, PDF, justifications / voix off)
 ```
 
 Ce sont des scripts classiques (pas de bundler, pas de build) : **l'ordre des balises `<script>` de `index.html` compte**.
@@ -209,6 +212,27 @@ Export **CSV** de toutes les réponses (compatible tableur) et export **📄 PDF
 
 Les journaux reçus par le réseau sont nettoyés et bornés avant usage (`V40Analysis.normalize`).
 
+## 🗣️ Voix off et justifications
+
+### Voix off (`js/voice/voice.js`)
+Chaque question est **lue à voix haute** au moment où elle s'affiche, avec la synthèse vocale du navigateur (gratuite, sans compte, aucune donnée envoyée).
+Le réglage est **personnel** (gardé dans le navigateur de chaque joueur) : bouton **🗣️** du dock →
+- lire les questions à voix haute (activé par défaut) ;
+- lire aussi les quatre réponses (« Réponse A : … ») ;
+- lire l'explication après la réponse ;
+- vitesse (lente → très rapide) et choix de la voix française s'il y en a plusieurs, avec un bouton « Écouter un exemple ».
+
+La lecture s'arrête dès qu'on répond, quand la correction apparaît ou à la question suivante, et respecte le bouton « Son ON / OFF ». Les symboles sont dits en toutes lettres (« × » → « fois », « % » → « pour cent »…) et les emojis sont ignorés.
+Le narrateur 🔊 existant (« Bonne réponse / Mauvaise réponse ») est inchangé. Si le navigateur n'a pas de synthèse vocale, le panneau l'indique. La qualité de la voix dépend de l'appareil.
+
+### Justifications (`js/justif/justif.js`)
+Après chaque réponse, une carte explique le résultat, selon le cas :
+- **bonne réponse** : confirmation, phrase complète quand la forme de la question le permet (« Paris est la capitale de la France. »), explication propre à la question, taux de réussite des joueurs sur cette manche ;
+- **mauvaise réponse** : ce qui a été répondu, la bonne réponse, pourquoi la réponse choisie ne convient pas (écart chiffré pour une date ou un nombre : « 3 ans trop tard »), **confusion repérée** quand la réponse choisie est la bonne réponse d'une autre question de la banque, et « À retenir » ;
+- **temps écoulé** : la bonne réponse et son explication.
+
+La carte est complétée environ une seconde plus tard avec les statistiques de la manche (« 1 joueur a trouvé la bonne réponse sur 2 »). Le texte est calculé à partir des données de la question : **la banque ne contient pas d'explication écrite à la main pour chaque question**, donc rien n'est inventé ; quand aucune phrase fiable ne peut être construite, la carte se limite à la bonne réponse, à la correction existante et à la statistique.
+
 ## ➕ Ajouter des questions ou un thème
 
 Un thème = un fichier `js/data/bank/NNN-nom.js` :
@@ -236,6 +260,7 @@ node tests/images.test.js                # drapeaux et horloges : la réponse es
 node tests/mix.test.js                   # images dans tous les thèmes : chaque réponse est recalculée en relisant le dessin
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 node tests/pdf.test.js                   # export PDF : structure du fichier, métriques, caractères, pagination
+node tests/justif.test.js                # justifications (bonne / mauvaise / temps écoulé, écarts, confusions, HTML échappé) et texte lu par la voix off
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)
 ```
 
