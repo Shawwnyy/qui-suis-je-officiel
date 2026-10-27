@@ -55,6 +55,36 @@ warn("🛡️ Modération : message de "+((p&&p.name)||"?")+" supprimé ("+label
 }
 try{tell(note);}catch(e){}
 }
+/* Bannissement (hôte) : contournement du filtre en épelant un mot lettre par lettre sur plusieurs messages.
+   Le joueur est retiré de la partie, ses messages « morceaux » disparaissent chez tout le monde, et ni son identifiant
+   ni son pseudo ne sont réadmis pendant cette session de l'hôte. */
+const banned={ids:new Set(),names:new Set(),list:[],unban(name){const k=nameKey(name);this.names.delete(k);this.list=this.list.filter(b=>nameKey(b.name)!==k);},clear(){this.ids.clear();this.names.clear();this.list=[];}};
+window.v36Banned=banned;
+function nameKey(n){return String(n||"").normalize("NFKD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]/g,"");}
+function banPlayer(pid,p,why){
+if(!isHost||!pid||pid===myId||banned.ids.has(pid))return false;
+const name=String((p&&p.name)||nameOf(pid)).slice(0,24);
+banned.ids.add(pid);const k=nameKey(name);if(k)banned.names.add(k);banned.list.push({id:pid,name,why,at:Date.now()});
+try{window.Moderation.resetSequence(pid);window.Moderation.resetStrikes(pid);}catch(e){}
+try{sendTo(pid,{type:"v15Banned",reason:"Tu as été banni de cette partie : "+why+"."});}catch(e){}
+const A=adm();A.filterHits=(A.filterHits||0)+1;
+try{if(Array.isArray(A.log))A.log.unshift({at:new Date().toISOString(),time:new Date().toLocaleTimeString("fr-FR"),action:"BANNISSEMENT_AUTOMATIQUE",detail:name+" · "+why,playerId:pid});}catch(e){}
+try{broadcast({type:"v12Notice",message:"🚫 "+name+" a été banni(e) de la partie : contournement du filtre du chat ("+why+")."});}catch(e){}
+warn("🛡️ Modération : "+name+" banni(e) — "+why+".");
+setTimeout(()=>{try{performKick(pid);}catch(e){}},150);
+return true;
+}
+/* Épellation répartie sur plusieurs messages : supprime les morceaux déjà publiés, puis bannit ou avertit. */
+function sequenceViolation(pid,p,id,text,sq,reject){
+(sq.run||[]).forEach(mid=>{if(!mid||mid===id)return;S.gone.add(mid);const m=S.msgs.get(mid);if(m){hostDelete({id:mid,by:myId},true);archive(m,"blocked","Contournement du filtre : "+sq.label);}});
+S.gone.add(id);
+if(sq.ban){
+const A=adm();archive({id,playerId:pid,name:(p&&p.name)||"?",text:String(text||"")},"blocked","Contournement du filtre : "+sq.label+" → bannissement");
+banPlayer(pid,p,sq.label+(sq.letters?" (« "+sq.letters+" »)":""));
+return;
+}
+moderate(pid,p,id,text,{label:sq.label},t=>reject(t,true));
+}
 /* Historique hôte (rapport V13) et activité de profil (V10). */
 function archive(m,status,reason){
 if(!isHost||!Array.isArray(window.v13ChatArchive))return;
@@ -122,9 +152,11 @@ const id=cleanId(msg.id)||newId();
 const ex=S.msgs.get(id);if(S.gone.has(id)||(ex&&!ex.pending))return;
 const A=adm();
 const reject=(t,blocked)=>{if(pid===myId){removeLocal(id);warn(t);}else sendTo(pid,{type:"v36ChatReject",id,message:t,blocked:!!blocked});};
+if(banned.ids.has(pid))return;
 if(A.chatLocked&&!p.host)return reject("🔒 Le chat est verrouillé par l’hôte.");
 if(A.muted&&A.muted.has&&A.muted.has(pid))return reject("🔇 Tu as été mis en sourdine par l’hôte.");
 const now=Date.now();if(pid!==myId){const h=(S.lastFrom[pid]||[]).filter(x=>now-x<3000);if(h.length>=10){S.lastFrom[pid]=h;return reject("⏳ Trop de messages d’un coup, patiente un instant.");}h.push(now);S.lastFrom[pid]=h;}
+if(pid!==myId){let sq=null;try{sq=window.Moderation&&window.Moderation.sequence&&window.Moderation.sequence(pid,msg.text,Date.now(),id);}catch(e){}if(sq&&sq.blocked)return sequenceViolation(pid,p,id,msg.text,sq,reject);}
 const f=filter(msg.text);
 if(!f.ok){if(f.why==="blocked")return moderate(pid,p,id,msg.text,f,t=>reject(t,true));return reject("Message vide.");}
 const out={type:"chat",id,playerId:pid,name:p.name,text:f.text,time:okTime(msg.time)?msg.time:stamp()};
@@ -230,6 +262,9 @@ broadcast({type:"v36ChatDelete",id});
 const prevHandle=handleData;
 handleData=function(data){
 const t=data&&data.type;
+if(isHost&&t==="join"&&data.player&&(banned.ids.has(data.player.id)||banned.names.has(nameKey(data.player.name)))){
+try{sendTo(data.player.id,{type:"v15Banned",reason:"Tu as été banni de cette session."});}catch(e){}
+setTimeout(()=>{try{connections[data.player.id]&&connections[data.player.id].close();}catch(e){}},150);return;}
 if(t==="chat"){if(isHost){if(data.playerId!==myId)relayChat(data);}else addChatMessage(data);return;}
 if(t==="v36ChatEdit"){if(isHost)hostEdit(data,false);else applyEdit(data);return;}
 if(t==="v36ChatDelete"){if(isHost)hostDelete(data,false);else removeLocal(cleanId(data.id));return;}
