@@ -8,7 +8,7 @@ Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **a
 - Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, Word, PowerPoint, ODP, Excel, EPUB, page web, audio, vidéo…)
 - **Modération stricte** du chat (voir plus bas)
 - **Anti-triche progressif** : avertissements, malus, puis exclusion jusqu'à la fin de la partie
-- **Questions avec image ou vidéo YouTube** (agrandissables), dont deux thèmes dessinés par le jeu : questions en images (« de quelle couleur est le pull ? ») et **Code de la route en images** (panneaux, feux, priorités à une intersection, vitesse selon la météo)
+- **Questions avec image ou vidéo YouTube** (agrandissables), dont quatre thèmes dessinés par le jeu : questions en images (« de quelle couleur est le pull ? »), **Code de la route en images** (panneaux, feux, priorités à une intersection, rond-point, vitesse selon la météo), **Drapeaux en images** et **Lire l'heure** (horloge à aiguilles)
 - **Statistiques et graphiques** de chaque partie (classement, évolution des scores, séries de bonnes réponses, réponses les plus rapides, répartition des temps, faits marquants), historique des 12 dernières parties, export **PDF** (tableaux + graphiques) et CSV
 
 ## ▶️ Lancer le jeu
@@ -42,11 +42,12 @@ js/
   data/                 questions : banque d'origine + data/bank/NNN-theme.js (un fichier par thème)
                         + visual-questions.js (thème « Questions en images », généré à chaque partie)
                         + road-questions.js (thème « Code de la route en images », généré à chaque partie)
+                        + image-themes.js (thèmes « Drapeaux en images » et « Lire l'heure », générés à chaque partie)
   media/                media.js : validation et affichage des images / vidéos YouTube / illustrations SVG
   stats/                analysis.js (calculs), charts.js (graphiques SVG), pdf.js (export PDF), stats.js (capture + tableau de bord)
 php/
   qcm.php               OPTIONNEL — extraction, lecture de liens, transcription et mode IA côté serveur (voir plus bas)
-tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route en images, statistiques, PDF)
+tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route / drapeaux / horloges en images, statistiques, PDF)
 ```
 
 Ce sont des scripts classiques (pas de bundler, pas de build) : **l'ordre des balises `<script>` de `index.html` compte**.
@@ -173,6 +174,8 @@ Le thème **🚦 Code de la route en images** fonctionne de la même façon (≈
 - **Mises en situation** : intersection vue de dessus avec deux véhicules de couleurs différentes : priorité à droite, Stop, Cédez le passage, route à priorité (losange).
 - **Conditions** : vitesse maximale selon la route (autoroute, route à chaussées séparées, agglomération) et la météo (sec / pluie).
 
+Les thèmes **🏳️ Drapeaux en images** (30 drapeaux à bandes, croix nordiques, disques et croix suisse, sans armoiries) et **🕐 Lire l'heure** (horloge à aiguilles : heures pleines, quarts d'heure, puis toutes les 5 minutes) suivent la même règle ; `tests/images.test.js` relit les couleurs dessinées et l'angle des aiguilles.
+
 Les dessins sont des schémas simplifiés, pas des reproductions officielles des panneaux. `tests/road.test.js` relit chaque dessin (panneau, bras de l'intersection, lampe allumée, météo) et vérifie la bonne réponse indépendamment du générateur.
 
 ## 📊 Statistiques et graphiques
@@ -215,6 +218,7 @@ node tests/bank.test.js "Football|Chess"   # ne valider que certains thèmes (ex
 node tests/media.test.js                 # liens YouTube / images, filtrage SVG, politique anti-triche
 node tests/visual.test.js                # chaque question en image est cohérente avec son dessin
 node tests/road.test.js                  # code de la route en images : chaque réponse est recalculée en relisant le dessin
+node tests/images.test.js                # drapeaux et horloges : la réponse est relue sur le dessin (couleurs, angle des aiguilles)
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 node tests/pdf.test.js                   # export PDF : structure du fichier, métriques, caractères, pagination
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)
