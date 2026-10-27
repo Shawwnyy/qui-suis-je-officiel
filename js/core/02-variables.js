@@ -1,0 +1,31 @@
+/* =========================================================
+VARIABLES
+========================================================= */
+let peer=null;
+let connections={};
+let isHost=false;
+let myId="";
+let myName="";
+let roomCode="";
+let players={};
+let currentQuestion=null;
+let currentQuestionIndex=0;
+let totalRounds=10;
+let questionTime=20;
+let timeLeft=20;
+let timer=null;
+let powerTimer=null;
+let answered=false;
+let usedQuestions=[];
+let answersReceived=new Set();
+let selectedThemes=[];
+let gameStarted=false;
+let kicked=false;
+let gameFinishSent=false;
+let questionResultTimeout=null;
+let myAnswerForQuestion=null;
+let soundEnabled=true;
+let audioContext=null;
+let pendingAction=null;
+let powerOpen=false;
+let powerToken=null;
