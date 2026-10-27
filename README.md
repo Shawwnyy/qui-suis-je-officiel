@@ -51,6 +51,7 @@ js/
   justif/               justif.js : justification après chaque réponse (bonne ou mauvaise)
   clock/                clock.js : horloge permanente HH:MM:SS en bas à gauche
   wheel/                wheel.js : roue des bonus et malus (entre deux manches)
+  fix/                  scroll-top.js : chaque nouvelle question s'affiche en haut de la page
 php/
   qcm.php               OPTIONNEL — extraction, lecture de liens, transcription et mode IA côté serveur (voir plus bas)
 tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route / drapeaux / horloges en images, statistiques, PDF, justifications / voix off)
