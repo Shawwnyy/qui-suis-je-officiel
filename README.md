@@ -33,7 +33,7 @@ css/
   features.css          styles des fonctionnalités (chat, pouvoirs, podium…)
   qcm.css               styles de la fenêtre « QCM depuis un cours »
   v40.css               anti-triche, questions avec média, statistiques
-  v43.css               voix off (réglages), carte de justification de la réponse et horloge permanente
+  v43.css               voix off (réglages), justification de la réponse, horloge permanente et roue des bonus / malus
 js/
   core/                 moteur du jeu (réseau, joueurs, questions, scores…)
   patches/              évolutions successives, chargées dans l'ordre des numéros
@@ -50,6 +50,7 @@ js/
   voice/                voice.js : voix off (la question est lue à voix haute, synthèse vocale du navigateur)
   justif/               justif.js : justification après chaque réponse (bonne ou mauvaise)
   clock/                clock.js : horloge permanente HH:MM:SS en bas à gauche
+  wheel/                wheel.js : roue des bonus et malus (entre deux manches)
 php/
   qcm.php               OPTIONNEL — extraction, lecture de liens, transcription et mode IA côté serveur (voir plus bas)
 tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route / drapeaux / horloges en images, statistiques, PDF, justifications / voix off)
@@ -238,6 +239,20 @@ La carte est complétée environ une seconde plus tard avec les statistiques de 
 L'heure **HH:MM:SS** (24 h, en gras) s'affiche **en bas à gauche, sur tous les écrans** : accueil, salons, question, correction, résultats, fenêtres ouvertes. Elle se place juste au-dessus du bouton « Son ON / OFF », ne capte jamais un clic et se recale sur le début de chaque seconde (et au retour sur l'onglet).
 C'est l'heure **de l'appareil de chaque joueur** (pas une heure serveur : si l'horloge d'un téléphone est déréglée, elle l'est aussi à l'écran). Elle n'apparaît pas à l'impression.
 
+## 🎡 Roue des bonus et malus (`js/wheel/wheel.js`)
+Une roue tourne **entre deux questions, après la 3e, la 6e, la 9e… manche** (jamais après la dernière ; pas de roue dans une partie de 3 manches ou moins). **Chaque joueur tire sa propre case en même temps** : l'hôte tire au sort (8 cases, toutes équiprobables : la taille d'une case est sa vraie probabilité) puis diffuse le résultat ; chacun voit la roue s'arrêter sur SA case, puis la liste des résultats de tous. La question suivante démarre juste après (≈ 9,5 s).
+
+| Case | Effet |
+|---|---|
+| 💎 +300 · 💰 +1000 (jackpot) | points ajoutés |
+| ⚡ ×2 | points doublés sur la prochaine question |
+| 🛡️ Bouclier | bloque le prochain malus |
+| 💸 −200 · 💥 −500 | points retirés (jamais sous 0 : « rien à perdre » si le score est à 0) |
+| 🏛️ −15 % | impôt de 15 % du score (arrondi vers le bas) |
+| 💔 Série | série de bonnes réponses remise à zéro |
+
+Un bouclier déjà obtenu annule le malus et se consomme. Les effets sont appliqués **uniquement par l'hôte** ; les joueurs ne font qu'afficher (messages réseau bornés et nettoyés). **Limite connue : la roue n'apparaît pas encore dans l'onglet « Bonus / Malus » des statistiques ni dans le PDF** (leur modèle suppose un lanceur et une cible).
+
 ## ➕ Ajouter des questions ou un thème
 
 Un thème = un fichier `js/data/bank/NNN-nom.js` :
@@ -265,6 +280,7 @@ node tests/images.test.js                # drapeaux et horloges : la réponse es
 node tests/mix.test.js                   # images dans tous les thèmes : chaque réponse est recalculée en relisant le dessin
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 node tests/pdf.test.js                   # export PDF : structure du fichier, métriques, caractères, pagination
+node tests/wheel.test.js                 # roue : moments de déclenchement, effet exact de chaque case, bouclier, plafonds, équiprobabilité, messages réseau
 node tests/clock.test.js                 # horloge : format HH:MM:SS recalculé autrement (20 000 dates, changements d'heure), recalage sur la seconde
 node tests/justif.test.js                # justifications (bonne / mauvaise / temps écoulé, écarts, confusions, HTML échappé) et texte lu par la voix off
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)

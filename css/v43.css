@@ -29,3 +29,21 @@ html.qcm-open .v43v-panel{display:none!important}
   -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 @media(max-width:520px){#v44Clock{left:10px;bottom:54px;font-size:13px;padding:5px 8px}}
 @media print{#v44Clock{display:none}}
+
+/* V45 — roue des bonus et malus */
+#v45Wheel{position:fixed;inset:0;z-index:25500;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(6,6,20,.86);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+#v45Wheel.show{display:flex}
+#v45Wheel .v45-card{width:min(440px,100%);max-height:100%;overflow:auto;text-align:center;color:#fff;background:#17182d;border:1px solid rgba(255,255,255,.16);border-radius:20px;padding:18px 16px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#v45Wheel .v45-title{font-weight:900;font-size:20px;margin-bottom:10px}
+#v45Wheel .v45-stage{position:relative;width:min(300px,72vw);margin:6px auto 4px}
+#v45Wheel .v45-pointer{position:absolute;left:50%;top:-6px;width:0;height:0;margin-left:-11px;border-left:11px solid transparent;border-right:11px solid transparent;border-top:22px solid #fff;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));z-index:2}
+#v45Wheel .v45-wheel{display:block;width:100%;height:auto}
+#v45Wheel .v45-status{min-height:26px;margin:10px 0 6px;font-weight:800;font-size:17px}
+#v45Wheel .v45-status.bonus{color:#86efac}#v45Wheel .v45-status.malus{color:#fca5a5}
+#v45Wheel .v45-list{list-style:none;margin:6px 0 0;padding:0;max-height:26vh;overflow:auto;text-align:left}
+#v45Wheel .v45-list li{display:flex;justify-content:space-between;gap:10px;padding:5px 9px;margin-top:4px;border-radius:9px;font-size:13px;background:rgba(255,255,255,.06);border-left:4px solid #22c55e}
+#v45Wheel .v45-list li.malus{border-left-color:#ef4444}#v45Wheel .v45-list li.blocked{border-left-color:#38bdf8}
+#v45Wheel .v45-list li.me{background:rgba(168,85,247,.22);font-weight:800}
+#v45Wheel .v45-what{text-align:right;color:#e5e7eb}
+#v45Wheel .v45-close{margin-top:12px;padding:9px 26px;border:0;border-radius:12px;font-weight:800;color:#fff;background:#7c3aed;cursor:pointer}
+@media(max-width:520px){#v45Wheel .v45-title{font-size:17px}}
