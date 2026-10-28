@@ -375,6 +375,39 @@ var V40Pdf = (function () {
         note("Hors mots courants (le, de, est…).");
       }
     }
+    /* ----- Temps de réaction (onglet « Réactions ») ----- */
+    var RS = A.reactionStats(log);
+    if (RS.n) {
+      var nrr = log.R.length, topT = Math.max(log.qt || 0, RS.overall.max || 1), stepT = Math.max(1, Math.ceil(topT / 5)), maxT2 = Math.ceil(topT / stepT) * stepT;
+      var secF = function (v) { return v === null || v === undefined ? "-" : (Math.round(v * 10) / 10).toString().replace(".", ",") + " s"; };
+      lineChart("Temps de réaction, question par question", { n: nrr, min: 0, max: maxT2, step: stepT, yFmt: function (v) { return secF(v); }, series: plottedSeries(function (r) { return RS.players[r.idx].perRound; }) });
+      note("Temps mis par chaque joueur pour répondre à chaque question ; plus bas = plus rapide. Médiane générale " + secF(RS.overall.median) + ", moyenne " + secF(RS.overall.mean) + ", plus rapide " + secF(RS.fastest.t) + " (" + log.P[RS.fastest.idx].n + ", question " + RS.fastest.round + "), plus lent " + secF(RS.slowest.t) + " (" + log.P[RS.slowest.idx].n + ", question " + RS.slowest.round + ").");
+      lineChart("Courbe de rapidité", { n: RS.S, min: 0, max: 1, step: 0.25, xTitle: "Secondes", yFmt: function (v) { return Math.round(v * 100) + " %"; }, series: plottedSeries(function (r) { return RS.ecdf[r.idx]; }) });
+      note("Part des réponses de chaque joueur données en moins de X secondes : plus la courbe monte vite, plus le joueur est rapide.");
+      var timedP = RS.players.filter(function (P) { return P.n > 0; }).sort(function (a, b) { return a.median - b.median || a.idx - b.idx; });
+      title("Étendue des temps de chaque joueur", 16 * (Math.min(timedP.length, 8) + 1));
+      table([
+        { h: "Joueur", w: 3, f: function (P) { return log.P[P.idx].n; } }, { h: "Rép.", w: 1, a: "right", f: function (P) { return String(P.n); } },
+        { h: "Médiane", w: 1.5, a: "right", f: function (P) { return secF(P.median); } }, { h: "Moyenne", w: 1.5, a: "right", f: function (P) { return secF(P.mean); } },
+        { h: "Rapide", w: 1.4, a: "right", f: function (P) { return secF(P.min); } }, { h: "Lent", w: 1.4, a: "right", f: function (P) { return secF(P.max); } },
+        { h: "Régularité ±", w: 1.7, a: "right", f: function (P) { return P.sd === null ? "-" : secF(P.sd); } }
+      ], timedP.slice(0, 30), { size: 8.5 });
+      var ptsP = RS.players.filter(function (P) { return P.n > 0 && P.accuracy !== null; });
+      if (ptsP.length) {
+        title("Rapidité contre précision", 16 * (Math.min(ptsP.length, 8) + 1));
+        table([
+          { h: "Joueur", w: 3, f: function (P) { return log.P[P.idx].n; } }, { h: "Temps moyen", w: 1.8, a: "right", f: function (P) { return secF(P.mean); } },
+          { h: "Réussite", w: 1.4, a: "right", f: function (P) { return Math.round(P.accuracy * 100) + " %"; } },
+          { h: "Bonnes (moy.)", w: 1.8, a: "right", f: function (P) { return secF(P.meanGood); } }, { h: "Mauvaises (moy.)", w: 2, a: "right", f: function (P) { return secF(P.meanBad); } },
+          { h: "Tendance", w: 2.2, a: "right", f: function (P) { return P.trend === null ? "-" : Math.abs(P.trend) < 0.3 ? "stable" : P.trend < 0 ? "accélère" : "ralentit"; } }
+        ], ptsP.slice(0, 30), { size: 8.5 });
+      }
+      if (log.P.length > 1) valueBars("Premier à répondre juste", RS.players.filter(function (P) { return P.n > 0; }).sort(function (a, b) { return b.wins - a.wins || a.idx - b.idx; }).slice(0, 20).map(function (P) {
+        return { label: log.P[P.idx].n, value: P.wins, color: colorOf[P.idx], text: P.wins + " / " + nrr };
+      }), null, Math.max(nrr, 1));
+      var grpP = RS.byDifficulty.map(function (g) { return { label: "Difficulté : " + g.key, value: g.mean, text: secF(g.mean) + " · " + g.n + " rép." }; }).concat(RS.byTheme.map(function (g) { return { label: g.key, value: g.mean, text: secF(g.mean) + " · " + g.n + " rép." }; }));
+      if (grpP.length) valueBars("Réaction par difficulté et par thème", grpP, C.accent, topT);
+    }
     stackBars("Bonnes et mauvaises réponses par joueur", ranked.slice(0, 24).map(function (r) {
       return { label: r.name, vals: [r.correct, r.wrong, r.none], text: r.correct + " justes · " + r.wrong + " fausses · " + r.none + " sans rép." };
     }), [{ name: "Bonnes réponses", color: C.good }, { name: "Mauvaises réponses", color: C.bad }, { name: "Sans réponse", color: C.none }]);

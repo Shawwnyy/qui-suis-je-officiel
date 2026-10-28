@@ -296,7 +296,7 @@
     refreshTimer = setTimeout(function () { if (isOpen()) render(true); }, 120);
   }
 
-  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["text", "✍️ Mots & lettres"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
+  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
 
   function render(keepScroll) {
     var log = currentLog();
@@ -334,7 +334,7 @@
       else if (!log || !log.R.length) main.appendChild(emptyState(log));
       else {
         if (!liveDone && log === live) main.appendChild(el("p", { "class": "v40s-note", text: "⏳ Partie en cours : les chiffres sont à jour jusqu’à la dernière question terminée (" + log.R.length + (typeof totalRounds === "number" && totalRounds ? "/" + totalRounds : "") + ")." }));
-        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
+        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
         fn(main, log);
       }
     } catch (e) {
@@ -793,6 +793,91 @@
           tip: { title: label(rows[r.idx]), rows: [{ label: "Questions en tête", value: r.led + " sur " + L.n, strong: true }, { label: "Plus longue période", value: r.longest + " d’affilée" }] } }; }), max: Math.max(1, L.n), ariaLabel: "Questions passées en tête par joueur" });
       },
       table: function () { return K.table(["Joueur", "Questions en tête", "Plus longue période"], led.map(function (r) { return [label(rows[r.idx]), r.led + "/" + L.n, r.longest]; }), "Questions passées en tête"); }
+    }));
+  }
+
+  /* ---- Onglet « Réactions » : temps de réponse poussés ---- */
+  function trendText(t) { return t === null ? "—" : Math.abs(t) < 0.3 ? "→ stable" : t < 0 ? "↗ accélère (" + fmt.sec(Math.abs(t)).replace(" s", " s de moins") + ")" : "↘ ralentit (" + fmt.sec(t).replace(" s", " s de plus") + ")"; }
+  function buildReact(main, log) {
+    var rows = A.perPlayer(log), RS = A.reactionStats(log), nr = log.R.length, ov = RS.overall, sec = fmt.sec;
+    if (!RS.n) { main.appendChild(el("p", { "class": "v40s-note", text: "Aucune réponse chronométrée pour l’instant : les graphiques de réaction apparaissent dès qu’un joueur a répondu." })); return; }
+    var who = function (i) { return label(rows[i]); };
+    var plotted = rows.filter(function (r) { return r.idx < MAX_PLAYERS_PLOTTED; });
+    var tl = [
+      tile(sec(ov.median), "Temps médian", "la moitié des réponses sont plus rapides"),
+      tile(sec(ov.mean), "Temps moyen", ov.sd !== null ? "± " + sec(ov.sd) + " (régularité)" : ""),
+      tile(sec(RS.fastest.t), "Réponse la plus rapide", who(RS.fastest.idx) + " · question " + RS.fastest.round),
+      tile(sec(RS.slowest.t), "Réponse la plus lente", who(RS.slowest.idx) + " · question " + RS.slowest.round)
+    ];
+    if (RS.meanGood !== null && RS.meanBad !== null) tl.push(tile(sec(RS.meanGood), "Temps moyen des bonnes", "mauvaises : " + sec(RS.meanBad) + (RS.meanBad < RS.meanGood ? " (on se trompe en allant trop vite)" : " (on hésite avant de se tromper)")));
+    main.appendChild(el("div", { "class": "v40s-tiles v40s-highlights", "aria-label": "Faits marquants des temps de réaction" }, tl));
+    var top = Math.max(log.qt || 0, ov.max || 1);
+    /* 1 · question par question */
+    main.appendChild(K.card({
+      title: "Temps de réaction, question par question", desc: "Temps mis par chaque joueur pour répondre à chaque question (les questions sans réponse n’ont pas de point). Plus bas = plus rapide.",
+      legend: function (redraw) { return playerLegend(rows, redraw); },
+      draw: function (host) {
+        var ser = plotted.map(function (r) { return { key: String(r.idx), name: label(r), color: colorFor(r.idx), values: RS.players[r.idx].perRound }; });
+        K.line(host, { n: nr, series: ser, hidden: view.hidden, xTitle: "Questions", endLabels: true, yMax: top, yFmt: function (v) { return sec(v); }, ariaLabel: "Temps de réaction par question de " + ser.map(function (x) { return x.name; }).join(", "),
+          header: function (i) { return i === 0 ? { title: "Départ" } : { title: "Question " + i, sub: log.R[i - 1].q ? K.cut(log.R[i - 1].q, 80) : "" }; },
+          valueText: function (s2, i) { var v = s2.values[i]; return v === null || v === undefined ? "pas de réponse" : sec(v); } });
+        var n = overflowNote(rows); if (n) host.appendChild(n);
+      },
+      table: function () { var b = []; for (var i = 1; i <= nr; i++) b.push([i].concat(rows.map(function (r) { var v = RS.players[r.idx].perRound[i]; return v === null || v === undefined ? "—" : sec(v); }))); return K.table(["Question"].concat(rows.map(label)), b, "Temps de réaction par question"); }
+    }));
+    /* 2 · courbe de rapidité (répartition cumulée) */
+    main.appendChild(K.card({
+      title: "Courbe de rapidité", desc: "Part des réponses de chaque joueur données en moins de X secondes. Plus la courbe monte vite, plus le joueur est rapide.",
+      legend: function (redraw) { return playerLegend(rows, redraw); },
+      draw: function (host) {
+        var ser = plotted.filter(function (r) { return RS.players[r.idx].n > 0; }).map(function (r) { return { key: String(r.idx), name: label(r), color: colorFor(r.idx), values: RS.ecdf[r.idx] }; });
+        K.line(host, { n: RS.S, series: ser, hidden: view.hidden, xTitle: "Secondes", endLabels: true, yTicks: [0, 0.25, 0.5, 0.75, 1], yFmt: function (v) { return Math.round(v * 100) + " %"; }, ariaLabel: "Courbe de rapidité de " + ser.map(function (x) { return x.name; }).join(", "),
+          header: function (i) { return { title: "En moins de " + i + " s" }; },
+          valueText: function (s2, i) { var v = s2.values[i]; return v === null ? "—" : fmt.pct(v) + " des réponses"; } });
+      },
+      table: function () { var b = []; for (var i = 1; i <= RS.S; i++) b.push([i + " s"].concat(rows.map(function (r) { var v = RS.ecdf[r.idx][i]; return v === null ? "—" : fmt.pct(v); }))); return K.table(["En moins de"].concat(rows.map(label)), b, "Part des réponses données en moins de X secondes"); }
+    }));
+    /* 3 · boîtes à moustaches */
+    var timed = RS.players.filter(function (P) { return P.n > 0; }).sort(function (a, b) { return a.median - b.median || a.idx - b.idx; });
+    main.appendChild(K.card({
+      title: "Étendue des temps de chaque joueur", desc: "Du plus rapide au plus lent : la boîte contient la moitié centrale des réponses, le trait blanc est la médiane, les traits fins vont du meilleur au pire temps.",
+      draw: function (host) {
+        K.boxplot(host, { rows: timed.map(function (P) { return { label: who(P.idx), avatar: rows[P.idx].avatar, color: colorFor(P.idx), min: P.min, q1: P.q1, med: P.median, q3: P.q3, max: P.max, text: "méd. " + sec(P.median),
+          tip: { title: who(P.idx), rows: [{ label: "Médiane", value: sec(P.median), strong: true }, { label: "Moyenne", value: sec(P.mean) }, { label: "1ᵉʳ quartile", value: sec(P.q1) }, { label: "3ᵉ quartile", value: sec(P.q3) }, { label: "Plus rapide", value: sec(P.min) }, { label: "Plus lent", value: sec(P.max) }, { label: "Réponses chronométrées", value: P.n }] } }; }),
+          max: top, tickFmt: sec, ariaLabel: "Étendue des temps de réponse : " + timed.slice(0, 4).map(function (P) { return who(P.idx) + " médiane " + sec(P.median); }).join(", ") });
+      },
+      table: function () { return K.table(["Joueur", "Réponses", "Médiane", "Moyenne", "Plus rapide", "Plus lent", "Régularité ±", "Bonnes (moy.)", "Mauvaises (moy.)", "Tendance"],
+        timed.map(function (P) { return [who(P.idx), P.n, sec(P.median), sec(P.mean), sec(P.min), sec(P.max), P.sd === null ? "—" : sec(P.sd), sec(P.meanGood), sec(P.meanBad), trendText(P.trend)]; }), "Temps de réaction par joueur"); }
+    }));
+    /* 4 · rapidité contre précision */
+    var pts = RS.players.filter(function (P) { return P.n > 0 && P.accuracy !== null; });
+    if (pts.length) main.appendChild(K.card({
+      title: "Rapidité contre précision", desc: "Chaque point est un joueur : à gauche = répond vite, en haut = répond juste. Le coin en haut à gauche est le meilleur.",
+      draw: function (host) {
+        K.scatter(host, { points: pts.map(function (P) { return { label: who(P.idx), x: P.mean, y: P.accuracy, color: colorFor(P.idx), tip: { title: who(P.idx), rows: [{ label: "Temps moyen", value: sec(P.mean), strong: true }, { label: "Réussite", value: fmt.pct(P.accuracy) }, { label: "Médiane", value: sec(P.median) }, { label: "Tendance", value: trendText(P.trend) }] } }; }),
+          xMax: Math.max.apply(null, pts.map(function (P) { return P.mean; })) * 1.3, xFmt: sec, xTitle: "Temps moyen de réponse (plus à gauche = plus rapide)", yTitle: "Réussite", ariaLabel: "Rapidité contre précision" });
+      },
+      table: function () { return K.table(["Joueur", "Temps moyen", "Réussite", "Tendance"], pts.map(function (P) { return [who(P.idx), sec(P.mean), fmt.pct(P.accuracy), trendText(P.trend)]; }), "Rapidité contre précision"); }
+    }));
+    /* 5 · premier à répondre juste */
+    var withWins = rows.length > 1 ? RS.players.filter(function (P) { return P.n > 0; }).sort(function (a, b) { return b.wins - a.wins || a.idx - b.idx; }) : [];
+    var roundsWithGood = RS.rounds.filter(function (R) { return R.n > 0; }).length;
+    if (withWins.length) main.appendChild(K.card({
+      title: "Premier à répondre juste", desc: "Nombre de questions où le joueur a donné la bonne réponse le plus vite (à égalité de temps, chacun compte).",
+      draw: function (host) {
+        K.hbars(host, { rows: withWins.map(function (P) { return { label: who(P.idx), avatar: rows[P.idx].avatar, value: P.wins, color: colorFor(P.idx), text: P.wins + " / " + nr, tip: { title: who(P.idx), rows: [{ label: "Questions gagnées de vitesse", value: P.wins + " / " + nr, strong: true }, { label: "Temps médian", value: sec(P.median) }] } }; }), max: Math.max(nr, 1), ariaLabel: "Premier à répondre juste par joueur" });
+      },
+      table: function () { return K.table(["Joueur", "Premier à répondre juste", "Temps médian"], withWins.map(function (P) { return [who(P.idx), P.wins + " / " + nr, sec(P.median)]; }), "Premier à répondre juste"); }
+    }));
+    /* 6 · difficulté et thème */
+    var groups = RS.byDifficulty.map(function (g) { return { label: "Difficulté : " + g.key, g: g, color: K.C.palette[2] }; }).concat(RS.byTheme.map(function (g) { return { label: g.key, g: g, color: K.C.palette[3] }; }));
+    if (groups.length) main.appendChild(K.card({
+      title: "Réaction par difficulté et par thème", desc: "Temps moyen de réponse selon la difficulté de la question (vert) et le thème (jaune, les 8 plus joués).",
+      draw: function (host) {
+        K.hbars(host, { rows: groups.map(function (x) { return { label: x.label, value: x.g.mean, color: x.color, text: sec(x.g.mean) + " · " + x.g.n + " rép.", tip: { title: x.label, rows: [{ label: "Temps moyen", value: sec(x.g.mean), strong: true }, { label: "Temps médian", value: sec(x.g.median) }, { label: "Réponses", value: x.g.n }] } }; }),
+          max: top, tickFmt: sec, ariaLabel: "Temps de réponse par difficulté et par thème" });
+      },
+      table: function () { return K.table(["Groupe", "Temps moyen", "Temps médian", "Réponses"], groups.map(function (x) { return [x.label, sec(x.g.mean), sec(x.g.median), x.g.n]; }), "Réaction par difficulté et par thème"); }
     }));
   }
 

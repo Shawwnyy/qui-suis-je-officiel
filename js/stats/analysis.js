@@ -189,6 +189,69 @@ var V40Analysis = (function () {
     return out.join("\n");
   }
 
+
+  /* ---------- Temps de réaction : statistiques poussées (médiane, quartiles, régularité, tendance, qui est le plus rapide…) ---------- */
+  function quantile(sorted, q) {
+    if (!sorted.length) return null;
+    var i = (sorted.length - 1) * q, lo = Math.floor(i), hi = Math.ceil(i);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo);
+  }
+  function mean(a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; }
+  function describe(times) {
+    var t = times.slice().sort(function (a, b) { return a - b; }), m = mean(t), sd = null;
+    if (t.length > 1) sd = Math.sqrt(t.reduce(function (a, x) { return a + (x - m) * (x - m); }, 0) / t.length);
+    return { n: t.length, mean: m, median: quantile(t, 0.5), q1: quantile(t, 0.25), q3: quantile(t, 0.75), min: t.length ? t[0] : null, max: t.length ? t[t.length - 1] : null, sd: sd };
+  }
+  function reactionStats(log) {
+    var np = log.P.length, nr = log.R.length, S0 = 0;
+    var pl = log.P.map(function (p, idx) { return { idx: idx, times: [], good: [], bad: [], perRound: [null], wins: 0, answered: 0, correct: 0 }; });
+    var all = [], rounds = [], gThemes = {}, gDiffs = {}, fastest = null, slowest = null;
+    log.R.forEach(function (R, i) {
+      var best = null, rt = [];
+      R.r.forEach(function (e, k) {
+        var P = pl[k]; if (!P) return;
+        var t = (e[0] === 1 || e[0] === 2) && e[1] > 0 ? e[1] : null;
+        if (e[0] >= 1) P.answered++;
+        if (e[0] === 1) P.correct++;
+        P.perRound[i + 1] = t;
+        if (t === null) return;
+        P.times.push(t); all.push(t); rt.push(t); if (t > S0) S0 = t;
+        (e[0] === 1 ? P.good : P.bad).push(t);
+        if (e[0] === 1 && (best === null || t < best)) best = t;
+        if (!fastest || t < fastest.t) fastest = { t: t, idx: k, round: i + 1 };
+        if (!slowest || t > slowest.t) slowest = { t: t, idx: k, round: i + 1 };
+        var th = R.c || "Autre", df = R.d;
+        (gThemes[th] = gThemes[th] || []).push(t); (gDiffs[df] = gDiffs[df] || []).push(t);
+      });
+      if (best !== null && np > 1) R.r.forEach(function (e, k) { if (e[0] === 1 && e[1] === best && pl[k]) pl[k].wins++; });
+      var d = describe(rt);
+      rounds.push({ round: i + 1, n: d.n, median: d.median, min: d.min, max: d.max });
+    });
+    pl.forEach(function (P) {
+      var d = describe(P.times); for (var k in d) P[k] = d[k];
+      P.meanGood = mean(P.good); P.meanBad = mean(P.bad);
+      P.accuracy = P.answered ? P.correct / P.answered : null;
+      var h = Math.floor(P.times.length / 2);                               /* tendance : 2ᵉ moitié de la partie moins 1ʳᵉ moitié (négatif = il accélère) */
+      P.trend = P.times.length >= 4 ? mean(P.times.slice(P.times.length - h)) - mean(P.times.slice(0, h)) : null;
+    });
+    var S = Math.max(1, Math.min(60, Math.ceil(Math.max(log.qt || 0, S0))));
+    var ecdf = pl.map(function (P) {
+      var v = []; for (var i = 0; i <= S; i++) v.push(P.times.length ? P.times.filter(function (t) { return t <= i; }).length / P.times.length : null);
+      return v;
+    });
+    function groups(map, order) {
+      return Object.keys(map).map(function (k) { var d = describe(map[k]); return { key: k, n: d.n, mean: d.mean, median: d.median }; })
+        .sort(order);
+    }
+    var diffRank = { facile: 0, moyen: 1, difficile: 2, impossible: 3 };
+    return {
+      n: all.length, players: pl, rounds: rounds, overall: describe(all), fastest: fastest, slowest: slowest, S: S, ecdf: ecdf, nr: nr,
+      meanGood: mean(pl.reduce(function (a, P) { return a.concat(P.good); }, [])), meanBad: mean(pl.reduce(function (a, P) { return a.concat(P.bad); }, [])),
+      byDifficulty: groups(gDiffs, function (a, b) { return (diffRank[a.key] || 0) - (diffRank[b.key] || 0); }),
+      byTheme: groups(gThemes, function (a, b) { return b.n - a.n || (a.key < b.key ? -1 : 1); }).slice(0, 8)
+    };
+  }
+
   function isAnswer(st) { return st >= 1 && st <= 3; }
 
   /* ---------- Chiffres clés ---------- */
@@ -438,7 +501,7 @@ var V40Analysis = (function () {
   return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
     byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell,
-    tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats, textReport: textReport, textReportTxt: textReportTxt };
+    tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats, textReport: textReport, textReportTxt: textReportTxt, reactionStats: reactionStats, quantile: quantile };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V40Analysis;
 if (typeof window !== "undefined") window.V40Analysis = V40Analysis;
