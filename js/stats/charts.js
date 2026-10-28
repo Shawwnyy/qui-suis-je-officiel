@@ -120,7 +120,7 @@ var V40Charts = (function () {
     items.forEach(function (it) {
       var off = hidden && hidden.has(it.key);
       var b = el("button", { type: "button", "class": "v40s-leg" + (off ? " off" : ""), "aria-pressed": off ? "false" : "true", title: it.name + (onToggle ? " — cliquer pour afficher / masquer" : "") }, [
-        el("i", { style: "background:" + it.color }), el("span", { text: (it.glyph ? it.glyph + " " : "") + cut(it.name, 18) })
+        el("i", { style: "background:" + it.color }), el("span", { text: (it.glyph ? it.glyph + " " : "") + cut(it.name, 26) })
       ]);
       if (onToggle) b.addEventListener("click", function () { onToggle(it.key); });
       else { b.disabled = true; }
@@ -221,6 +221,13 @@ var V40Charts = (function () {
     host.appendChild(svg);
   }
 
+  /* Graduations pour des nombres entiers (comptages) : jamais « 0 0 1 1 1 » */
+  function countTicks(hi) {
+    hi = Math.max(1, Math.ceil(hi));
+    if (hi <= 5) { var t = []; for (var i = 0; i <= hi; i++) t.push(i); return { min: 0, max: hi, ticks: t }; }
+    var tk = niceTicks(0, hi, 4);
+    return { min: 0, max: tk.max, ticks: tk.ticks.filter(function (v) { return v === Math.round(v); }) };
+  }
   /* ---------- Barres horizontales (une valeur par ligne) ---------- */
   /* rows : [{label, sub, value, color, text, tip:{title,sub,rows}}] ; max : valeur correspondant à 100 % de la largeur */
   function hbars(host, o) {
@@ -229,9 +236,10 @@ var V40Charts = (function () {
     var labelW = Math.round(Math.min(Math.max(48, W * 0.34), 210, Math.max(40, longestLab * 7.6 + 14)));      /* colonne des étiquettes ajustée au texte : pas de grand vide */
     var longest = rows.reduce(function (m, r) { return Math.max(m, String(r.text).length); }, 0);
     var valW = Math.min(Math.round(W * 0.5), Math.max(64, Math.round(longest * 7.6) + 16));      /* place réservée au texte de valeur : jamais rogné */
-    var axisH = 24, H = rows.length * rowH + 6 + axisH, bx = labelW + 8, bw = Math.max(40, W - bx - valW);
+    var axisH = 24 + (o.axisTitle ? 16 : 0), H = rows.length * rowH + 6 + axisH, bx = labelW + 8, bw = Math.max(40, W - bx - valW);
     var dataMax = Math.max.apply(null, rows.map(function (r) { return r.value || 0; }).concat([1]));
-    var tk = o.max ? { max: o.max, ticks: niceTicks(0, o.max, 4).ticks.filter(function (v) { return v <= o.max + 1e-9; }) } : niceTicks(0, dataMax, 4);
+    var isInt = !o.tickFmt && o.max !== 1, nt = function (hi) { return isInt ? countTicks(hi) : niceTicks(0, hi, 4); };
+    var tk = o.max ? { max: o.max, ticks: nt(o.max).ticks.filter(function (v) { return v <= o.max + 1e-9; }) } : nt(dataMax);
     var max = o.max || tk.max || dataMax, tickFmt = o.tickFmt || (o.max === 1 ? fmt.pct : fmt.int);
     var svg = sv("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, "class": "v40s-svg", role: "img", "aria-label": o.ariaLabel || "Graphique en barres" });
     var plotH = rows.length * rowH + 2;
@@ -241,6 +249,7 @@ var V40Charts = (function () {
       svg.appendChild(sv("text", { x: gx, y: plotH + 17, "text-anchor": v === 0 ? "start" : "middle", "font-size": 11, fill: C.muted, text: tickFmt(v) }));
     });
     svg.appendChild(sv("line", { x1: bx, x2: bx, y1: 0, y2: plotH, stroke: C.axis, "stroke-width": 1 }));
+    if (o.axisTitle) svg.appendChild(sv("text", { x: bx + bw / 2, y: plotH + 36, "text-anchor": "middle", "font-size": 11, fill: C.muted, text: o.axisTitle }));
     rows.forEach(function (r, i) {
       var y = i * rowH + 5, w = r.value > 0 ? Math.max(3, r.value / max * bw) : 0;
       var g = sv("g", { tabindex: "0", role: "img", "aria-label": r.label + " : " + r.text });
@@ -263,7 +272,7 @@ var V40Charts = (function () {
     var labelW = Math.round(Math.min(Math.max(48, W * 0.34), 210, Math.max(40, longestLab * 7.6 + 14)));
     var longest = rows.reduce(function (m, r) { return Math.max(m, String(r.text || "").length); }, 0);
     var valW = Math.min(Math.round(W * 0.45), Math.max(40, Math.round(longest * 7.2) + 14));
-    var axisH = 24, plotH = rows.length * rowH + 2, H = plotH + axisH, bx = labelW + 8, bw = Math.max(40, W - bx - valW);
+    var axisH = 24 + (o.axisTitle ? 16 : 0), plotH = rows.length * rowH + 2, H = plotH + axisH, bx = labelW + 8, bw = Math.max(40, W - bx - valW);
     var dataMax = Math.max.apply(null, rows.map(function (r) { return r.max || 0; }).concat([1]));
     var tk = o.max ? { max: o.max, ticks: niceTicks(0, o.max, 4).ticks.filter(function (v) { return v <= o.max + 1e-9; }) } : niceTicks(0, dataMax, 4), max = o.max || tk.max || dataMax;
     var tickFmt = o.tickFmt || fmt.int;
@@ -274,6 +283,7 @@ var V40Charts = (function () {
       svg.appendChild(sv("text", { x: X(v), y: plotH + 17, "text-anchor": v === 0 ? "start" : "middle", "font-size": 11, fill: C.muted, text: tickFmt(v) }));
     });
     svg.appendChild(sv("line", { x1: bx, x2: bx, y1: 0, y2: plotH, stroke: C.axis, "stroke-width": 1 }));
+    if (o.axisTitle) svg.appendChild(sv("text", { x: bx + bw / 2, y: plotH + 36, "text-anchor": "middle", "font-size": 11, fill: C.muted, text: o.axisTitle }));
     rows.forEach(function (r, i) {
       var cy = i * rowH + rowH / 2 + 1, col = r.color || C.palette[0];
       var g = sv("g", { tabindex: "0", role: "img", "aria-label": r.label + " : " + (r.text || "") });
@@ -329,10 +339,17 @@ var V40Charts = (function () {
   /* rows : [{label, avatar, parts:[{name, value, color, glyph}], total}] ; max = total le plus grand */
   function stack(host, o) {
     var rows = o.rows, W = Math.max(280, host.clientWidth || 640), rowH = 36, labelW = Math.round(Math.min(210, Math.max(92, W * 0.30)));
-    var bx = labelW + 8, bw = Math.max(60, W - bx - 12), H = rows.length * rowH + 6;
-    var max = Math.max.apply(null, rows.map(function (r) { return r.total; }).concat([1]));
+    var bx = labelW + 8, bw = Math.max(60, W - bx - 12), axisTitle = o.axisTitle || (o.unit ? "Nombre de " + (o.unit === "pts" ? "points" : o.unit + "s") : ""), plotH = rows.length * rowH + 2, H = plotH + 4 + 24 + (axisTitle ? 16 : 0);
+    var dataMax = Math.max.apply(null, rows.map(function (r) { return r.total; }).concat([1]));
+    var tk = o.unit === "pts" ? niceTicks(0, dataMax, 4) : countTicks(dataMax), max = tk.max || dataMax;
     var svg = sv("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, "class": "v40s-svg", role: "img", "aria-label": o.ariaLabel || "Barres empilées" });
-    svg.appendChild(sv("line", { x1: bx, x2: bx, y1: 0, y2: H - 4, stroke: C.axis, "stroke-width": 1 }));
+    tk.ticks.forEach(function (v) {
+      var gx = bx + v / max * bw;
+      if (v > 0) svg.appendChild(sv("line", { x1: gx, x2: gx, y1: 0, y2: plotH, stroke: C.grid, "stroke-width": 1 }));
+      svg.appendChild(sv("text", { x: gx, y: plotH + 17, "text-anchor": v === 0 ? "start" : "middle", "font-size": 11, fill: C.muted, text: fmt.int(v) }));
+    });
+    if (axisTitle) svg.appendChild(sv("text", { x: bx + bw / 2, y: plotH + 36, "text-anchor": "middle", "font-size": 11, fill: C.muted, text: axisTitle }));
+    svg.appendChild(sv("line", { x1: bx, x2: bx, y1: 0, y2: plotH, stroke: C.axis, "stroke-width": 1 }));
     rows.forEach(function (r, i) {
       var y = i * rowH + 6, g = sv("g", { tabindex: "0", role: "img", "aria-label": r.label + " : " + r.parts.map(function (p) { return p.value + " " + p.name.toLowerCase(); }).join(", ") });
       g.appendChild(sv("rect", { x: 0, y: y - 5, width: W, height: rowH, fill: "transparent" }));
@@ -356,8 +373,8 @@ var V40Charts = (function () {
   /* ---------- Colonnes (un taux par question, jusqu'à ~40 colonnes) ---------- */
   /* o : {values:[0..1|null], labels:[…], color, tipFor(i)} */
   function columns(host, o) {
-    var n = o.values.length, W = Math.max(280, host.clientWidth || 640), H = W < 480 ? 220 : 260;
-    var m = { l: 44, r: 12, t: 12, b: 32 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+    var n = o.values.length, W = Math.max(280, host.clientWidth || 640), xt = o.xTitle ? 16 : 0, H = (W < 480 ? 220 : 260) + xt;
+    var m = { l: 44, r: 12, t: 12, b: 32 + xt }, pw = W - m.l - m.r, ph = H - m.t - m.b;
     var slot = pw / Math.max(1, n), bw = Math.max(2, Math.min(24, slot - 2));
     function Y(v) { return m.t + (1 - v) * ph; }
     var svg = sv("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, "class": "v40s-svg", role: "img", "aria-label": o.ariaLabel || "Graphique en colonnes" });
@@ -365,6 +382,7 @@ var V40Charts = (function () {
       svg.appendChild(sv("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v === 0 ? C.axis : C.grid, "stroke-width": 1 }));
       svg.appendChild(sv("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: C.muted, text: Math.round(v * 100) + " %" }));
     });
+    if (o.xTitle) svg.appendChild(sv("text", { x: m.l + pw / 2, y: H - 6, "text-anchor": "middle", "font-size": 11, fill: C.muted, text: o.xTitle }));
     var every = Math.max(1, Math.ceil(n / 10));
     o.values.forEach(function (v, i) {
       var cx = m.l + slot * i + slot / 2;

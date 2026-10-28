@@ -174,3 +174,8 @@ html.v40s-lock,html.v40s-lock body{overflow:hidden!important}
 .v40s-tool{min-height:38px;padding:7px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.22);background:transparent;color:#c3c2b7;font:800 12.5px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap}
 .v40s-tool:hover{background:rgba(255,255,255,.1);color:#fff}
 .v40s-tool:focus-visible{outline:2px solid #a78bfa;outline-offset:2px}
+
+/* Toutes les cartes : même disposition que « Évolution des scores » (titre, explication, rangée de boutons, légende, graphique) */
+.v40s-cardhead{flex-direction:column;align-items:flex-start;justify-content:flex-start;flex-wrap:nowrap;gap:10px}
+.v40s-cardhead>div:first-child{min-width:0;max-width:100%}
+.v40s-cardctl{justify-content:flex-start;width:100%}

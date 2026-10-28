@@ -434,7 +434,7 @@
         K.hbars(host, { rows: ranked.map(function (r) {
           return { label: label(r), avatar: r.avatar, value: Math.max(0, r.final), color: colorFor(r.idx), text: fmt.int(r.final),
             tip: { title: label(r), sub: "Rang " + r.rank, rows: [{ label: "Score", value: fmt.int(r.final) + " pts", strong: true }, { label: "Bonnes réponses", value: r.correct + " / " + r.answered }, { label: "Plus gros gain", value: "+" + fmt.int(r.bestGain) }, { label: "Infractions", value: r.cheats }] } };
-        }), max: Math.max.apply(null, ranked.map(function (r) { return r.final; }).concat([1])), ariaLabel: "Classement final" });
+        }), max: Math.max.apply(null, ranked.map(function (r) { return r.final; }).concat([1])), axisTitle: "Score final (points)", ariaLabel: "Classement final" });
       },
       table: function () {
         return K.table(["Rang", "Joueur", "Score", "Bonnes", "Mauvaises", "Sans réponse", "Plus gros gain", "Infractions"],
@@ -465,7 +465,7 @@
         if (!timed.length) { host.appendChild(el("p", { "class": "v40s-note", text: "Aucune réponse chronométrée pour l’instant." })); return; }
         K.hbars(host, { rows: timed.map(function (r) { return { label: label(r), avatar: r.avatar, value: r.avgTime, color: colorFor(r.idx), text: fmt.sec(r.avgTime),
           tip: { title: label(r), rows: [{ label: "Temps moyen", value: fmt.sec(r.avgTime), strong: true }, { label: "Réponses chronométrées", value: r.correct + r.wrong }] } }; }),
-          max: Math.max(log.qt || 0, Math.max.apply(null, timed.map(function (r) { return r.avgTime; }))), ariaLabel: "Temps de réponse moyen par joueur", tickFmt: fmt.sec });
+          max: Math.max(log.qt || 0, Math.max.apply(null, timed.map(function (r) { return r.avgTime; }))), axisTitle: "Temps moyen de réponse", ariaLabel: "Temps de réponse moyen par joueur", tickFmt: fmt.sec });
       },
       table: function () { return K.table(["Joueur", "Temps moyen"], timed.map(function (r) { return [label(r), fmt.sec(r.avgTime)]; }), "Temps de réponse moyen"); }
     }));
@@ -475,7 +475,7 @@
       draw: function (host) {
         K.hbars(host, { rows: streaks.map(function (r) { return { label: label(r), avatar: r.avatar, value: r.bestStreak, color: colorFor(r.idx), text: r.bestStreak + " d’affilée",
           tip: { title: label(r), rows: [{ label: "Meilleure série", value: r.bestStreak + " bonne" + (r.bestStreak > 1 ? "s" : "") + " d’affilée", strong: true }, { label: "Bonnes réponses", value: r.correct + " / " + r.answered }] } }; }),
-          max: Math.max.apply(null, streaks.map(function (r) { return r.bestStreak; }).concat([1])), ariaLabel: "Meilleure série de bonnes réponses par joueur" });
+          max: Math.max.apply(null, streaks.map(function (r) { return r.bestStreak; }).concat([1])), axisTitle: "Bonnes réponses d’affilée", ariaLabel: "Meilleure série de bonnes réponses par joueur" });
       },
       table: function () { return K.table(["Joueur", "Meilleure série", "Bonnes réponses"], streaks.map(function (r) { return [label(r), r.bestStreak, r.correct + " / " + r.answered]; }), "Meilleure série de bonnes réponses"); }
     }));
@@ -486,7 +486,7 @@
         if (!quick.length) { host.appendChild(el("p", { "class": "v40s-note", text: "Aucune bonne réponse chronométrée pour l’instant." })); return; }
         K.hbars(host, { rows: quick.map(function (r) { return { label: label(r), avatar: r.avatar, value: r.fastest, color: colorFor(r.idx), text: fmt.sec(r.fastest),
           tip: { title: label(r), rows: [{ label: "Meilleur temps", value: fmt.sec(r.fastest), strong: true }, { label: "Temps moyen", value: fmt.sec(r.avgTime) }] } }; }),
-          max: Math.max(log.qt || 0, Math.max.apply(null, quick.map(function (r) { return r.fastest; }))), ariaLabel: "Réponse correcte la plus rapide par joueur", tickFmt: fmt.sec });
+          max: Math.max(log.qt || 0, Math.max.apply(null, quick.map(function (r) { return r.fastest; }))), axisTitle: "Meilleur temps de réponse", ariaLabel: "Réponse correcte la plus rapide par joueur", tickFmt: fmt.sec });
       },
       table: function () { return K.table(["Joueur", "Meilleur temps", "Temps moyen"], quick.map(function (r) { return [label(r), fmt.sec(r.fastest), fmt.sec(r.avgTime)]; }), "Réponse correcte la plus rapide"); }
     }));
@@ -495,7 +495,7 @@
       title: "Plus gros gain en une question", desc: "Le meilleur coup de chaque joueur (combos, vitesse et bonus inclus).",
       draw: function (host) {
         K.hbars(host, { rows: gains.map(function (r) { return { label: label(r), avatar: r.avatar, value: Math.max(0, r.bestGain), color: colorFor(r.idx), text: "+" + fmt.int(r.bestGain),
-          tip: { title: label(r), rows: [{ label: "Meilleur gain", value: "+" + fmt.int(r.bestGain) + " pts", strong: true }] } }; }), ariaLabel: "Plus gros gain par joueur" });
+          tip: { title: label(r), rows: [{ label: "Meilleur gain", value: "+" + fmt.int(r.bestGain) + " pts", strong: true }] } }; }), axisTitle: "Points gagnés en une question", ariaLabel: "Plus gros gain par joueur" });
       },
       table: function () { return K.table(["Joueur", "Plus gros gain"], gains.map(function (r) { return [label(r), "+" + fmt.int(r.bestGain)]; }), "Plus gros gain en une question"); }
     }));
@@ -511,7 +511,7 @@
   function rateCard(title, desc, groups) {
     return K.card({
       title: title, desc: desc,
-      draw: function (host) { K.hbars(host, { rows: rateRows(groups), max: 1, ariaLabel: title }); },
+      draw: function (host) { K.hbars(host, { rows: rateRows(groups), max: 1, axisTitle: "Réussite", ariaLabel: title }); },
       table: function () { return K.table(["Groupe", "Réussite", "Bonnes / réponses", "Questions"], groups.map(function (g) { return [g.label, fmt.pct(g.rate), g.correct + " / " + g.answers, g.questions]; }), title); }
     });
   }
@@ -539,7 +539,7 @@
       title: "Réussite question par question", desc: "Part des joueurs qui ont trouvé la bonne réponse. Survole une question pour lire son texte.",
       draw: function (host) {
         var tip = function (i) { var r = stats[i]; return { title: "Question " + r.round, sub: K.cut(r.q, 90), rows: [{ label: "Réussite", value: fmt.pct(r.rate), strong: true }, { label: "Bonnes réponses", value: r.correct + " / " + r.answers }, { label: "Temps moyen", value: fmt.sec(r.avgTime) }, { label: "Difficulté", value: r.d }] }; };
-        if (!many) K.columns(host, { values: stats.map(function (r) { return r.rate; }), labels: stats.map(function (r) { return String(r.round); }), tipFor: tip, ariaLabel: "Réussite par question" });
+        if (!many) K.columns(host, { xTitle: "Questions", values: stats.map(function (r) { return r.rate; }), labels: stats.map(function (r) { return String(r.round); }), tipFor: tip, ariaLabel: "Réussite par question" });
         else K.line(host, { n: stats.length, series: [{ key: "r", name: "Réussite", color: K.C.palette[0], values: [null].concat(stats.map(function (r) { return r.rate === null ? null : r.rate * 100; })) }],
           yMax: 100, yFmt: function (v) { return Math.round(v) + " %"; }, xTitle: "Questions", ariaLabel: "Réussite par question",
           header: function (i) { return i === 0 ? { title: "Départ" } : { title: "Question " + i, sub: K.cut(stats[i - 1].q, 90) }; }, valueText: function (s, i) { return Math.round(s.values[i]) + " %"; } });
@@ -590,6 +590,10 @@
   /* ---------- Triche ---------- */
   var LV = { 1: "⚠️ Avertissement", 2: "🚨 Malus", 3: "🚫 Exclusion" };
   /* ---------- Bonus / Malus ---------- */
+  /* Légende en haut de la carte (comme « Évolution des scores ») à partir de [["🎁 Bonus", couleur], …] */
+  function keyLegend(items) {
+    return function () { return K.legend(items.map(function (x, i) { var sp = x[0].indexOf(" "); return { key: String(i), glyph: x[0].slice(0, sp), name: x[0].slice(sp + 1), color: x[1] }; }), null, null); };
+  }
   function keyNote(items, extra) {
     var p = el("p", { "class": "v40s-note v40s-key" });
     items.forEach(function (it) {
@@ -623,11 +627,11 @@
     var launched = rows.filter(function (r) { return r.bonusGiven + r.malusGiven > 0; }).sort(function (a, b) { return (b.bonusGiven + b.malusGiven) - (a.bonusGiven + a.malusGiven) || a.idx - b.idx; });
     if (launched.length) main.appendChild(K.card({
       title: "Pouvoirs lancés par joueur", desc: "Bonus (pour soi) et malus (contre un adversaire) de chaque joueur.",
+      legend: keyLegend([["🎁 Bonus", BON], ["💥 Malus", MAL]]),
       draw: function (host) {
         K.stack(host, { unit: "pouvoir", ariaLabel: "Bonus et malus lancés par joueur", rows: launched.map(function (r) {
           return { label: label(r), avatar: r.avatar, total: r.bonusGiven + r.malusGiven, parts: [{ name: "Bonus", glyph: "🎁", value: r.bonusGiven, color: BON }, { name: "Malus", glyph: "💥", value: r.malusGiven, color: MAL }] };
         }) });
-        host.appendChild(keyNote([["🎁 Bonus", BON], ["💥 Malus", MAL]]));
       },
       table: function () { return K.table(["Joueur", "Bonus", "Malus", "Total"], launched.map(function (r) { return [label(r), r.bonusGiven, r.malusGiven, r.bonusGiven + r.malusGiven]; }), "Pouvoirs lancés par joueur"); }
     }));
@@ -635,13 +639,14 @@
     var wr = rows.filter(function (r) { return r.wheelBonus + r.wheelMalus > 0; }).sort(function (a, b) { return (b.wheelGain - b.wheelLoss) - (a.wheelGain - a.wheelLoss) || a.idx - b.idx; });
     if (wr.length) main.appendChild(K.card({
       title: "🎡 Roue des bonus / malus", desc: "Résultats de la roue pour chaque joueur : bonus, malus touchés, malus annulés par un bouclier. Entre parenthèses : points gagnés moins points perdus grâce à la roue.",
+      legend: keyLegend([["🎁 Bonus", BON], ["💥 Malus touchés", MAL], ["🛡️ Malus annulés", BLK]]),
       draw: function (host) {
         K.stack(host, { unit: "tirage", ariaLabel: "Résultats de la roue par joueur", rows: wr.map(function (r) {
           var net = r.wheelGain - r.wheelLoss;
           return { label: label(r) + " (" + (net > 0 ? "+" : net < 0 ? "−" : "") + fmt.int(Math.abs(net)) + ")", avatar: r.avatar, total: r.wheelBonus + r.wheelMalus,
             parts: [{ name: "Bonus", glyph: "🎁", value: r.wheelBonus, color: BON }, { name: "Malus touchés", glyph: "💥", value: r.wheelMalus - r.wheelBlocked, color: MAL }, { name: "Malus annulés", glyph: "🛡️", value: r.wheelBlocked, color: BLK }] };
         }) });
-        host.appendChild(keyNote([["🎁 Bonus", BON], ["💥 Malus touchés", MAL], ["🛡️ Malus annulés", BLK]], "Entre parenthèses : bilan en points de la roue."));
+        host.appendChild(el("p", { "class": "v40s-note", text: "Entre parenthèses : bilan en points de la roue." }));
       },
       table: function () { return K.table(["Joueur", "Bonus", "Malus touchés", "Malus annulés", "Points gagnés", "Points perdus"], wr.map(function (r) { return [label(r), r.wheelBonus, r.wheelMalus - r.wheelBlocked, r.wheelBlocked, fmt.int(r.wheelGain), fmt.int(r.wheelLoss)]; }), "Roue des bonus et malus"); }
     }));
@@ -649,11 +654,11 @@
     var targeted = rows.filter(function (r) { return r.malusReceived > 0; }).sort(function (a, b) { return b.malusReceived - a.malusReceived || a.idx - b.idx; });
     if (targeted.length) main.appendChild(K.card({
       title: "Malus reçus et boucliers", desc: "Parmi les malus visant chaque joueur : ceux qui ont touché, et ceux qui ont été bloqués par un bouclier ou renvoyés.",
+      legend: keyLegend([["💥 Touchés", MAL], ["🛡️ Bloqués ou renvoyés", BLK]]),
       draw: function (host) {
         K.stack(host, { unit: "malus", ariaLabel: "Malus reçus, touchés ou bloqués", rows: targeted.map(function (r) {
           return { label: label(r), avatar: r.avatar, total: r.malusReceived, parts: [{ name: "Touchés", glyph: "💥", value: r.malusReceived - r.shieldSaves, color: MAL }, { name: "Bloqués ou renvoyés", glyph: "🛡️", value: r.shieldSaves, color: BLK }] };
         }) });
-        host.appendChild(keyNote([["💥 Touchés", MAL], ["🛡️ Bloqués ou renvoyés", BLK]]));
       },
       table: function () { return K.table(["Joueur", "Malus visant", "Touchés", "Bloqués ou renvoyés", "Points perdus"], targeted.map(function (r) { return [label(r), r.malusReceived, r.malusReceived - r.shieldSaves, r.shieldSaves, fmt.int(r.lost)]; }), "Malus reçus"); }
     }));
@@ -661,11 +666,12 @@
     var money = rows.filter(function (r) { return r.gained > 0 || r.lost > 0; }).sort(function (a, b) { return b.net - a.net || a.idx - b.idx; });
     if (money.length) main.appendChild(K.card({
       title: "Points gagnés et perdus grâce aux pouvoirs", desc: "Gagnés : points bonus, jackpots et points volés. Perdus : points retirés par un malus. Les pouvoirs spéciaux sans montant ne sont pas comptés ici.",
+      legend: keyLegend([["＋ Gagnés", BON], ["− Perdus", MAL]]),
       draw: function (host) {
         K.stack(host, { unit: "pts", ariaLabel: "Points gagnés et perdus par joueur", rows: money.map(function (r) {
           return { label: label(r) + " (" + (r.net > 0 ? "+" : r.net < 0 ? "−" : "") + fmt.int(Math.abs(r.net)) + ")", avatar: r.avatar, total: r.gained + r.lost, parts: [{ name: "Gagnés", glyph: "＋", value: r.gained, color: BON }, { name: "Perdus", glyph: "−", value: r.lost, color: MAL }] };
         }) });
-        host.appendChild(keyNote([["＋ Gagnés", BON], ["− Perdus", MAL]], "Entre parenthèses : bilan net."));
+        host.appendChild(el("p", { "class": "v40s-note", text: "Entre parenthèses : bilan net." }));
       },
       table: function () { return K.table(["Joueur", "Gagnés", "Perdus", "Bilan net", "Points infligés"], money.map(function (r) { return [label(r), fmt.int(r.gained), fmt.int(r.lost), (r.net > 0 ? "+" : "") + fmt.int(r.net), fmt.int(r.dealt)]; }), "Points gagnés et perdus grâce aux pouvoirs"); }
     }));
@@ -693,7 +699,7 @@
         K.hbars(host, { rows: P.kinds.map(function (k) {
           return { label: (k.choice === 1 ? "🎁 " : "💥 ") + k.label, value: k.count, color: k.choice === 1 ? BON : MAL, text: k.count + (k.choice === 2 && k.blocked ? " · " + k.blocked + " bloqué" + (k.blocked > 1 ? "s" : "") : ""),
             tip: { title: (k.choice === 1 ? "Bonus · " : "Malus · ") + k.label, rows: [{ label: "Utilisations", value: k.count, strong: true }].concat(k.choice === 2 ? [{ label: "Bloquées ou renvoyées", value: k.blocked }] : []).concat(k.points ? [{ label: "Points déplacés", value: fmt.int(k.points) }] : []) } };
-        }), max: P.kinds[0].count, ariaLabel: "Types de pouvoirs utilisés" });
+        }), max: P.kinds[0].count, axisTitle: "Nombre d’utilisations", ariaLabel: "Types de pouvoirs utilisés" });
       },
       table: function () { return K.table(["Pouvoir", "Type", "Utilisations", "Bloqués ou renvoyés", "Points déplacés"], P.kinds.map(function (k) { return [k.label, k.choice === 1 ? "Bonus" : "Malus", k.count, k.choice === 2 ? k.blocked : "—", k.points ? fmt.int(k.points) : "—"]; }), "Types de pouvoirs"); }
     }));
@@ -790,7 +796,7 @@
       title: "Qui a mené la partie ?", desc: "Nombre de questions après lesquelles chaque joueur était en tête (les ex æquo comptent pour chacun) et sa plus longue période en tête.",
       draw: function (host) {
         K.hbars(host, { rows: led.map(function (r) { return { label: label(rows[r.idx]), value: r.led, color: colorFor(r.idx), text: r.led + "/" + L.n + (r.longest > 1 ? " · " + r.longest + " d’affilée" : ""),
-          tip: { title: label(rows[r.idx]), rows: [{ label: "Questions en tête", value: r.led + " sur " + L.n, strong: true }, { label: "Plus longue période", value: r.longest + " d’affilée" }] } }; }), max: Math.max(1, L.n), ariaLabel: "Questions passées en tête par joueur" });
+          tip: { title: label(rows[r.idx]), rows: [{ label: "Questions en tête", value: r.led + " sur " + L.n, strong: true }, { label: "Plus longue période", value: r.longest + " d’affilée" }] } }; }), max: Math.max(1, L.n), axisTitle: "Questions passées en tête", ariaLabel: "Questions passées en tête par joueur" });
       },
       table: function () { return K.table(["Joueur", "Questions en tête", "Plus longue période"], led.map(function (r) { return [label(rows[r.idx]), r.led + "/" + L.n, r.longest]; }), "Questions passées en tête"); }
     }));
@@ -844,7 +850,7 @@
       draw: function (host) {
         K.boxplot(host, { rows: timed.map(function (P) { return { label: who(P.idx), avatar: rows[P.idx].avatar, color: colorFor(P.idx), min: P.min, q1: P.q1, med: P.median, q3: P.q3, max: P.max, text: "méd. " + sec(P.median),
           tip: { title: who(P.idx), rows: [{ label: "Médiane", value: sec(P.median), strong: true }, { label: "Moyenne", value: sec(P.mean) }, { label: "1ᵉʳ quartile", value: sec(P.q1) }, { label: "3ᵉ quartile", value: sec(P.q3) }, { label: "Plus rapide", value: sec(P.min) }, { label: "Plus lent", value: sec(P.max) }, { label: "Réponses chronométrées", value: P.n }] } }; }),
-          max: top, tickFmt: sec, ariaLabel: "Étendue des temps de réponse : " + timed.slice(0, 4).map(function (P) { return who(P.idx) + " médiane " + sec(P.median); }).join(", ") });
+          max: top, tickFmt: sec, axisTitle: "Temps de réponse (secondes)", ariaLabel: "Étendue des temps de réponse : " + timed.slice(0, 4).map(function (P) { return who(P.idx) + " médiane " + sec(P.median); }).join(", ") });
       },
       table: function () { return K.table(["Joueur", "Réponses", "Médiane", "Moyenne", "Plus rapide", "Plus lent", "Régularité ±", "Bonnes (moy.)", "Mauvaises (moy.)", "Tendance"],
         timed.map(function (P) { return [who(P.idx), P.n, sec(P.median), sec(P.mean), sec(P.min), sec(P.max), P.sd === null ? "—" : sec(P.sd), sec(P.meanGood), sec(P.meanBad), trendText(P.trend)]; }), "Temps de réaction par joueur"); }
@@ -865,7 +871,7 @@
     if (withWins.length) main.appendChild(K.card({
       title: "Premier à répondre juste", desc: "Nombre de questions où le joueur a donné la bonne réponse le plus vite (à égalité de temps, chacun compte).",
       draw: function (host) {
-        K.hbars(host, { rows: withWins.map(function (P) { return { label: who(P.idx), avatar: rows[P.idx].avatar, value: P.wins, color: colorFor(P.idx), text: P.wins + " / " + nr, tip: { title: who(P.idx), rows: [{ label: "Questions gagnées de vitesse", value: P.wins + " / " + nr, strong: true }, { label: "Temps médian", value: sec(P.median) }] } }; }), max: Math.max(nr, 1), ariaLabel: "Premier à répondre juste par joueur" });
+        K.hbars(host, { rows: withWins.map(function (P) { return { label: who(P.idx), avatar: rows[P.idx].avatar, value: P.wins, color: colorFor(P.idx), text: P.wins + " / " + nr, tip: { title: who(P.idx), rows: [{ label: "Questions gagnées de vitesse", value: P.wins + " / " + nr, strong: true }, { label: "Temps médian", value: sec(P.median) }] } }; }), max: Math.max(nr, 1), axisTitle: "Questions gagnées de vitesse", ariaLabel: "Premier à répondre juste par joueur" });
       },
       table: function () { return K.table(["Joueur", "Premier à répondre juste", "Temps médian"], withWins.map(function (P) { return [who(P.idx), P.wins + " / " + nr, sec(P.median)]; }), "Premier à répondre juste"); }
     }));
@@ -875,7 +881,7 @@
       title: "Réaction par difficulté et par thème", desc: "Temps moyen de réponse selon la difficulté de la question (vert) et le thème (jaune, les 8 plus joués).",
       draw: function (host) {
         K.hbars(host, { rows: groups.map(function (x) { return { label: x.label, value: x.g.mean, color: x.color, text: sec(x.g.mean) + " · " + x.g.n + " rép.", tip: { title: x.label, rows: [{ label: "Temps moyen", value: sec(x.g.mean), strong: true }, { label: "Temps médian", value: sec(x.g.median) }, { label: "Réponses", value: x.g.n }] } }; }),
-          max: top, tickFmt: sec, ariaLabel: "Temps de réponse par difficulté et par thème" });
+          max: top, tickFmt: sec, axisTitle: "Temps moyen de réponse", ariaLabel: "Temps de réponse par difficulté et par thème" });
       },
       table: function () { return K.table(["Groupe", "Temps moyen", "Temps médian", "Réponses"], groups.map(function (x) { return [x.label, sec(x.g.mean), sec(x.g.median), x.g.n]; }), "Réaction par difficulté et par thème"); }
     }));
@@ -942,7 +948,7 @@
         ]);
         host.appendChild(ctl);
         K.hbars(host, { rows: shown.map(function (x) { return { label: x.ch, value: x.n, text: fn(x.n) + " · " + fr1(x.share), tip: { title: "Lettre " + x.ch, rows: [{ label: "Apparitions", value: fn(x.n), strong: true }, { label: "Part des lettres", value: fr1(x.share) }, { label: "Rang", value: "n° " + (T.letters.indexOf(x) + 1) }] } }; }),
-          ariaLabel: "Lettres les plus écrites : " + T.letters.slice(0, 5).map(function (x) { return x.ch + " " + x.n; }).join(", ") });
+          axisTitle: "Apparitions de la lettre", ariaLabel: "Lettres les plus écrites : " + T.letters.slice(0, 5).map(function (x) { return x.ch + " " + x.n; }).join(", ") });
       },
       table: function () { return K.table(["Rang", "Lettre", "Apparitions", "Part"], T.letters.map(function (x, i) { return [i + 1, x.ch, x.n, fr1(x.share)]; }), "Fréquence de chaque lettre"); }
     }));
@@ -954,7 +960,7 @@
         K.hbars(host, { rows: [
           { label: "Voyelles", value: vn, color: K.C.palette[0], text: fn(vn) + " · " + fr1(vn / T.totalLetters), tip: { title: "Voyelles", rows: [{ label: "Lettres", value: fn(vn), strong: true }, { label: "Part", value: fr1(vn / T.totalLetters) }] } },
           { label: "Consonnes", value: T.totalLetters - vn, color: K.C.palette[1] || undefined, text: fn(T.totalLetters - vn) + " · " + fr1(1 - vn / T.totalLetters), tip: { title: "Consonnes", rows: [{ label: "Lettres", value: fn(T.totalLetters - vn), strong: true }, { label: "Part", value: fr1(1 - vn / T.totalLetters) }] } }
-        ], ariaLabel: "Voyelles " + fr1(vn / T.totalLetters) + ", consonnes " + fr1(1 - vn / T.totalLetters) });
+        ], axisTitle: "Lettres écrites", ariaLabel: "Voyelles " + fr1(vn / T.totalLetters) + ", consonnes " + fr1(1 - vn / T.totalLetters) });
       },
       table: function () { return K.table(["Type", "Lettres", "Part"], [["Voyelles", vn, fr1(vn / T.totalLetters)], ["Consonnes", T.totalLetters - vn, fr1(1 - vn / T.totalLetters)]], "Voyelles et consonnes"); }
     }));
@@ -966,7 +972,7 @@
           return el("button", { type: "button", "class": "v40s-btn" + (view.nWords === n ? " on" : ""), "aria-pressed": String(view.nWords === n), text: "Top " + n, onclick: function () { view.nWords = n; render(true); } });
         })));
         K.hbars(host, { rows: T.words.map(function (x, i) { return { label: x.w, value: x.n, color: K.C.palette[1] || undefined, text: fn(x.n) + " fois", tip: { title: x.w, rows: [{ label: "Écrit", value: fn(x.n) + " fois", strong: true }, { label: "Rang", value: "n° " + (i + 1) }] } }; }),
-          ariaLabel: "Mots les plus écrits : " + T.words.slice(0, 5).map(function (x) { return x.w + " " + x.n; }).join(", ") });
+          axisTitle: "Nombre de fois écrit", ariaLabel: "Mots les plus écrits : " + T.words.slice(0, 5).map(function (x) { return x.w + " " + x.n; }).join(", ") });
       },
       table: function () { return K.table(["Rang", "Mot", "Fois"], T.words.map(function (x, i) { return [i + 1, x.w, x.n]; }), "Mots les plus écrits"); }
     }));
@@ -996,7 +1002,7 @@
       draw: function (host) {
         K.hbars(host, { rows: cheaters.map(function (r) { return { label: label(r), avatar: r.avatar, value: r.cheats, color: colorFor(r.idx), text: r.cheats + " · " + (LV[maxLvl[r.idx]] || ""),
           tip: { title: label(r), rows: [{ label: "Infractions", value: r.cheats, strong: true }, { label: "Sanction la plus lourde", value: LV[maxLvl[r.idx]] || "" }] } }; }),
-          max: Math.max(pol.KICK_AFTER + 1, cheaters[0].cheats), ariaLabel: "Infractions par joueur" });
+          max: Math.max(pol.KICK_AFTER + 1, cheaters[0].cheats), axisTitle: "Nombre d’infractions", ariaLabel: "Infractions par joueur" });
       },
       table: function () { return K.table(["Joueur", "Infractions", "Sanction la plus lourde"], cheaters.map(function (r) { return [label(r), r.cheats, LV[maxLvl[r.idx]] || ""]; }), "Infractions par joueur"); }
     }));
@@ -1024,7 +1030,7 @@
     main.appendChild(K.card({
       title: "Réussite des dernières parties", desc: "Part de bonnes réponses sur l’ensemble des joueurs, de la plus ancienne (gauche) à la plus récente.",
       draw: function (host) {
-        K.columns(host, { values: ordered.map(function (s) { return s.accuracy; }), labels: ordered.map(function (s, i) { return String(i + 1); }),
+        K.columns(host, { xTitle: "Parties (de la plus ancienne à la plus récente)", values: ordered.map(function (s) { return s.accuracy; }), labels: ordered.map(function (s, i) { return String(i + 1); }),
           tipFor: function (i) { var s = ordered[i]; return { title: dateLabel(s.at), sub: s.winner ? "Gagnant : " + s.winner : "", rows: [{ label: "Réussite", value: fmt.pct(s.accuracy), strong: true }, { label: "Joueurs", value: s.players }, { label: "Questions", value: s.rounds }, { label: "Infractions", value: s.cheats }] }; },
           ariaLabel: "Réussite des dernières parties" });
       },
