@@ -14,7 +14,20 @@
    ============================================================================= */
 var V50Voice = (function () {
   "use strict";
-  var ID_RE = /^[\w-]{1,64}$/, MAX_MEMBERS = 8, MAX_TRIES = 12, TICK_MS = 3000;
+  var ID_RE = /^[\w-]{1,64}$/, MAX_MEMBERS = 8, MAX_TRIES = 12, TICK_MS = 3000, TEXT_MAX = 280, LINES_PER_WINDOW = 8, LINE_WINDOW_MS = 10000;
+
+  /* Texte de transcription propre : chaîne, sans caractères de contrôle, espaces simples, 280 caractères au plus. */
+  function cleanText(t) {
+    if (typeof t !== "string") return "";
+    return t.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, TEXT_MAX);
+  }
+  /* Durée en « m:ss » (ou « h:mm:ss » au-delà d'une heure). */
+  function fmtDuration(ms) {
+    var n = Number(ms); if (!isFinite(n) || n < 0) n = 0;
+    var t = Math.floor(n / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60;
+    var two = function (x) { return (x < 10 ? "0" : "") + x; };
+    return h > 0 ? h + ":" + two(m) + ":" + two(sec) : m + ":" + two(sec);
+  }
 
   /* Liste d'identifiants propre : chaînes valides, sans doublon, connues de la salle (si `known` est fourni), 8 au plus. */
   function cleanMembers(list, known) {
@@ -37,10 +50,11 @@ var V50Voice = (function () {
   }
 
   /* env : { myId(), isHost(), inRoom(), players(), getPeer(), sendToHost(d), sendTo(id,d), broadcast(d),
-             getMicrophone() → Promise<{stream, mic, reason}>, playRemote(id,stream), stopRemote(id), stopAll(), setDeaf(b), onChange(snapshot) } */
+             getMicrophone() → Promise<{stream, mic, reason}>, playRemote(id,stream), stopRemote(id), stopAll(), setDeaf(b), onChange(snapshot),
+             onLine({id,text,at}) (transcription reçue ou envoyée) } */
   function createController(env) {
     var st = { joined: false, busy: false, muted: false, deaf: false, listenOnly: false, error: "", members: [] };
-    var local = null, mic = null, calls = {}, streams = {}, attempts = {}, hostSet = {}, ticker = null;
+    var local = null, mic = null, calls = {}, streams = {}, attempts = {}, hostSet = {}, ticker = null, lineTimes = {};
 
     function snapshot() {
       return { joined: st.joined, busy: st.busy, muted: st.muted, deaf: st.deaf, listenOnly: st.listenOnly, error: st.error, members: st.members.slice(), connected: Object.keys(streams) };
@@ -157,10 +171,39 @@ var V50Voice = (function () {
     }
     function setDeaf(b) { st.deaf = !!b; try { env.setDeaf(st.deaf); } catch (e) {} changed(); }
 
+    /* ----- transcription : chacun transcrit SA voix ; l'hôte relaie le texte aux seuls participants au vocal ----- */
+    function emitLine(id, text) { try { if (env.onLine) env.onLine({ id: id, text: text, at: Date.now() }); } catch (e) {} }
+    function allowLine(id) {
+      var now = Date.now(), arr = (lineTimes[id] || []).filter(function (t) { return now - t < LINE_WINDOW_MS; });
+      if (arr.length >= LINES_PER_WINDOW) { lineTimes[id] = arr; return false; }
+      arr.push(now); lineTimes[id] = arr; return true;
+    }
+    function deliverLine(from, text) {                       /* côté hôte */
+      var me = env.myId();
+      Object.keys(hostSet).forEach(function (id) { if (id !== from && id !== me) env.sendTo(id, { type: "vcLine", id: from, text: text }); });
+      if (from !== me && st.joined) emitLine(from, text);
+    }
+    function sendText(text) {
+      if (!st.joined || st.listenOnly || st.muted) return false;   /* micro coupé = rien n'est transcrit ni envoyé */
+      var t = cleanText(text); if (!t) return false;
+      emitLine(env.myId(), t);
+      if (env.isHost()) deliverLine(env.myId(), t); else env.sendToHost({ type: "vcText", text: t });
+      return true;
+    }
+
     /* ----- messages du réseau du jeu (handleData) ----- */
-    function handleMessage(data) {
+    function handleMessage(data, from) {
       if (!data) return;
-      if (data.type === "vc") {
+      if (data.type === "vcText") {
+        /* l'expéditeur vient de la connexion réseau (pas du message) : impossible d'écrire au nom d'un autre */
+        if (!env.isHost() || typeof from !== "string" || !hostSet[from] || !env.players()[from]) return;
+        var t = cleanText(data.text);
+        if (t && allowLine(from)) deliverLine(from, t);
+      } else if (data.type === "vcLine") {
+        if (env.isHost() || !st.joined || typeof data.id !== "string" || data.id === env.myId() || st.members.indexOf(data.id) < 0) return;
+        var t2 = cleanText(data.text);
+        if (t2) emitLine(data.id, t2);
+      } else if (data.type === "vc") {
         if (!env.isHost() || typeof data.id !== "string" || !ID_RE.test(data.id)) return;
         if (data.op === "join" && env.players()[data.id]) hostSet[data.id] = 1;
         else if (data.op === "leave") delete hostSet[data.id];
@@ -183,7 +226,7 @@ var V50Voice = (function () {
       attach(call.peer, call);
     }
 
-    return { join: join, leave: leave, setMuted: setMuted, setDeaf: setDeaf, handleMessage: handleMessage, hostSendStateTo: hostSendStateTo, onCall: onCall, tick: tick, snapshot: snapshot };
+    return { join: join, leave: leave, setMuted: setMuted, setDeaf: setDeaf, sendText: sendText, handleMessage: handleMessage, hostSendStateTo: hostSendStateTo, onCall: onCall, tick: tick, snapshot: snapshot };
   }
 
   /* Niveau sonore (RMS 0..1) → pourcentage de la barre du test : silence = 0 %, voix normale ≈ 30-60 %, cri = 100 % */
@@ -193,7 +236,7 @@ var V50Voice = (function () {
     return Math.max(0, Math.min(100, Math.round((Math.sqrt(r) - 0.05) * 150)));
   }
 
-  var api = { createController: createController, cleanMembers: cleanMembers, plan: plan, levelToPercent: levelToPercent, MAX_MEMBERS: MAX_MEMBERS };
+  var api = { createController: createController, cleanMembers: cleanMembers, plan: plan, levelToPercent: levelToPercent, cleanText: cleanText, fmtDuration: fmtDuration, MAX_MEMBERS: MAX_MEMBERS };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window === "undefined" || typeof document === "undefined") return api;
   window.V50Voice = api;
@@ -261,6 +304,7 @@ var V50Voice = (function () {
 
   /* indicateur « parle » : niveau sonore de chaque flux */
   var meters = {}, speaking = {}, lastLoud = {};
+  var talkMs = {}, joinedAt = 0, lastSpeakTick = Date.now();   /* temps de parole de chacun et début de MON appel */
   function watch(id, stream) {
     unwatch(id);
     var c = audioCtx(); if (!c || !stream || !stream.getAudioTracks().length) return;
@@ -281,17 +325,19 @@ var V50Voice = (function () {
     return Math.sqrt(sum / m.buf.length);
   }
   setInterval(function () {
-    var now = Date.now(), changedAny = false;
+    var now = Date.now(), changedAny = false, dt = Math.min(400, now - lastSpeakTick); lastSpeakTick = now;
     Object.keys(meters).forEach(function (id) {
       var on = false;
       try { on = level(meters[id]) > 0.035; } catch (e) {}
       if (id === "me" && snap.muted) on = false;
       if (on) lastLoud[id] = now;
       var s = now - (lastLoud[id] || 0) < 450;
+      if (s && snap.joined) talkMs[id] = (talkMs[id] || 0) + dt;
       if (s !== !!speaking[id]) { speaking[id] = s; changedAny = true; }
     });
-    if (changedAny) paintList();
+    if (changedAny) { paintList(); paintClock(); }
   }, 150);
+  setInterval(function () { if (!built) return; paintClock(); if (snap.joined) paintList(); }, 1000);   /* durée de l'appel et temps de parole */
 
   /* ----- test du micro et du haut-parleur (avant de rejoindre le vocal) ----- */
   var test = null, testPending = false;
@@ -375,6 +421,124 @@ var V50Voice = (function () {
     } catch (e) { testMsg("Impossible de jouer le bip sur ce navigateur.", true); }
   }
 
+  /* ----- durée de l'appel et « qui parle » (bandeau près du bouton, visible même panneau fermé) ----- */
+  function speakingNames() {
+    var me = typeof myId !== "undefined" ? myId : "", out = [];
+    snap.members.forEach(function (id) { var key = id === me ? "me" : id; if (speaking[key]) out.push(id === me ? "Toi" : nameOf(id)); });
+    return out;
+  }
+  function paintClock() {
+    var el = $("vcClock"), pill = $("vcNow"), on = !!(snap.joined && joinedAt);
+    var dur = on ? fmtDuration(Date.now() - joinedAt) : "";
+    if (el) { el.hidden = !on; if (on) el.textContent = "⏱ " + dur + " · " + snap.members.length + " au vocal"; }
+    if (pill) {
+      if (!on) { pill.classList.remove("show"); pill.classList.remove("talk"); return; }
+      var names = speakingNames();
+      pill.textContent = "⏱ " + dur + (names.length ? " · 🗣️ " + names.join(", ") : "");
+      pill.classList.add("show"); pill.classList.toggle("talk", names.length > 0);
+    }
+  }
+
+  /* ----- transcription : chacun transcrit SA voix (reconnaissance vocale du navigateur) et partage le texte ----- */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var trLog = [], trWanted = false, trBlocked = false, trRec = null, trErrs = 0, trSeen = {};
+  var TR_LANGS = [["fr-FR", "Français"], ["en-US", "English"], ["es-ES", "Español"], ["de-DE", "Deutsch"], ["it-IT", "Italiano"], ["pt-PT", "Português"]];
+  function trDefaultLang() {
+    var n = String((navigator && navigator.language) || "fr").slice(0, 2).toLowerCase();
+    for (var i = 0; i < TR_LANGS.length; i++) if (TR_LANGS[i][0].slice(0, 2) === n) return TR_LANGS[i][0];
+    return "fr-FR";
+  }
+  var trLang = trDefaultLang();
+  function trMsg(t, warn) { var m = $("vcTrMsg"); if (m) { m.textContent = t || ""; m.className = "vc-test-msg" + (warn ? " warn" : ""); } }
+  function trSetInterim(t) { var e = $("vcTrInterim"); if (e) e.textContent = t ? "… " + t : ""; }
+  function addLine(l) {
+    if (!l || !l.text) return;
+    var me = typeof myId !== "undefined" ? myId : "", mine = l.id === me;
+    var name = String(nameOf(l.id)).replace(/[\r\n]+/g, " ");
+    trLog.push({ at: joinedAt ? Math.max(0, l.at - joinedAt) : 0, id: l.id, name: name, text: l.text, mine: mine });
+    if (trLog.length > 500) trLog.shift();
+    if (!mine && !trSeen[l.id]) { trSeen[l.id] = 1; toast("📝 " + name + " active la transcription de sa voix"); }
+    paintTr();
+  }
+  function paintTr() {
+    var box = $("vcTr"); if (!box) return;
+    box.hidden = !(snap.joined || trLog.length > 0);
+    var btn = $("vcTrBtn");
+    if (btn) { btn.textContent = trWanted ? "⏹ Arrêter ma transcription" : "📝 Transcrire ma voix"; btn.disabled = !SR; }
+    var sel = $("vcTrLang"); if (sel && sel.value !== trLang) sel.value = trLang;
+    var log = $("vcTrLog"); if (!log) return;
+    var stick = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
+    var rows = trLog.slice(-60);
+    log.innerHTML = rows.length
+      ? rows.map(function (x) { return '<div class="vc-tr-line' + (x.mine ? " me" : "") + '"><span class="vc-tr-t">' + fmtDuration(x.at) + '</span> <b>' + esc(x.mine ? "Toi" : x.name) + '</b> ' + esc(x.text) + '</div>'; }).join("")
+      : '<div class="vc-empty">Rien pour l\'instant. Active ta transcription pour écrire ce que tu dis ; celle des autres s\'affichera ici.</div>';
+    if (stick) log.scrollTop = log.scrollHeight;
+  }
+  function trAllowed() { return trWanted && !trBlocked && snap.joined && !snap.muted && !snap.listenOnly; }
+  function trStopRec() {
+    var r = trRec; trRec = null;
+    if (r) { r.onresult = null; r.onerror = null; r.onend = null; try { r.abort(); } catch (e) {} }
+    trSetInterim("");
+  }
+  function trStartRec() {
+    if (!SR || trRec) return;
+    var r;
+    try { r = new SR(); } catch (e) { trWanted = false; trMsg("La transcription n'est pas disponible sur ce navigateur.", true); paintTr(); return; }
+    r.lang = trLang; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    r.onresult = function (e) {
+      var interim = "";
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        var res = e.results[i], txt = (res[0] && res[0].transcript) || "";
+        if (res.isFinal) { trErrs = 0; ctl.sendText(txt); } else interim += txt;
+      }
+      trSetInterim(snap.muted ? "" : interim);
+    };
+    r.onerror = function (e) {
+      var er = e && e.error;
+      if (er === "not-allowed" || er === "service-not-allowed") { trBlocked = true; trWanted = false; trMsg("Le navigateur refuse la transcription : autorise le micro pour ce site (cadenas près de l'adresse), puis réessaie.", true); }
+      else if (er === "language-not-supported") { trWanted = false; trMsg("Cette langue n'est pas gérée par ton navigateur : choisis-en une autre.", true); }
+      else if (er === "network") { trErrs++; if (trErrs >= 4) { trWanted = false; trMsg("Le service de reconnaissance vocale du navigateur est injoignable (connexion ?).", true); } }
+      paintTr();
+    };
+    r.onend = function () { if (trRec !== r) return; trRec = null; trSetInterim(""); if (trAllowed()) setTimeout(trSync, 300); };   /* le navigateur coupe après un silence : on relance */
+    try { r.start(); trRec = r; trMsg("📝 Transcription active : parle, ton texte apparaît ci-dessous."); } catch (e) { trRec = null; }
+  }
+  function trSync() {
+    if (trAllowed()) { if (!trRec) trStartRec(); }
+    else if (trRec) { trStopRec(); if (trWanted && snap.joined) trMsg("⏸ Transcription en pause : ton micro est coupé.", true); }
+  }
+  function trToggle() {
+    if (!SR) return;
+    if (!trWanted && snap.listenOnly) { trMsg("Tu es en écoute seule : il n'y a pas de micro à transcrire. Tu vois quand même ce que disent les autres.", true); return; }
+    trWanted = !trWanted;
+    if (trWanted) { trBlocked = false; trErrs = 0; trMsg(snap.muted ? "Ton micro est coupé : la transcription démarrera quand tu le réactiveras." : "", snap.muted); }
+    else trMsg("");
+    trSync(); paintTr();
+  }
+  function trText() {
+    var head = "Transcription du chat vocal — salle " + (typeof roomCode !== "undefined" ? roomCode : "") + " — " + new Date().toLocaleString() + "\n\n";
+    return head + trLog.map(function (x) { return "[" + fmtDuration(x.at) + "] " + x.name + " : " + x.text; }).join("\n") + "\n";
+  }
+  function fallbackCopy(txt) {
+    try { var ta = document.createElement("textarea"); ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); var okc = document.execCommand("copy"); ta.remove(); return !!okc; } catch (e) { return false; }
+  }
+  function trCopy() {
+    if (!trLog.length) { trMsg("Rien à copier pour l'instant.", true); return; }
+    var txt = trText(), done = function () { toast("📋 Transcription copiée"); }, fail = function () { trMsg("Copie impossible ici : utilise « Enregistrer ».", true); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, function () { if (fallbackCopy(txt)) done(); else fail(); });
+    else if (fallbackCopy(txt)) done(); else fail();
+  }
+  function trSave() {
+    if (!trLog.length) { trMsg("Rien à enregistrer pour l'instant.", true); return; }
+    try {
+      var blob = new Blob([trText()], { type: "text/plain;charset=utf-8" }), url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = "transcription-vocal-" + (typeof roomCode !== "undefined" ? roomCode : "salle") + ".txt";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 4000);
+      toast("💾 Transcription enregistrée");
+    } catch (e) { trMsg("Enregistrement impossible ici : utilise « Copier ».", true); }
+  }
+
   /* ----- contrôleur branché sur le jeu ----- */
   var snap = { joined: false, busy: false, muted: false, deaf: false, listenOnly: false, error: "", members: [], connected: [] };
   var prevMembers = [];
@@ -392,6 +556,7 @@ var V50Voice = (function () {
     broadcast: function (d) { if (typeof broadcast === "function") broadcast(d); },
     getMicrophone: function () { audioCtx(); return getMicrophone().then(function (r) { if (r && r.mic) watch("me", r.stream); return r; }); },   /* le voyant « tu parles » écoute ton micro */
     playRemote: playRemote, stopRemote: stopRemote, stopAll: stopAll, setDeaf: setDeafEnv,
+    onLine: function (l) { addLine(l); },
     onChange: function (s) {
       var me = typeof myId !== "undefined" ? myId : "";
       if (s.joined && snap.joined) {
@@ -399,7 +564,11 @@ var V50Voice = (function () {
         prevMembers.forEach(function (id) { if (id !== me && s.members.indexOf(id) < 0) toast("🎙️ " + nameOf(id) + " a quitté le vocal"); });
       }
       prevMembers = s.members.slice();
-      snap = s; render();
+      var wasJoined = snap.joined;
+      snap = s;
+      if (s.joined && !wasJoined) { joinedAt = Date.now(); talkMs = {}; trLog = []; trSeen = {}; trMsg(""); }
+      if (!s.joined && wasJoined) { joinedAt = 0; trWanted = false; }
+      render(); paintTr(); paintClock();
     }
   });
   api.controller = ctl;
@@ -420,10 +589,19 @@ var V50Voice = (function () {
     var baseHandle = handleData;
     handleData = function (data) {
       if (data && (data.type === "vc" || data.type === "vcState")) { ctl.handleMessage(data); return; }
+      if (data && (data.type === "vcText" || data.type === "vcLine")) return;     /* traités par setupConnection (expéditeur réel) */
       var r = baseHandle.apply(this, arguments);
       if (data && data.type === "join" && typeof isHost !== "undefined" && isHost && data.player && data.player.id) {
         var pid = data.player.id; setTimeout(function () { ctl.hostSendStateTo(pid); }, 200);
       }
+      return r;
+    };
+  }
+  if (typeof setupConnection === "function") {
+    var baseSetup = setupConnection;
+    setupConnection = function (connection) {
+      var r = baseSetup.apply(this, arguments);
+      try { connection.on("data", function (d) { if (d && (d.type === "vcText" || d.type === "vcLine")) ctl.handleMessage(d, connection.peer); }); } catch (e) {}
       return r;
     };
   }
@@ -443,16 +621,28 @@ var V50Voice = (function () {
     var panel = document.createElement("div");
     panel.id = "vcPanel"; panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", "Chat vocal");
     panel.innerHTML = '<div class="vc-head"><strong>🎙️ Chat vocal</strong><button type="button" class="vc-x" data-vc="close" aria-label="Fermer">✕</button></div>'
+      + '<div class="vc-clock" id="vcClock" hidden title="Durée de ton appel et nombre de personnes au vocal"></div>'
       + '<div class="vc-msg" id="vcMsg" role="status" aria-live="polite"></div><div class="vc-list" id="vcList"></div><div class="vc-actions" id="vcActions"></div>'
+      + '<div class="vc-test vc-tr" id="vcTr" hidden><div class="vc-test-title">📝 Transcription</div>'
+      + '<div class="vc-test-btns"><button type="button" class="btn btn-secondary" data-vc="trtoggle" id="vcTrBtn">📝 Transcrire ma voix</button><select id="vcTrLang" class="vc-tr-lang" aria-label="Langue que tu parles">' + TR_LANGS.map(function (l) { return '<option value="' + l[0] + '">' + l[1] + '</option>'; }).join("") + '</select></div>'
+      + '<div class="vc-test-msg" id="vcTrMsg" role="status" aria-live="polite"></div>'
+      + '<div class="vc-tr-log" id="vcTrLog"></div><div class="vc-tr-interim" id="vcTrInterim"></div>'
+      + '<div class="vc-test-btns"><button type="button" class="btn btn-secondary" data-vc="trcopy">📋 Copier</button><button type="button" class="btn btn-secondary" data-vc="trsave">💾 Enregistrer (.txt)</button></div>'
+      + '<div class="vc-hint" id="vcTrNote">Chacun ne transcrit que sa propre voix, et seulement s\'il l\'active. Le texte est produit par la reconnaissance vocale de ton navigateur (sur Chrome et Edge, un service en ligne du fabricant), puis envoyé aux autres personnes du vocal. Elle se met en pause quand ton micro est coupé.</div></div>'
       + '<div class="vc-test" id="vcTest"><div class="vc-test-title" id="vcTestTitle">🔧 Tester avant de rejoindre</div>'
       + '<div class="vc-test-btns"><button type="button" class="btn btn-secondary" data-vc="testmic" id="vcTestMic">🎤 Tester mon micro</button><button type="button" class="btn btn-secondary" data-vc="testsound" id="vcTestSound">🔔 Tester le son</button></div>'
       + '<div class="vc-meter" id="vcMeter" hidden><i id="vcMeterFill"></i></div>'
       + '<label class="vc-loop" id="vcLoop" hidden><input type="checkbox" id="vcLoopBox"> M\'entendre (mets un casque pour éviter l\'écho)</label>'
       + '<div class="vc-test-msg" id="vcTestMsg" role="status" aria-live="polite"></div></div>'
-      + '<div class="vc-hint">Parle avec les joueurs de la salle, sans rien installer. Le navigateur te demande l\'accès au micro. Mets un casque pour éviter l\'écho.</div>';
-    document.body.appendChild(fab); document.body.appendChild(panel);
+      + '<div class="vc-hint">Parle avec les joueurs de la salle, sans rien installer. Le navigateur te demande l\'accès au micro. Mets un casque pour éviter l\'écho. Le temps à droite de chaque nom = son temps de parole.</div>';
+    var pill = document.createElement("div"); pill.id = "vcNow"; pill.setAttribute("aria-live", "off");
+    document.body.appendChild(fab); document.body.appendChild(panel); document.body.appendChild(pill);
     fab.addEventListener("click", function () { panel.classList.toggle("open"); if (!panel.classList.contains("open")) stopTest(); render(); });
-    panel.addEventListener("change", function (e) { if (e.target && e.target.id === "vcLoopBox") setLoopback(!!e.target.checked); });
+    panel.addEventListener("change", function (e) {
+      if (!e.target) return;
+      if (e.target.id === "vcLoopBox") setLoopback(!!e.target.checked);
+      else if (e.target.id === "vcTrLang") { trLang = e.target.value; trStopRec(); trSync(); }
+    });
     panel.addEventListener("click", function (e) {
       var t = e.target.closest && e.target.closest("[data-vc]"); if (!t) return;
       var a = t.dataset.vc;
@@ -460,11 +650,14 @@ var V50Voice = (function () {
       else if (a === "join") { stopTest(); hookPeer(); ctl.join(); }
       else if (a === "testmic") { if (test || testPending) stopTest(); else startTest(); }
       else if (a === "testsound") testSound();
+      else if (a === "trtoggle") trToggle();
+      else if (a === "trcopy") trCopy();
+      else if (a === "trsave") trSave();
       else if (a === "leave") ctl.leave(false);
       else if (a === "mute") ctl.setMuted(!snap.muted);
       else if (a === "deaf") ctl.setDeaf(!snap.deaf);
     });
-    render();
+    render(); paintTr(); paintClock();
   }
   function paintList() {
     var list = $("vcList"); if (!list) return;
@@ -474,6 +667,7 @@ var V50Voice = (function () {
       var p = typeof players === "object" && players ? players[id] : null, isMe = id === me;
       var key = isMe ? "me" : id, linked = isMe || snap.connected.indexOf(id) >= 0;
       var state = isMe ? (snap.listenOnly ? "🎧 écoute" : (snap.muted ? "🔇 micro coupé" : "🎤")) : (linked ? "🔊" : "⏳ connexion…");
+      if (linked && talkMs[key] >= 1000) state += " · " + fmtDuration(talkMs[key]);
       return '<div class="vc-row' + (speaking[key] ? " talk" : "") + '"><span class="vc-av">' + esc((p && p.avatar) || "🙂") + '</span><span class="vc-name">' + esc((p && p.name) || "Joueur") + (isMe ? " (toi)" : "") + '</span><span class="vc-state">' + state + '</span></div>';
     }).join("");
   }
@@ -493,6 +687,7 @@ var V50Voice = (function () {
     var others = snap.members.filter(function (id) { return id !== (typeof myId !== "undefined" ? myId : ""); }).length;
     var badge = $("vcBadge"); if (badge) { badge.textContent = snap.joined ? String(snap.members.length) : (others ? String(others) : ""); badge.style.display = (snap.joined || others) ? "" : "none"; }
     fab.classList.toggle("call", !snap.joined && others > 0);
+    trSync();
     var msg = $("vcMsg"); if (msg) { msg.textContent = snap.error || ""; msg.className = "vc-msg" + (snap.error ? " show" : ""); }
     var act = $("vcActions");
     if (act) {

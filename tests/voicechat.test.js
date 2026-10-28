@@ -30,19 +30,19 @@ class FakePeer extends Ev {
     return caller;
   }
 }
-function makeNet() { return { peers: {}, nodes: {}, players: {}, callLog: [], host: null }; }
+function makeNet() { return { peers: {}, nodes: {}, players: {}, callLog: [], sentLog: [], host: null }; }
 function makeNode(net, id, host, micOk = true) {
-  const node = { id, host, micOk, played: {}, stoppedIds: [], snaps: [], streams: [] };
+  const node = { id, host, micOk, played: {}, stoppedIds: [], snaps: [], streams: [], lines: [] };
   node.peer = new FakePeer(id, net);
   net.players[id] = { id, name: "J-" + id, avatar: "🙂" };
   node.ctl = V.createController({
     myId: () => id, isHost: () => host, inRoom: () => true, players: () => net.players, getPeer: () => node.peer,
-    sendToHost: d => later(() => net.host.ctl.handleMessage(clone(d))),
-    sendTo: (to, d) => later(() => net.nodes[to] && net.nodes[to].ctl.handleMessage(clone(d))),
+    sendToHost: d => later(() => net.host.ctl.handleMessage(clone(d), id)),
+    sendTo: (to, d) => { net.sentLog.push([id, to, d.type]); later(() => net.nodes[to] && net.nodes[to].ctl.handleMessage(clone(d), id)); },
     broadcast: d => Object.keys(net.nodes).forEach(to => { if (to !== id) later(() => net.nodes[to].ctl.handleMessage(clone(d))); }),
     getMicrophone: () => { const s = new Stream(id); node.streams.push(s); return Promise.resolve(node.micOk ? { stream: s, mic: true } : { stream: s, mic: false, reason: "Micro refusé : tu écoutes seulement." }); },
     playRemote: (rid, s) => { node.played[rid] = s; }, stopRemote: rid => { delete node.played[rid]; node.stoppedIds.push(rid); }, stopAll: () => {}, setDeaf: () => {},
-    onChange: s => node.snaps.push(s)
+    onLine: l => node.lines.push(l), onChange: s => node.snaps.push(s)
   });
   node.peer.on("call", node.ctl.onCall);
   net.nodes[id] = node; if (host) net.host = node;
@@ -95,6 +95,54 @@ const idsOf = (...ns) => ns.map(n => n.id).sort();
   ok(net.callLog.length === 6 && new Set(pairs).size === 6, "6 appels exactement, jamais deux pour la même paire (obtenu " + net.callLog.length + ")");
   ok(net.callLog.every(([a, b]) => a < b), "c'est toujours le plus petit identifiant qui appelle");
 
+  /* ---------- transcription : chacun transcrit sa voix, l'hôte relaie le texte aux seuls participants au vocal ---------- */
+  ok(V.cleanText("  Bonjour \n\t  le   monde\u0000 ") === "Bonjour le monde", "cleanText : espaces et caractères de contrôle nettoyés");
+  ok(V.cleanText("x".repeat(500)).length === 280 && V.cleanText(42) === "" && V.cleanText(null) === "" && V.cleanText({}) === "", "cleanText : 280 caractères au plus, types invalides = vide");
+  ok(V.fmtDuration(0) === "0:00" && V.fmtDuration(59999) === "0:59" && V.fmtDuration(61000) === "1:01" && V.fmtDuration(600000) === "10:00" && V.fmtDuration(3661000) === "1:01:01", "fmtDuration : m:ss puis h:mm:ss");
+  ok(V.fmtDuration(-5) === "0:00" && V.fmtDuration(NaN) === "0:00" && V.fmtDuration("abc") === "0:00" && V.fmtDuration(undefined) === "0:00", "fmtDuration : valeurs invalides = 0:00");
+  const OUT = makeNode(net, "out999", false);                       /* dans la salle, mais PAS au vocal */
+  ok(A.ctl.sendText("Bonjour à tous") === true, "au vocal : envoyer une phrase transcrite réussit");
+  await settle();
+  ok(A.lines.length === 1 && A.lines[0].id === "aaa111" && A.lines[0].text === "Bonjour à tous", "l'auteur voit sa propre ligne une seule fois");
+  ok([H, B, C].every(n => n.lines.length === 1 && n.lines[0].id === "aaa111" && n.lines[0].text === "Bonjour à tous"), "l'hôte et les autres participants reçoivent la phrase, au nom de l'auteur");
+  ok(OUT.lines.length === 0, "quelqu'un de la salle qui n'est pas au vocal ne reçoit PAS la transcription");
+  H.ctl.sendText("Salut, ici l'hôte"); await settle();
+  ok(H.lines.length === 2 && H.lines[1].id === "quiz-123456" && [A, B, C].every(n => n.lines.length === 2 && n.lines[1].id === "quiz-123456"), "la phrase de l'hôte arrive à tous (et une seule fois chez lui)");
+  ok(OUT.lines.length === 0, "toujours rien chez celui qui n'est pas au vocal");
+  ok(net.sentLog.filter(x => x[2] === "vcLine").length > 0 && !net.sentLog.some(x => x[2] === "vcLine" && x[1] === "out999"), "l'hôte n'envoie même pas la transcription à quelqu'un qui n'est pas au vocal");
+  /* usurpation : l'expéditeur vient de la connexion, pas du message */
+  const trBefore = H.lines.length;
+  H.ctl.handleMessage({ type: "vcText", text: "faux", id: "aaa111" }, undefined); await settle();
+  H.ctl.handleMessage({ type: "vcText", text: "faux" }, "inconnu-total"); await settle();
+  H.ctl.handleMessage({ type: "vcText", text: "faux" }, "out999"); await settle();       /* joueur de la salle mais pas au vocal */
+  H.ctl.handleMessage({ type: "vcText", text: "faux" }, 42); H.ctl.handleMessage({ type: "vcText", text: 12 }, "aaa111"); H.ctl.handleMessage({ type: "vcText" }, "aaa111"); await settle();
+  H.ctl.handleMessage({ type: "vcLine", id: "aaa111", text: "faux" }, "aaa111"); await settle();   /* l'hôte ignore « vcLine » */
+  ok(H.lines.length === trBefore && [A, B, C, OUT].every(n => !n.lines.some(l => /faux/.test(l.text))), "expéditeur absent, inconnu, hors vocal, ou message mal formé : rien n'est relayé");
+  const aLines = A.lines.length;
+  A.ctl.handleMessage({ type: "vcText", text: "faux" }, "mmm222");                           /* un invité ne relaie rien */
+  A.ctl.handleMessage({ type: "vcLine", id: "pas-au-vocal", text: "faux" });                 /* auteur inconnu */
+  A.ctl.handleMessage({ type: "vcLine", id: "aaa111", text: "moi-même" });                   /* se faire renvoyer sa propre ligne */
+  A.ctl.handleMessage({ type: "vcLine", id: "mmm222", text: 99 }); A.ctl.handleMessage({ type: "vcLine", id: 5, text: "x" }); A.ctl.handleMessage({ type: "vcLine" });
+  ok(A.lines.length === aLines, "un invité ignore vcText, les lignes d'inconnus, les siennes renvoyées et les messages invalides");
+  A.ctl.handleMessage({ type: "vcLine", id: "mmm222", text: "  ok \n  texte  " });
+  ok(A.lines[A.lines.length - 1].text === "ok texte", "une ligne valide est acceptée et nettoyée");
+  /* micro coupé ou hors vocal : rien ne part */
+  A.ctl.setMuted(true); const nA = A.lines.length, nH = H.lines.length;
+  ok(A.ctl.sendText("coupé") === false && A.lines.length === nA, "micro coupé : rien n'est transcrit ni envoyé");
+  A.ctl.setMuted(false);
+  ok(OUT.ctl.sendText("dehors") === false && OUT.lines.length === 0, "pas au vocal : rien n'est transcrit ni envoyé");
+  ok(A.ctl.sendText("   ") === false && A.ctl.sendText(7) === false && A.ctl.sendText("\u0000") === false, "phrase vide ou invalide : rien n'est envoyé");
+  await settle();
+  ok(H.lines.length === nH, "l'hôte n'a rien reçu de tout cela");
+  /* débit : un joueur qui spamme est limité à 8 lignes par 10 s */
+  const hLines = H.lines.length;
+  for (let i = 0; i < 20; i++) C.ctl.sendText("spam " + i);
+  await settle();
+  const fromC = H.lines.filter(l => l.id === "zzz333").length;
+  ok(fromC <= 8 && fromC >= 1, "limite de débit : au plus 8 lignes d'un même joueur en 10 s (reçu " + fromC + ")");
+  ok(B.lines.filter(l => l.id === "zzz333").length === fromC, "ce qui est relayé aux autres respecte la même limite");
+  ok(H.lines.length - hLines === fromC, "rien d'autre n'a été reçu par l'hôte");
+
   /* ---------- scénario 2 : un joueur quitte le vocal ---------- */
   const bStream = B.streams[0];
   B.ctl.leave(false); await settle();
@@ -126,6 +174,7 @@ const idsOf = (...ns) => ns.map(n => n.id).sort();
   ok(L.ctl.snapshot().joined && L.ctl.snapshot().listenOnly && /refusé/.test(L.ctl.snapshot().error), "micro refusé : rejoint en écoute seule avec un message clair");
   ok(JSON.stringify(connectedOf(L)) === JSON.stringify(idsOf(H, A, C, D)), "l'auditeur reçoit bien la voix de tous (a : " + connectedOf(L).join(",") + ")");
   ok(connectedOf(A).includes("lll555"), "les autres le voient connecté");
+  ok(L.ctl.sendText("je n'ai pas de micro") === false && L.lines.length === 0, "écoute seule : aucune transcription envoyée");
 
   /* ---------- scénario 6 : coupure réseau puis reprise automatique ---------- */
   const before = net.callLog.length;

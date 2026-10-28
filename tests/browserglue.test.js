@@ -31,7 +31,7 @@ function makeWorld(opts) {
     dispatch(t, ev) { (this.listeners[t] || []).forEach(f => f(ev)); }
     scrollIntoView() {} focus() { this.focused = true; } pause() {} play() { return Promise.resolve(); }
   }
-  const world = {};
+  const world = { sr: [], downloads: [] };
   const document = {
     readyState: "complete", body: new El("body"),
     createElement: t => new El(t), getElementById: id => byId[id] || null,
@@ -54,6 +54,8 @@ function makeWorld(opts) {
   const fakePeer = { calls: [], handlers: {}, on(e, f) { this.handlers[e] = f; }, call(id, s) { const c = { peer: id, on() {}, close() {} }; this.calls.push(id); return c; } };
   const ctx = {
     console, document, AudioContext: FakeAC, Uint8Array, JSON, Object, Array, Promise, Date, Math, String, Number, Set, Error,
+    SpeechRecognition: class { constructor() { world.sr.push(this); this.aborted = false; this.started = false; } start() { this.started = true; } abort() { this.aborted = true; } },
+    Blob: class { constructor(parts, o) { this.parts = parts; this.type = o && o.type; } }, URL: { createObjectURL: b => "blob:" + b.parts.join("").length, revokeObjectURL() {} },
     navigator: { userAgent: "test", mediaDevices: { getUserMedia: async () => micStream }, clipboard: { writeText: async t => { copied.push(t); } } },
     location: { href: opts.href || "https://x.github.io/jeu/", search: opts.search || "", hash: opts.hash || "" },
     setInterval: f => { timers.push(f); return timers.length; }, clearInterval() {}, setTimeout: f => { timeouts.push(f); return timeouts.length; }, clearTimeout() {},
@@ -67,9 +69,11 @@ function makeWorld(opts) {
     var __reset = 0, __base = [];
     function handleData(d) { __base.push(d); }
     function resetConnection() { __reset++; }
+    var __setup = []; function setupConnection(c) { __setup.push(c); }
     function sendTo() {} function broadcast() {}
     function showMessage(id, text, type) { __msg = { id: id, text: text, type: type }; } var __msg = null;
   `, ctx);
+  const ce = document.createElement; document.createElement = tg => { const e = ce(tg); if (tg === "a") e.click = () => world.downloads.push({ href: e.href, name: e.download }); return e; };
   Object.assign(world, { ctx, byId, timers, timeouts, sent, copied, toasts, fakePeer, lobby, document, El, micStream, counters });
   ctx.__world_peer = fakePeer;
   return world;
@@ -183,6 +187,70 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   ok(/Couper mon micro/.test(w.byId.vcActions.innerHTML), "(micro réactivé)");
   ctx.navigator.mediaDevices.getUserMedia = gum0;
 
+  /* ---- durée de l'appel, « qui parle », temps de parole (horloge simulée) ---- */
+  const RealDate = Date, FD = class extends RealDate { static now() { return FD.t; } };
+  FD.t = RealDate.now() + 125000; ctx.Date = FD;
+  ctx.__amp = 0; tickAll(w);
+  ok(/^⏱ 2:0[5-6] · 3 au vocal$/.test(w.byId.vcClock.textContent) && w.byId.vcClock.hidden === false, "le panneau affiche la durée de l'appel et le nombre de personnes (« " + w.byId.vcClock.textContent + " »)");
+  const now1 = w.byId.vcNow;
+  ok(now1.classList.contains("show") && /^⏱ 2:0[5-6]$/.test(now1.textContent) && !now1.classList.contains("talk"), "la pastille près du bouton montre la durée même panneau fermé, sans personne qui parle");
+  ctx.__amp = 60;
+  for (let i = 0; i < 6; i++) { FD.t += 400; tickAll(w); }
+  ok(/🗣️ Toi/.test(now1.textContent) && now1.classList.contains("talk"), "quand je parle, la pastille l'indique (« " + now1.textContent + " »)");
+  ok(/vc-state">🎤 · 0:0[1-9]/.test(w.byId.vcList.innerHTML), "le temps de parole s'affiche à côté de mon nom");
+  ctx.__amp = 0; FD.t += 2000; tickAll(w);
+  ok(!/🗣️/.test(now1.textContent) && !now1.classList.contains("talk"), "quand plus personne ne parle, la mention disparaît");
+  FD.t += 3600000; tickAll(w);
+  ok(/^⏱ 1:02:/.test(now1.textContent), "au-delà d'une heure : format h:mm:ss (« " + now1.textContent + " »)");
+  ctx.Date = RealDate;
+
+  /* ---- transcription ---- */
+  ok(w.byId.vcTr.hidden === false && /Transcrire ma voix/.test(w.byId.vcTrBtn.textContent) && w.sr.length === 0, "au vocal : le bloc transcription est là, éteint par défaut (aucune reconnaissance lancée)");
+  click("trtoggle");
+  ok(w.sr.length === 1 && w.sr[0].started && w.sr[0].continuous !== false && w.sr[0].lang === "fr-FR" && /Arrêter/.test(w.byId.vcTrBtn.textContent), "activer : la reconnaissance démarre en français et le bouton passe à « Arrêter »");
+  const sr1 = w.sr[0], res = (txt, fin) => Object.assign([{ transcript: txt }], { isFinal: fin });
+  sr1.onresult({ resultIndex: 0, results: [res("je sui", false)] });
+  ok(/je sui/.test(w.byId.vcTrInterim.textContent), "le texte en cours s'affiche en grisé");
+  sr1.onresult({ resultIndex: 0, results: [res("  bonjour   tout le monde ", true)] });
+  ok(w.sent.some(d => d.type === "vcText" && d.text === "bonjour tout le monde"), "la phrase terminée est envoyée à l'hôte (vcText)");
+  ok(/Toi<\/b> bonjour tout le monde/.test(w.byId.vcTrLog.innerHTML), "et elle s'affiche dans ma transcription");
+  const conn = { peer: "quiz-123456", handlers: {}, on(e, f) { (this.handlers[e] = this.handlers[e] || []).push(f); } };
+  ctx.setupConnection(conn);
+  ok(ctx.__setup[0] === conn, "setupConnection d'origine toujours appelée");
+  const emit = d => (conn.handlers.data || []).forEach(f => f(d));
+  emit({ type: "vcLine", id: "ccc", text: "Salut <b>Léo</b>" });
+  ok(/Cam<\/b> Salut &lt;b&gt;Léo&lt;\/b&gt;/.test(w.byId.vcTrLog.innerHTML) && !/<b>Léo/.test(w.byId.vcTrLog.innerHTML), "la phrase d'un autre arrive au nom de l'auteur, échappée (pas d'injection HTML)");
+  ok(w.toasts.some(t => /Cam active la transcription/.test(t)), "une notification prévient qu'un participant active sa transcription");
+  const nLog = w.byId.vcTrLog.innerHTML;
+  emit({ type: "vcLine", id: "inconnu", text: "intrus" }); emit({ type: "vcLine", id: "ccc" }); emit({ type: "vcLine", id: "bbb", text: "écho de moi" });
+  ctx.handleData({ type: "vcLine", id: "ccc", text: "sans expéditeur" }); ctx.handleData({ type: "vcText", text: "sans expéditeur" });
+  ok(w.byId.vcTrLog.innerHTML === nLog && !ctx.__base.some(d => d.type === "vcLine" || d.type === "vcText"), "lignes d'inconnus ou sans expéditeur réel : ignorées, et elles ne polluent pas le jeu");
+  /* le navigateur coupe la reconnaissance après un silence : on la relance */
+  sr1.onend(); w.timeouts.forEach(f => f());
+  ok(w.sr.length === 2 && w.sr[1].started, "après un silence, la reconnaissance est relancée automatiquement");
+  /* micro coupé : pause immédiate */
+  panel.dispatch("click", { target: { closest: () => ({ dataset: { vc: "mute" } }) } });
+  ok(w.sr[1].aborted && /pause/.test(w.byId.vcTrMsg.textContent), "micro coupé : la transcription s'arrête tout de suite (rien n'est écouté ni envoyé)");
+  const sentBefore = w.sent.length;
+  w.sr[1].onresult && w.sr[1].onresult({ resultIndex: 0, results: [res("fantôme", true)] });
+  ok(w.sent.length === sentBefore, "même un résultat tardif n'est pas envoyé quand le micro est coupé");
+  panel.dispatch("click", { target: { closest: () => ({ dataset: { vc: "mute" } }) } });
+  ok(w.sr.length === 3 && w.sr[2].started, "micro réactivé : la transcription reprend");
+  /* refus du navigateur */
+  w.sr[2].onerror({ error: "not-allowed" });
+  ok(/refuse la transcription/.test(w.byId.vcTrMsg.textContent) && /Transcrire/.test(w.byId.vcTrBtn.textContent), "transcription refusée par le navigateur : message clair, bouton remis à zéro");
+  /* copier / enregistrer */
+  click("trcopy"); await flush();
+  ok(w.copied.some(c => /Transcription du chat vocal/.test(c) && /\] Moi : bonjour tout le monde/.test(c) && /Cam : Salut <b>Léo<\/b>/.test(c)), "copier : le texte brut contient l'en-tête, les heures et les noms réels");
+  click("trsave");
+  ok(w.downloads.length === 1 && /^transcription-vocal-123456\.txt$/.test(w.downloads[0].name), "enregistrer : un fichier .txt est proposé");
+  /* langue */
+  click("trtoggle"); const nSr = w.sr.length;
+  panel.dispatch("change", { target: { id: "vcTrLang", value: "en-US" } });
+  ok(w.sr.length === nSr + 1 && w.sr[w.sr.length - 1].lang === "en-US", "changer de langue relance la reconnaissance dans la nouvelle langue");
+  click("trtoggle");
+  ok(w.sr[w.sr.length - 1].aborted && /Transcrire/.test(w.byId.vcTrBtn.textContent), "désactiver : la reconnaissance est arrêtée");
+
   /* micro coupé / son coupé */
   panel.dispatch("click", { target: { closest: () => ({ dataset: { vc: "mute" } }) } });
   ok(/Réactiver mon micro/.test(w.byId.vcActions.innerHTML) && fab.classList.contains("muted"), "micro coupé : le panneau et le bouton le montrent");
@@ -196,6 +264,9 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   ok(/écoute/.test(w.byId.vcList.innerHTML) || /écoute/.test(w.byId.vcMsg.textContent), "rejoindre sans micro : mode écoute seule");
   click("testmic"); await flush();
   ok(/écoute seule/.test(w.byId.vcTestMsg.textContent) && w.byId.vcMeter.hidden === true, "tester en écoute seule : message explicatif, pas de barre");
+  ok(/Rien pour l'instant/.test(w.byId.vcTrLog.innerHTML), "un nouvel appel repart d'une transcription vide");
+  const nSr2 = w.sr.length; click("trtoggle");
+  ok(w.sr.length === nSr2 && /écoute seule/.test(w.byId.vcTrMsg.textContent) && /Transcrire/.test(w.byId.vcTrBtn.textContent), "en écoute seule : pas de transcription de sa voix (message clair)");
   ctx.navigator.mediaDevices.getUserMedia = gum0;
 
   /* quitter la salle (resetConnection) : le vocal se coupe tout seul, puis la fonction d'origine est appelée */
