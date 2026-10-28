@@ -70,6 +70,8 @@ Ce sont des scripts classiques (pas de bundler, pas de build) : **l'ordre des ba
 
 Dans une salle (salon d'attente, partie, résultats), le bouton **🎙️** apparaît en bas à gauche. **« Rejoindre le vocal »** demande l'accès au micro (si tu refuses ou si tu n'as pas de micro, tu rejoins en **écoute seule**). Chacun peut **couper son micro**, **couper le son des autres** ou **quitter le vocal**, et voit qui parle (liseré vert). Un badge indique combien de personnes sont déjà au vocal.
 
+**Tester avant de rejoindre.** Le panneau propose un bloc « 🔧 Tester avant de rejoindre », sans avoir besoin d'une deuxième personne : **« 🎤 Tester mon micro »** affiche une barre de niveau en direct (elle doit bouger quand tu parles) et confirme « Ton micro fonctionne » ; la case **« M'entendre »** te renvoie ta voix (mets un casque) ; **« 🔔 Tester le son »** joue un bip pour vérifier ta sortie audio. Un micro refusé ou absent est signalé clairement. Le test s'arrête tout seul au bout de 30 s, quand tu ferme le panneau ou quand tu rejoins le vocal, et le micro est alors libéré.
+
 **Comment ça marche.** Les participants se relient **directement** entre eux en WebRTC (`peer.call` de PeerJS) : chaque joueur appelle chaque autre, l'audio ne passe par aucun serveur. L'hôte tient la liste des participants au vocal et la diffuse sur le réseau du jeu ; pour une paire de joueurs, celui dont l'identifiant est le plus petit appelle (jamais deux appels pour la même paire). Les appels coupés sont relancés automatiquement. PeerJS ne sert qu'à la mise en relation (son serveur public gratuit, déjà utilisé par le jeu) : **aucun serveur n'est à installer ni à payer**.
 
 **Limites à connaître.**

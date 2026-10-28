@@ -25,3 +25,16 @@
 @media(max-width:520px){#vcFab{left:10px;bottom:92px;width:46px;height:46px}#vcPanel{left:8px;bottom:146px}}
 /* Pas de bouton vocal par-dessus la fenêtre « QCM depuis un cours » (il cacherait ses boutons du bas) */
 html.qcm-open #vcFab,html.qcm-open #vcPanel{display:none!important}
+
+/* Test du micro et du haut-parleur */
+.vc-test{margin-top:12px;padding:10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+.vc-test[hidden],.vc-test [hidden]{display:none!important}
+.vc-test-title{font-size:13px;font-weight:900;margin-bottom:8px}
+.vc-test-btns{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.vc-test-btns .btn{margin:0!important;min-height:42px;font-size:13px;padding:8px 6px}
+.vc-meter{height:12px;margin-top:10px;border-radius:7px;background:rgba(255,255,255,.12);overflow:hidden}
+.vc-meter i{display:block;height:100%;width:0;border-radius:7px;background:linear-gradient(90deg,#22c55e 0,#facc15 65%,#ef4444 100%);transition:width .08s linear}
+.vc-loop{display:block;margin-top:8px;font-size:12px;line-height:1.4;color:#ddd6fe}
+.vc-test-msg{margin-top:8px;font-size:12px;line-height:1.5;color:#bbf7d0;min-height:0}
+.vc-test-msg:empty{display:none}
+.vc-test-msg.warn{color:#fde68a}

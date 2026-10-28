@@ -40,8 +40,17 @@ function makeWorld(opts) {
   };
   const lobby = new El("div"); world.header = new El("div"); lobby.appendChild(world.header); lobby.appendChild(new El("h3"));
   const sent = [], copied = [], toasts = [], baseHandled = [];
-  const micStream = { getTracks: () => [{ stop() {} }], getAudioTracks: () => [{ enabled: true }] };
-  class FakeAC { constructor() { this.state = "running"; } resume() {} createMediaStreamDestination() { return { stream: micStream }; } createAnalyser() { return { fftSize: 0, getByteTimeDomainData(b) { b.fill(128); } }; } createMediaStreamSource() { return { connect() {}, disconnect() {} }; } }
+  const counters = { stops: 0, beeps: 0 };
+  const micStream = { getTracks: () => [{ stop() { counters.stops++; } }], getAudioTracks: () => [{ enabled: true }] };
+  class FakeAC {
+    constructor() { this.state = "running"; this.currentTime = 0; this.destination = {}; }
+    resume() {}
+    createMediaStreamDestination() { return { stream: micStream }; }
+    createAnalyser() { return { fftSize: 0, getByteTimeDomainData(b) { const a = ctx.__amp || 0; for (let i = 0; i < b.length; i++) b[i] = 128 + (i % 2 ? a : -a); } }; }
+    createMediaStreamSource() { return { connect() {}, disconnect() {} }; }
+    createOscillator() { return { type: "", frequency: { value: 0 }, connect() {}, start() { counters.beeps++; }, stop() {} }; }
+    createGain() { return { gain: { value: 0, exponentialRampToValueAtTime() {} }, connect() {} }; }
+  }
   const fakePeer = { calls: [], handlers: {}, on(e, f) { this.handlers[e] = f; }, call(id, s) { const c = { peer: id, on() {}, close() {} }; this.calls.push(id); return c; } };
   const ctx = {
     console, document, AudioContext: FakeAC, Uint8Array, JSON, Object, Array, Promise, Date, Math, String, Number, Set, Error,
@@ -61,7 +70,7 @@ function makeWorld(opts) {
     function sendTo() {} function broadcast() {}
     function showMessage(id, text, type) { __msg = { id: id, text: text, type: type }; } var __msg = null;
   `, ctx);
-  Object.assign(world, { ctx, byId, timers, timeouts, sent, copied, toasts, fakePeer, lobby, document, El, micStream });
+  Object.assign(world, { ctx, byId, timers, timeouts, sent, copied, toasts, fakePeer, lobby, document, El, micStream, counters });
   ctx.__world_peer = fakePeer;
   return world;
 }
@@ -90,11 +99,47 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   ok(panel.classList.contains("open"), "clic sur le bouton : le panneau s'ouvre");
   ok(/data-vc="join"/.test(w.byId.vcActions.innerHTML), "le panneau propose « Rejoindre le vocal »");
 
+  /* ---- test du son et du micro, avant de rejoindre ---- */
+  const click = a => panel.dispatch("click", { target: { closest: () => ({ dataset: { vc: a } }) } });
+  ok(w.byId.vcTest && w.byId.vcTest.hidden === false, "le bloc « Tester avant de rejoindre » est visible hors vocal");
+  click("testsound");
+  ok(w.counters.beeps === 1 && /bip/.test(w.byId.vcTestMsg.textContent), "tester le son : un bip est joué et expliqué");
+  ctx.__amp = 0; click("testmic"); await flush();
+  ok(w.byId.vcMeter.hidden === false && w.byId.vcLoop.hidden === false && /Arrêter/.test(w.byId.vcTestMic.textContent), "tester le micro : barre de niveau et case « m'entendre » affichées");
+  ok(/Parle/.test(w.byId.vcTestMsg.textContent), "tester le micro : consigne « Parle »");
+  tickAll(w);
+  ok(w.byId.vcMeterFill.style.width === "0%" && !/fonctionne/.test(w.byId.vcTestMsg.textContent), "en silence : la barre reste à 0 % et rien n'est validé");
+  ctx.__amp = 60; tickAll(w);
+  ok(parseInt(w.byId.vcMeterFill.style.width, 10) > 50, "quand on parle : la barre monte (" + w.byId.vcMeterFill.style.width + ")");
+  ok(/fonctionne/.test(w.byId.vcTestMsg.textContent), "le test confirme que le micro fonctionne");
+  panel.dispatch("change", { target: { id: "vcLoopBox", checked: true } });
+  ok(/casque/.test(w.byId.vcTestMsg.textContent), "« m'entendre » rappelle de mettre un casque");
+  const stopsBefore = w.counters.stops; click("testmic");
+  ok(w.byId.vcMeter.hidden === true && w.byId.vcLoop.hidden === true && /Tester mon micro/.test(w.byId.vcTestMic.textContent) && w.counters.stops > stopsBefore, "arrêter le test : barre masquée et micro réellement coupé");
+  tickAll(w);
+  ok(w.byId.vcMeterFill.style.width === "0%", "après l'arrêt, le minuteur n'anime plus la barre");
+  /* micro refusé */
+  const realGUM = ctx.navigator.mediaDevices.getUserMedia;
+  ctx.navigator.mediaDevices.getUserMedia = async () => { throw Object.assign(new Error("x"), { name: "NotAllowedError" }); };
+  click("testmic"); await flush();
+  ok(/refusé/.test(w.byId.vcTestMsg.textContent) && w.byId.vcMeter.hidden === true, "micro refusé : message clair, pas de barre");
+  ctx.navigator.mediaDevices.getUserMedia = async () => { throw Object.assign(new Error("x"), { name: "NotFoundError" }); };
+  click("testmic"); await flush();
+  ok(/Aucun micro/.test(w.byId.vcTestMsg.textContent), "aucun micro : message dédié");
+  ctx.navigator.mediaDevices.getUserMedia = realGUM;
+  /* test en cours puis « Rejoindre » : le test s'arrête tout seul */
+  click("testmic"); await flush();
+  ok(w.byId.vcMeter.hidden === false, "(nouveau test lancé)");
+  const stops2 = w.counters.stops;
+
   /* clic sur « Rejoindre » */
   panel.dispatch("click", { target: { closest: () => ({ dataset: { vc: "join" } }) } });
+  ok(w.counters.stops > stops2 && w.byId.vcMeter.hidden === true, "au clic sur « Rejoindre », le micro du test est libéré tout de suite (avant d'ouvrir celui du vocal)");
   await flush();
   ok(w.sent.some(d => d.type === "vc" && d.op === "join" && d.id === "bbb"), "rejoindre : l'invité prévient l'hôte (message vc/join avec son identifiant)");
   ok(/data-vc="leave"/.test(w.byId.vcActions.innerHTML) && /data-vc="mute"/.test(w.byId.vcActions.innerHTML), "après avoir rejoint : boutons micro et quitter");
+  ok(w.byId.vcMeter.hidden === true && w.counters.stops > stops2, "rejoindre le vocal arrête le test et libère le micro du test");
+  ok(w.byId.vcTest.hidden === true, "le bloc de test disparaît une fois au vocal");
   ok(fab.classList.contains("live"), "le bouton passe en vert quand on est au vocal");
 
   /* l'hôte renvoie l'annuaire : « bbb » appelle « ccc » (plus grand) ; « quiz-123456 » > « bbb » aussi */

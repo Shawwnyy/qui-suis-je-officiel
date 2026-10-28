@@ -68,6 +68,16 @@ const idsOf = (...ns) => ns.map(n => n.id).sort();
   p = V.plan("a", ["b", "c"], []);
   ok(p.call.length === 0, "plan : on n'appelle personne tant qu'on n'est pas soi-même au vocal");
 
+  /* niveau sonore → barre du test */
+  const lv = V.levelToPercent;
+  ok(lv(0) === 0 && lv(-1) === 0 && lv(NaN) === 0 && lv(undefined) === 0 && lv("abc") === 0, "levelToPercent : silence et valeurs invalides = 0 %");
+  ok(lv(0.001) === 0, "levelToPercent : le bruit de fond ne fait pas bouger la barre");
+  ok(lv(0.035) > 10 && lv(0.035) < 35, "levelToPercent : une voix faible se voit (" + lv(0.035) + " %)");
+  ok(lv(0.25) > 50 && lv(0.25) < 90, "levelToPercent : voix normale au milieu de la barre (" + lv(0.25) + " %)");
+  ok(lv(1) === 100 && lv(50) === 100, "levelToPercent : plafonné à 100 %");
+  let mono = true; for (let r = 0; r < 1; r += 0.01) if (lv(r + 0.01) < lv(r)) mono = false;
+  ok(mono, "levelToPercent : croissant avec le volume");
+
   /* ---------- scénario 1 : 4 joueurs rejoignent le vocal à tour de rôle ---------- */
   const net = makeNet();
   const H = makeNode(net, "quiz-123456", true), A = makeNode(net, "aaa111", false), B = makeNode(net, "mmm222", false), C = makeNode(net, "zzz333", false);
