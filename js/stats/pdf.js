@@ -173,6 +173,19 @@ var V40Pdf = (function () {
     function title(s, keep) { room(48 + (keep || 0)); W.text(M, y, s, { size: 13, bold: true, color: C.accent }); W.line(M, y + 5, M + CW, y + 5, { color: C.accent, w: 0.8 }); y += 22; }
     function note(s) { wrap(s, CW, 8.5, false).forEach(function (l) { room(12); W.text(M, y, l, { size: 8.5, color: C.mute }); y += 11; }); y += 4; }
 
+    /* Axe gradué sous un graphique en barres (comme à l'écran : 0, ¼, ½, ¾, max) */
+    function axisRow(bx, bw, top, f) {
+      room(16);
+      W.line(bx, y - 10, bx + bw, y - 10, { color: C.line, w: 0.5 });
+      for (var k = 0; k <= 4; k++) {
+        var gx = bx + bw * k / 4;
+        W.line(gx, y - 12, gx, y - 8, { color: C.line, w: 0.5 });
+        W.text(gx, y + 1, f(top * k / 4), { size: 7.5, color: C.mute, align: k === 0 ? "left" : k === 4 ? "right" : "center" });
+      }
+      y += 14;
+    }
+    function tickNum(top) { return function (v) { return top >= 5 ? String(Math.round(v)) : (Math.round(v * 10) / 10).toString().replace(".", ","); }; }
+
     /* Tableau générique : cols = [{h, w (largeur relative), a: "left"|"right"|"center", f(row) → texte, color(row) → couleur}] */
     function table(cols, data, o) {
       o = o || {}; var fs = o.size || 9, rh = o.rh || 16, total = cols.reduce(function (s, c) { return s + c.w; }, 0), xs = [], x = M;
@@ -298,7 +311,8 @@ var V40Pdf = (function () {
         W.text(bx + bw + 8, y, it.text, { size: 8.5, color: C.sub, maxW: textW - 8 });
         y += 17;
       });
-      y += 8;
+      axisRow(bx, bw, top, tickNum(top));
+      y += 4;
     }
     /* Carte de chaleur : list = joueurs (lignes et colonnes), valueAt(r, c) → nombre ou null (diagonale) */
     function heat(titleText, list, valueAt, maxV, hot) {
@@ -425,7 +439,8 @@ var V40Pdf = (function () {
         W.text(bx + bw + 8, y, pct(it.rate) + "  (" + it.correct + "/" + it.answers + ")", { size: 8.5, color: C.sub });
         y += 17;
       });
-      y += 8;
+      axisRow(bx, bw, 1, function (v) { return Math.round(v * 100) + " %"; });
+      y += 4;
     }
     /* ----- Faits marquants, séries, rapidité, répartition des temps ----- */
     function valueBars(titleText, items, fillColor, scaleMax) {
@@ -440,7 +455,8 @@ var V40Pdf = (function () {
         W.text(bx + bw + 8, y, it.text, { size: 8.5, color: C.sub });
         y += 17;
       });
-      y += 8;
+      axisRow(bx, bw, top, tickNum(top));
+      y += 4;
     }
     var hl = A.highlights(log), HL = { streak: "Plus longue série de bonnes réponses", fastest: "Réponse correcte la plus rapide", gain: "Plus gros gain en une question", accuracy: "Meilleure réussite" };
     if (hl.length) {
