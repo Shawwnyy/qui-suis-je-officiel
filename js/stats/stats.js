@@ -14,7 +14,19 @@
   if (typeof window === "undefined" || typeof handleData !== "function" || !window.V40Analysis || !window.V40Charts) return;
   var A = window.V40Analysis, K = window.V40Charts, el = K.el, fmt = K.fmt;
   function $(id) { return document.getElementById(id); }
-  var HKEY = "quizV40History", MAX_PLAYERS_PLOTTED = K.C.palette.length;
+  var HKEY = "quizV40History", HOSTED_KEY = "quizV40Hosted", MAX_PLAYERS_PLOTTED = K.C.palette.length;
+  /* Parties dont CET appareil a été l'hôte : seul l'hôte peut retirer le filigrane des images de graphiques.
+     Noté au lancement de la partie (beginLog, hôte uniquement) ; une partie reçue d'un hôte n'y est jamais. */
+  var hostedMem = {};
+  function hostedIds() {
+    try { var a = JSON.parse(localStorage.getItem(HOSTED_KEY) || "[]"); return Array.isArray(a) ? a.filter(function (x) { return typeof x === "string"; }).slice(0, 40) : []; } catch (e) { return []; }
+  }
+  function rememberHosted(id) {
+    hostedMem[id] = 1;
+    var a = hostedIds().filter(function (x) { return x !== id; }); a.unshift(id);
+    try { localStorage.setItem(HOSTED_KEY, JSON.stringify(a.slice(0, 40))); } catch (e) {}
+  }
+  function iHosted(log) { return !!log && typeof log.id === "string" && (hostedMem[log.id] === 1 || hostedIds().indexOf(log.id) >= 0); }
 
   var live = null;           /* journal de la partie en cours, ou de la dernière partie */
   var liveDone = false;      /* la partie est terminée */
@@ -53,6 +65,7 @@
     live = { v: 1, id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), at: Date.now(),
       qt: Number(questionTime) || 0, mode: String(window.v9GameMode || ""), P: [], R: [], C: [], B: [], Ch: chatAcc };
     chatAcc = A.newChat();
+    rememberHosted(live.id);
     Object.keys(players).forEach(function (id) { addPlayer(live, players[id]); });
     refreshEntryPoints();
     broadcast({ type: "v40Entry", kind: "begin", head: { id: live.id, at: live.at, qt: live.qt, mode: live.mode, P: live.P } });
@@ -248,6 +261,7 @@
     if (view.src !== "live") { var g = history.filter(function (x) { return x.id === view.src; })[0]; if (g) return g; }
     return live || history[0] || null;
   }
+  K.setMarkGate(function () { return iHosted(currentLog()); });
   function dateLabel(ts) {
     if (!ts) return "date inconnue";
     try { return new Date(ts).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; }

@@ -457,8 +457,44 @@ var V40Charts = (function () {
     return lines;
   }
   function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  /* Filigrane des images copiées / téléchargées : signature en pied d'image + motif diagonal très discret
+     (le motif empêche de simplement rogner le bas). Dessiné par-dessus le graphique, coordonnées en px CSS. */
+  var BRAND = "qui-suis-je-officiel", FOOT = 28, NOMARK_KEY = "quizV40NoMark";
+  /* Qui peut retirer le filigrane ? Seulement l'hôte de la partie affichée : stats.js fournit la règle (setMarkGate).
+     Sans règle, ou si elle échoue, le filigrane est FORCÉ. L'hôte peut ensuite choisir de le garder ou non (mémorisé, sans filigrane par défaut). */
+  var markGate = function () { return false; }, noMarkMem = true;
+  function setMarkGate(fn) { markGate = typeof fn === "function" ? fn : function () { return false; }; }
+  function canSkipMark() { try { return markGate() === true; } catch (e) { return false; } }
+  function noMarkPref() {
+    try { var v = window.localStorage.getItem(NOMARK_KEY); if (v === "0") return false; if (v === "1") return true; } catch (e) {}
+    return noMarkMem;
+  }
+  function setNoMarkPref(on) { noMarkMem = !!on; try { window.localStorage.setItem(NOMARK_KEY, on ? "1" : "0"); } catch (e) {} }
+  /* true = le filigrane sera dessiné. Décidé au moment de la copie / du téléchargement, jamais à partir d'un paramètre reçu. */
+  function markOn() { return !(canSkipMark() && noMarkPref()); }
+  function watermark(ctx, W, H, fam) {
+    var f = fam || "Arial, sans-serif", x, y, row, step, rowH = 92, diag = Math.ceil(Math.sqrt(W * W + H * H));
+    ctx.save();
+    /* 1. motif diagonal, presque invisible mais présent partout */
+    ctx.beginPath(); ctx.rect(0, 0, W, H - FOOT); ctx.clip();
+    ctx.globalAlpha = 0.06; ctx.fillStyle = C.ink; ctx.font = "800 20px " + f; ctx.textBaseline = "middle"; ctx.textAlign = "left";
+    step = Math.ceil(ctx.measureText(BRAND).width) + 110;
+    ctx.translate(W / 2, (H - FOOT) / 2); ctx.rotate(-Math.PI / 9);
+    for (y = -diag / 2, row = 0; y <= diag / 2; y += rowH, row++) {
+      for (x = -diag / 2 - (row % 2 ? step / 2 : 0); x <= diag / 2; x += step) ctx.fillText(BRAND, x, y);
+    }
+    ctx.restore();
+    /* 2. signature lisible en bas à droite, sur une fine ligne de séparation */
+    ctx.save();
+    ctx.globalAlpha = 1; ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(18, H - FOOT + 0.5); ctx.lineTo(W - 18, H - FOOT + 0.5); ctx.stroke();
+    ctx.textBaseline = "middle"; ctx.textAlign = "right"; ctx.font = "800 13px " + f;
+    ctx.fillStyle = C.muted; ctx.fillText(BRAND, W - 18, H - FOOT / 2 + 3);
+    ctx.restore();
+  }
   /* Dessine la carte telle qu'à l'écran : titre, explication, légende, graphique(s) sur le fond sombre */
-  function cardCanvas(node) {
+  function cardCanvas(node, opts) {
+    var withMark = !(opts && opts.mark === false);            /* par défaut : filigrane (copie / PNG des joueurs) */
     var svgs = [].slice.call(node.querySelectorAll(".v40s-body svg.v40s-svg")).map(svgMarkup);
     if (!svgs.length) return Promise.reject(new Error("pas de graphique"));
     var scale = 2, pad = 18, W = Math.max.apply(null, svgs.map(function (m) { return m.w; }).concat([Math.round(node.getBoundingClientRect().width) - 28, 320])) + pad * 2 - 4;
@@ -475,7 +511,7 @@ var V40Charts = (function () {
     var pills = [], px = pad, py = 0, rowsN = legend.length ? 1 : 0;
     legend.forEach(function (it) { var w = Math.ceil(m.measureText(it.name).width) + 44; if (px + w > W - pad && px > pad) { px = pad; rowsN++; } pills.push({ it: it, x: px, row: rowsN - 1, w: w }); px += w + 8; });
     var y0 = pad + 22 + descLines.length * 19 + (descLines.length ? 6 : 0), legH = rowsN * 36 + (rowsN ? 6 : 0);
-    var H = y0 + legH + svgs.reduce(function (a, g) { return a + g.h + 8; }, 0) + pad - 2;
+    var H = y0 + legH + svgs.reduce(function (a, g) { return a + g.h + 8; }, 0) + pad - 2 + (withMark ? FOOT : 0);
     var cv = document.createElement("canvas"); cv.width = Math.round(W * scale); cv.height = Math.round(H * scale);
     var ctx = cv.getContext("2d"); ctx.scale(scale, scale);
     ctx.fillStyle = C.surface; ctx.fillRect(0, 0, W, H);
@@ -494,6 +530,7 @@ var V40Charts = (function () {
     return Promise.all(svgs.map(loadSvg)).then(function (imgs) {
       var y = y0 + legH;
       imgs.forEach(function (img, k) { ctx.drawImage(img, Math.round((W - svgs[k].w) / 2), y, svgs[k].w, svgs[k].h); y += svgs[k].h + 8; });
+      if (withMark) watermark(ctx, W, H, fam);
       return cv;
     });
   }
@@ -517,7 +554,7 @@ var V40Charts = (function () {
     return Promise.reject(new Error("presse-papiers indisponible"));
   }
   function copyImage(node) {
-    var blobP = cardCanvas(node).then(canvasBlob);
+    var blobP = cardCanvas(node, { mark: markOn() }).then(canvasBlob);
     if (navigator.clipboard && window.ClipboardItem && navigator.clipboard.write) {
       return navigator.clipboard.write([new ClipboardItem({ "image/png": blobP })]).then(function () { return "copied"; }, function () {
         return blobP.then(function (b) { saveBlob(b, slug(node.querySelector("h3").textContent) + ".png"); return "downloaded"; });
@@ -526,6 +563,12 @@ var V40Charts = (function () {
     return blobP.then(function (b) { saveBlob(b, slug(node.querySelector("h3").textContent) + ".png"); return "downloaded"; });
   }
 
+  function paintMark(b) {
+    var skip = noMarkPref();
+    b.textContent = skip ? "💧 Sans filigrane" : "💧 Avec filigrane";
+    b.setAttribute("aria-pressed", String(skip));
+    b.title = "Réservé à l’hôte : les images copiées ou téléchargées par les joueurs ont toujours le filigrane « " + BRAND + " ». Cliquer pour " + (skip ? "l’ajouter aussi à tes images." : "l’enlever de tes images.");
+  }
   function card(o) {
     var view = "chart";
     var body = el("div", { "class": "v40s-body" });
@@ -535,7 +578,8 @@ var V40Charts = (function () {
     var seg = el("div", { "class": "v40s-seg", role: "group", "aria-label": "Mode d'affichage" }, [bChart, bTable]);
     var bCopy = el("button", { type: "button", "class": "v40s-tool", "data-copy": "1" });
     var bSave = el("button", { type: "button", "class": "v40s-tool", "data-save": "1", text: "⬇️ PNG", title: "Télécharger ce graphique en image PNG" });
-    var ctl = el("div", { "class": "v40s-cardctl", "aria-live": "polite" }, [seg, bCopy, bSave]);
+    var bMark = el("button", { type: "button", "class": "v40s-tool v40s-mark", "data-mark": "1" });
+    var ctl = el("div", { "class": "v40s-cardctl", "aria-live": "polite" }, [seg, bCopy, bSave, bMark]);
     var node = el("section", { "class": "v40s-card" }, [
       el("div", { "class": "v40s-cardhead" }, [el("div", null, [el("h3", { text: o.title }), o.desc ? el("p", { text: o.desc }) : null]), ctl]),
       legendHost, body
@@ -556,6 +600,8 @@ var V40Charts = (function () {
       copyLabel = isImage ? "📋 Copier l’image" : "📋 Copier le tableau";
       bCopy.textContent = copyLabel; bCopy.title = isImage ? "Copier ce graphique comme une image (à coller dans un message, un document, une présentation…)" : "Copier le tableau (à coller dans un tableur ou un document)";
       bSave.style.display = isImage ? "" : "none";
+      bMark.style.display = isImage && canSkipMark() ? "" : "none";     /* réservé à l'hôte : les joueurs ne voient pas ce bouton */
+      paintMark(bMark);
     }
     function say(btn, msg, base) { btn.textContent = msg; setTimeout(function () { btn.textContent = base(); }, 2600); }
     function viewTableText() {
@@ -573,8 +619,13 @@ var V40Charts = (function () {
       }
     });
     bSave.addEventListener("click", function () {
-      cardCanvas(node).then(canvasBlob).then(function (b) { saveBlob(b, slug(o.title) + ".png"); say(bSave, "✓ Image enregistrée", function () { return "⬇️ PNG"; }); },
+      cardCanvas(node, { mark: markOn() }).then(canvasBlob).then(function (b) { saveBlob(b, slug(o.title) + ".png"); say(bSave, "✓ Image enregistrée", function () { return "⬇️ PNG"; }); },
         function () { say(bSave, "✗ Échec", function () { return "⬇️ PNG"; }); });
+    });
+    bMark.addEventListener("click", function () {
+      if (!canSkipMark()) return;
+      setNoMarkPref(!noMarkPref());
+      [].forEach.call(document.querySelectorAll("button.v40s-mark"), paintMark);   /* toutes les cartes suivent le même choix */
     });
     bChart.addEventListener("click", function () { view = "chart"; redraw(); });
     bTable.addEventListener("click", function () { view = "table"; redraw(); });
@@ -584,7 +635,7 @@ var V40Charts = (function () {
 
   return { C: C, STATE: STATE, fmt: fmt, el: el, sv: sv, cut: cut, colorOf: colorOf, niceTicks: niceTicks, barPath: barPath,
     legend: legend, line: line, hbars: hbars, boxplot: boxplot, scatter: scatter, stack: stack, columns: columns, matrix: matrix, table: table, card: card,
-    showTip: showTip, hideTip: hideTip, hover: hover, cardCanvas: cardCanvas, tableText: tableText };
+    showTip: showTip, hideTip: hideTip, hover: hover, cardCanvas: cardCanvas, tableText: tableText, watermark: watermark, BRAND: BRAND, FOOT: FOOT, setMarkGate: setMarkGate, markOn: markOn, canSkipMark: canSkipMark, setNoMarkPref: setNoMarkPref, noMarkPref: noMarkPref };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V40Charts;
 if (typeof window !== "undefined") window.V40Charts = V40Charts;
