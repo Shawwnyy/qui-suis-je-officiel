@@ -69,6 +69,23 @@ var V43Justif = (function () {
   }
 
 
+  /* ---------- Questions générées depuis un cours : q.lesson = { s: phrase source, c: passage (phrase + voisines), p: page, t: titre } ---------- */
+  function lessonOf(q) {
+    var l = q && q.lesson;
+    if (!l || typeof l !== "object" || typeof l.s !== "string") return null;
+    var s = strip(l.s).slice(0, 300); if (!s) return null;
+    var c = typeof l.c === "string" ? strip(l.c).slice(0, 600) : s;
+    if (!c || c.indexOf(s.slice(0, 25)) < 0) c = s;
+    var p = Math.round(Number(l.p));
+    return { s: s, c: c, p: p > 0 && p < 10000 ? p : 0, t: strip(typeof l.t === "string" ? l.t : "").slice(0, 80) };
+  }
+  function nrm(s) { return strip(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+  function hasWord(text, ans) {
+    var a = nrm(ans); if (a.length < 1) return false;
+    try { return new RegExp("(^|[^a-z0-9])" + a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?![a-z0-9])").test(nrm(text)); } catch (e) { return false; }
+  }
+  function where(L) { return L.p ? " (page " + L.p + (L.t ? " de « " + L.t + " »" : "") + ")" : (L.t ? " (« " + L.t + " »)" : ""); }
+
   /* « Ta réponse est en fait la bonne réponse d'une autre question » : index réponse → question, construit à partir de la banque.
      Une question illustrée (« Quel est cet animal ? ») n'a pas de sens sans son image : elle n'est jamais citée. */
   var SKIP_ANS = /^(oui|non|vrai|faux|aucun|aucune|les deux|tous|toutes|a|b|c|d|\d)$/i;
@@ -131,17 +148,24 @@ var V43Justif = (function () {
     if (ok) out.headline = "✅ Bonne réponse !" + (time ? " Trouvée en " + secs(time) + "." : "");
     else if (none) out.headline = "⏱️ Temps écoulé : tu n'as pas répondu.";
     else out.headline = "❌ Raté : tu as répondu « " + mine + " ».";
-    var sen = sentence(q && q.question, right), exp = specificCorrection(q);
+    var L = lessonOf(q), sen = sentence(q && q.question, right), exp = L ? "" : specificCorrection(q);
     out.lines.push({ k: "answer", t: "La bonne réponse : « " + right + " »." });
     if (sen) out.lines.push({ k: "sentence", t: sen });
+    if (L) out.lines.push({ k: "lesson", t: "Ce que dit le cours" + where(L) + " :", quote: ok ? L.s : L.c, hl: right });
     if (exp) out.lines.push({ k: "explain", t: endDot(exp) });
     if (!ok && !none) {
       var g = gap(mine, right, strip(q && q.question));
-      out.lines.push({ k: "why", t: g || ("« " + mine + " » ne répond pas à la question posée : seule « " + right + " » convient.") });
+      if (L) {
+        if (g) out.lines.push({ k: "why", t: g });
+        out.lines.push({ k: "why", t: !hasWord(L.c, right) ? "« " + mine + " » ne répond pas à la question posée : la bonne réponse est « " + right + " »."
+          : hasWord(L.c, mine) ? "« " + mine + " » apparaît bien dans ce passage, mais ce n'est pas lui qui répond à la question : relis la phrase."
+          : "« " + mine + " » ne figure pas dans ce passage du cours : seule « " + right + " » y est écrite." });
+      } else out.lines.push({ k: "why", t: g || ("« " + mine + " » ne répond pas à la question posée : seule « " + right + " » convient.") });
       var rel = ctx.index ? related(ctx.index, mine, q) : "";
       if (rel) out.lines.push({ k: "related", t: "Attention à la confusion : « " + mine + " » est en fait la bonne réponse à une autre question : « " + rel + " »" });
     }
-    if (!sen && !exp) out.lines.push({ k: "remember", t: "À retenir : la réponse à « " + strip(q && q.question).replace(/\s*\?$/, "") + " ? » est « " + right + " »." });
+    if (L && !ok) out.lines.push({ k: "remember", t: "À réviser : " + (L.p ? "page " + L.p + " de " : "") + (L.t ? "« " + L.t + " »" : "le cours") + "." });
+    if (!sen && !exp && !L) out.lines.push({ k: "remember", t: "À retenir : la réponse à « " + strip(q && q.question).replace(/\s*\?$/, "") + " ? » est « " + right + " »." });
     if (ok && hard) out.lines.push({ k: "bonus", t: "Bravo : c'était une question " + q.difficulty + "." });
     if (!ok && !none && hard) out.lines.push({ k: "bonus", t: "Pas de honte : c'était une question " + q.difficulty + "." });
     if (st && st.players > 0) {
@@ -152,18 +176,27 @@ var V43Justif = (function () {
       out.lines.push({ k: "stats", t: cap(parts.join(" · ")) + "." });
     }
     /* sans « Bonne / Mauvaise réponse » : le narrateur existant le dit déjà */
-    out.speech = [none ? "Temps écoulé." : "", "La bonne réponse était " + right + ".", sen || exp || ""].filter(Boolean).join(" ");
+    out.speech = [none ? "Temps écoulé." : "", "La bonne réponse était " + right + ".", L ? "Le cours dit : " + L.s : (sen || exp || "")].filter(Boolean).join(" ");
     return out;
   }
 
   /* ---------- Affichage (navigateur) ---------- */
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  var ICON = { answer: "🎯", sentence: "💡", explain: "📘", why: "🔎", related: "🔀", remember: "🧠", bonus: "⭐", stats: "📊" };
+  var ICON = { lesson: "📖", answer: "🎯", sentence: "💡", explain: "📘", why: "🔎", related: "🔀", remember: "🧠", bonus: "⭐", stats: "📊" };
+  /* Texte échappé avec la réponse mise en évidence (<mark>), au plus 4 occurrences. */
+  function mark(text, hl) {
+    var t = String(text == null ? "" : text), a = strip(hl);
+    if (a.length < 1) return esc(t);
+    var re; try { re = new RegExp("(^|[^\\p{L}\\p{N}])(" + a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")(?![\\p{L}\\p{N}])", "giu"); } catch (e) { return esc(t); }
+    var out = "", last = 0, m, n = 0;
+    while (n < 4 && (m = re.exec(t))) { var st = m.index + m[1].length; out += esc(t.slice(last, st)) + "<mark>" + esc(m[2]) + "</mark>"; last = st + m[2].length; n++; if (!m[0].length) re.lastIndex++; }
+    return out + esc(t.slice(last));
+  }
   function html(ex) {
     return '<div class="v43j ' + ex.tone + '" role="group" aria-label="Justification de la réponse"><div class="v43j-head">' + esc(ex.headline) + "</div><ul>"
-      + ex.lines.map(function (l) { return '<li class="v43-' + l.k + '"><span aria-hidden="true">' + (ICON[l.k] || "•") + "</span> " + esc(l.t) + "</li>"; }).join("") + "</ul></div>";
+      + ex.lines.map(function (l) { return '<li class="v43-' + l.k + '"><span aria-hidden="true">' + (ICON[l.k] || "•") + "</span> " + esc(l.t) + (l.quote ? " <q>" + mark(l.quote, l.hl) + "</q>" : "") + "</li>"; }).join("") + "</ul></div>";
   }
-  return { explain: explain, buildIndex: buildIndex, related: related, sentence: sentence, roundStats: roundStats, gap: gap, num: num, html: html, specificCorrection: specificCorrection };
+  return { explain: explain, lessonOf: lessonOf, mark: mark, buildIndex: buildIndex, related: related, sentence: sentence, roundStats: roundStats, gap: gap, num: num, html: html, specificCorrection: specificCorrection };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V43Justif;
 if (typeof window !== "undefined") {

@@ -161,7 +161,8 @@ var V45Wheel = (function () {
   api.setMode = function (m) { m = cleanMode(m); try { localStorage.setItem(MODE_KEY, m); } catch (e) {} return m; };
   api.moments = function () { return moments ? moments.slice() : null; };
   /* Réglage figé une fois par partie. La toute première question ne passe pas toujours par ce point avec first = true : on planifie donc aussi au premier appel suivant. */
-  function planGame() { modeNow = loadMode(); moments = modeNow === "random" ? planMoments(totalRounds) : null; lastSpin = -1; planned = true; }
+  function planGame() { modeNow = (window.V46Review && V46Review.active()) ? "off" : loadMode();   /* mode révision : jamais de roue */
+    moments = modeNow === "random" ? planMoments(totalRounds) : null; lastSpin = -1; planned = true; }
   function run() {
     var skip = (typeof excludedOnHost === "object" && excludedOnHost) || null;
     var results = plan(players, skip);

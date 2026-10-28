@@ -134,7 +134,7 @@
   }
 
   var api = { mul: mul, imagesFromOps: imagesFromOps, rectOf: rectOf, keepRect: keepRect, mergeRects: mergeRects, hamming: hamming, dedupe: dedupe,
-    locatePage: locatePage, assign: assign, norm: norm, LIMITS: { MAX_IMAGES: MAX_IMAGES, MAX_CHARS: MAX_CHARS, ONE_MAX: ONE_MAX } };
+    locatePage: locatePage, assign: assign, norm: norm, pageNorms: function (pageTexts) { return Array.isArray(pageTexts) ? pageTexts.map(norm) : null; }, LIMITS: { MAX_IMAGES: MAX_IMAGES, MAX_CHARS: MAX_CHARS, ONE_MAX: ONE_MAX } };
   root.QcmImages = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof document === "undefined") return;

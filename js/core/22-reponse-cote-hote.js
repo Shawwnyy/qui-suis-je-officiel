@@ -60,7 +60,7 @@ player.wrong=(player.wrong||0)+1;onWrongFx(player);
 le joueur perd automatiquement 200 points.
 */
 player.powerGrantedCombo=0;
-if(player.wrong%2===0){
+if(player.wrong%2===0&&!(window.V46Review&&window.V46Review.active())){   /* mode révision : aucune pénalité */
 if(player.shield){
 player.shield=false;
 }else{
