@@ -20,6 +20,8 @@ function connected(){return isHost||Object.values(connections||{}).some(c=>c&&c.
 /* Modération stricte : le message BRUT (retours à la ligne compris) est analysé avant toute simplification,
    puis le texte final qui sera réellement affiché est analysé une seconde fois. */
 function strictCheck(t){try{if(window.Moderation){const v=window.Moderation.check(t);if(v&&v.blocked)return v;}}catch(e){}return null;}
+const ONE_LETTER_WARN="🗑️ Message d’une seule lettre supprimé automatiquement.";
+function oneLetter(t){try{if(typeof isOneLetterMsg==="function")return isOneLetterMsg(t);}catch(e){}const c=Array.from(String(t==null?"":t).replace(/[\s\p{P}]/gu,""));return c.length===1&&/[\p{L}\p{N}]/u.test(c[0]);}
 function filter(text){
 const rawIn=String(text==null?"":text);
 const v0=strictCheck(rawIn);if(v0)return{ok:false,why:"blocked",reason:v0.reason,label:v0.label};
@@ -30,6 +32,7 @@ if(chk&&chk.blocked)return{ok:false,why:"blocked",reason:"insulte",label:"langag
 const clean=String((chk&&chk.clean)||raw).slice(0,MAX).trim();
 if(!clean)return{ok:false,why:"empty"};
 const v1=strictCheck(clean);if(v1)return{ok:false,why:"blocked",reason:v1.reason,label:v1.label};
+if(oneLetter(clean))return{ok:false,why:"oneletter"};   /* message d'une seule lettre : supprimé automatiquement */
 return{ok:true,text:clean,masked:!!(chk&&chk.bad)};
 }
 /* Sanctions (hôte) : 1er message bloqué = avertissement, puis sourdine 1 min, 5 min, 15 min. */
@@ -132,7 +135,7 @@ addChatMessage=function(m){
 if(!m)return;
 const id=cleanId(m.id)||newId();
 if(S.gone.has(id))return;
-if(m.playerId!==myId&&strictCheck(m.text)){S.gone.add(id);removeLocal(id);return;}   /* suppression instantanée (défense en profondeur) */
+if(m.playerId!==myId&&(strictCheck(m.text)||oneLetter(m.text))){S.gone.add(id);removeLocal(id);return;}   /* suppression instantanée (défense en profondeur) */
 const ex=S.msgs.get(id);
 const msg={id,playerId:String(m.playerId||""),name:String(m.name||nameOf(m.playerId)).slice(0,24),text:String(m.text||"").slice(0,MAX),time:okTime(m.time)?m.time:stamp(),edited:!!m.edited,editedBy:String(m.editedBy||""),pending:false,failed:false};
 if(ex){
@@ -158,7 +161,7 @@ if(A.muted&&A.muted.has&&A.muted.has(pid))return reject("🔇 Tu as été mis en
 const now=Date.now();if(pid!==myId){const h=(S.lastFrom[pid]||[]).filter(x=>now-x<3000);if(h.length>=10){S.lastFrom[pid]=h;return reject("⏳ Trop de messages d’un coup, patiente un instant.");}h.push(now);S.lastFrom[pid]=h;}
 {let sq=null;try{sq=window.Moderation&&window.Moderation.sequence&&window.Moderation.sequence(pid,msg.text,Date.now(),id);}catch(e){}if(sq&&sq.blocked)return sequenceViolation(pid,p,id,msg.text,sq,reject);}
 const f=filter(msg.text);
-if(!f.ok){if(f.why==="blocked")return moderate(pid,p,id,msg.text,f,t=>reject(t,true));return reject("Message vide.");}
+if(!f.ok){if(f.why==="blocked")return moderate(pid,p,id,msg.text,f,t=>reject(t,true));return reject(f.why==="oneletter"?ONE_LETTER_WARN:"Message vide.");}
 const out={type:"chat",id,playerId:pid,name:p.name,text:f.text,time:okTime(msg.time)?msg.time:stamp()};
 addChatMessage(out);broadcast(out);
 };
@@ -172,7 +175,7 @@ const A=adm();
 if(A.chatLocked&&!isHost){warn("🔒 Le chat est verrouillé par l’hôte.");return;}
 if(A.muted&&A.muted.has&&A.muted.has(myId)){warn("🔇 Vous êtes en sourdine.");return;}
 const now=Date.now();if(now-S.last<350){warn("⏳ Doucement, un message à la fois.");return;}
-const f=filter(raw);if(!f.ok){if(f.why==="blocked"){clearInput();warn("🚫 Message supprimé : "+(f.label||"langage interdit")+".");if(!isHost)toHost({type:"v36ChatViolation",playerId:myId,text:String(raw).slice(0,400),time:stamp()});}return;}
+const f=filter(raw);if(!f.ok){if(f.why==="blocked"){clearInput();warn("🚫 Message supprimé : "+(f.label||"langage interdit")+".");if(!isHost)toHost({type:"v36ChatViolation",playerId:myId,text:String(raw).slice(0,400),time:stamp()});}else if(f.why==="oneletter"){clearInput();warn(ONE_LETTER_WARN);}return;}
 if(!connected()){warn("📡 Pas de connexion à l’hôte : message non envoyé.");return;}
 S.last=now;if(f.masked)warn("⚠️ Des mots interdits ont été masqués.");
 const m={type:"chat",id:newId(),playerId:myId,name:nameOf(myId,myName),text:f.text,time:stamp()};
@@ -213,7 +216,7 @@ const A=adm();
 if(!isHost&&A.chatLocked){warn("🔒 Le chat est verrouillé par l’hôte.");return;}
 if(!isHost&&A.muted&&A.muted.has&&A.muted.has(myId)){warn("🔇 Vous êtes en sourdine.");return;}
 const f=filter(input.value);
-if(!f.ok){warn(f.why==="blocked"?"🚫 Modification bloquée : langage interdit.":"✏️ Message vide : utilise 🗑️ pour le supprimer.");return;}
+if(!f.ok){warn(f.why==="blocked"?"🚫 Modification bloquée : langage interdit.":f.why==="oneletter"?"✏️ Un message d’une seule lettre est supprimé automatiquement : utilise 🗑️ pour le supprimer.":"✏️ Message vide : utilise 🗑️ pour le supprimer.");return;}
 if(f.text===m.text){cancelEdit();return;}
 S.editing=null;hideBar();clearInput();
 if(isHost){hostEdit({id,text:f.text,by:myId},true);return;}

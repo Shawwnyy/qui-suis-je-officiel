@@ -224,7 +224,7 @@
     var baseChat = addChatMessage;
     addChatMessage = function (m) {
       try {
-        if (m && typeof m.text === "string") {
+        if (m && typeof m.text === "string" && !(typeof isOneLetterMsg === "function" && isOneLetterMsg(m.text))) {
           var acc = live && !liveDone ? (live.Ch || (live.Ch = A.newChat())) : chatAcc;
           if (Array.isArray(acc.w)) acc = chatAcc;
           A.addChat(acc, m.text);

@@ -93,7 +93,7 @@ var V43Justif = (function () {
   function buildIndex(questions) {
     var idx = Object.create(null);
     (questions || []).forEach(function (q) {
-      if (!q || q.media || q.v26Expanded || q.v42Mix || q.v41Img || q.v41Road || !Array.isArray(q.answers) || typeof q.correct !== "number") return;
+      if (!q || q.media || q.v26Expanded || q.v42Mix || q.v41Img || q.v41Road || q.v47More || !Array.isArray(q.answers) || typeof q.correct !== "number") return;
       var a = strip(q.answers[q.correct]); if (a.length < 3 || SKIP_ANS.test(a)) return;
       var k = key(a); if (!k) return;
       var list = idx[k] || (idx[k] = []);
