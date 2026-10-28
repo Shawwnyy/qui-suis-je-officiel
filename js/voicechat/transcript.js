@@ -224,26 +224,38 @@ var V50Transcript = (function () {
     var months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
     var dateText = isNaN(when.getTime()) ? "" : days[when.getDay()] + " " + when.getDate() + " " + months[when.getMonth()] + " " + when.getFullYear() + " à " + clockText(startedAt).slice(0, 5);
 
+    var talk = (Array.isArray(data.talk) ? data.talk : []).filter(function (t) { return t && t.ms >= 1000; }).sort(function (a, b) { return b.ms - a.ms; });
+    var people = (Array.isArray(data.participants) ? data.participants : []).map(String).filter(Boolean);
+    var hasText = lines.length > 0, talkTotal = talk.reduce(function (sum, t) { return sum + t.ms; }, 0), nPart = Math.max(st.speakers.length, people.length, talk.length);
+
     /* en-tête */
     d.rect(0, d.H - 96, d.W, 96, ACCENT);
-    d.text(d.M, d.H - 52, "Transcription du chat vocal", 22, true, [1, 1, 1]);
+    d.text(d.M, d.H - 52, hasText ? "Transcription du chat vocal" : "Rapport d'appel du chat vocal", 22, true, [1, 1, 1]);
     d.text(d.M, d.H - 74, ("Salle " + (data.room || "—") + (dateText ? "  ·  " + dateText : "")), 11, false, [0.93, 0.9, 1]);
     d.y = d.H - 96 - 18;
-    var facts = [
-      ["Durée de l'appel", fmtDuration(Math.max(0, endedAt - startedAt))], ["Participants", String(st.speakers.length || (data.talk || []).length || 0)],
+    var facts = hasText ? [
+      ["Durée de l'appel", fmtDuration(Math.max(0, endedAt - startedAt))], ["Participants", String(nPart)],
       ["Phrases", String(st.phrases)], ["Mots dits", String(st.words)], ["Mots différents", String(st.distinct)]
-    ];
+    ] : [["Durée de l'appel", fmtDuration(Math.max(0, endedAt - startedAt))], ["Participants", String(nPart)], ["Temps de parole cumulé", fmtDuration(talkTotal)]];
     var fw = (d.W - 2 * d.M) / facts.length;
     facts.forEach(function (f, i) {
       d.text(d.M + i * fw, d.y - 16, f[1], 17, true, INK);
       d.text(d.M + i * fw, d.y - 29, f[0], 8.5, false, GRAY);
     });
     d.y -= 40;
+    if (people.length) { d.para("Au vocal : " + people.join(", "), 10, false, INK); d.y -= 4; }
 
+    if (!hasText) {
+      /* rapport sans transcription : durée, participants, temps de parole mesuré au micro */
+      d.heading("Rapport d'appel");
+      d.para("Aucune phrase n'a été transcrite pendant cet appel (la transcription est désactivée par défaut ; chacun l'active pour sa propre voix). Ce rapport récapitule la durée de l'appel, les participants et le temps de parole mesuré au micro.", 10, false, GRAY);
+      d.y -= 6;
+      if (talk.length) d.hbars("Temps de parole mesuré au micro", talk.map(function (t, i) { return { label: t.name, value: t.ms, valueLabel: fmtDuration(t.ms), color: PALETTE[i % PALETTE.length] }; }));
+      else d.para("Aucun temps de parole mesuré pour l'instant.", 9.5, false, GRAY);
+    } else {
     d.heading("Statistiques");
     d.hbars("Mots les plus dits (hors mots-outils : le, la, que, the…)", st.top.map(function (t) { return { label: t[0], value: t[1], valueLabel: "× " + t[1] }; }), "Pas encore assez de mots pour établir un classement.");
     d.hbars("Qui parle le plus (nombre de mots dits)", st.speakers.map(function (p) { return { label: p.name, value: p.words, valueLabel: p.words + " mots · " + p.phrases + (p.phrases > 1 ? " phrases" : " phrase"), color: colorOf[p.key] }; }));
-    var talk = (Array.isArray(data.talk) ? data.talk : []).filter(function (t) { return t && t.ms >= 1000; }).sort(function (a, b) { return b.ms - a.ms; });
     if (talk.length) d.hbars("Temps de parole mesuré au micro", talk.map(function (t, i) { return { label: t.name, value: t.ms, valueLabel: fmtDuration(t.ms), color: PALETTE[i % PALETTE.length] }; }));
     d.sub("Les mots préférés de chacun");
     st.speakers.forEach(function (p) {
@@ -274,6 +286,7 @@ var V50Transcript = (function () {
       rows.forEach(function (r, i) { d.text(i === 0 ? x0 : d.M + 18, yb - i * lead, r, size, false, INK); });
       d.y -= rows.length * lead + 3;
     });
+    }
 
     /* pieds de page (avec le nombre total de pages) */
     var total = d.pages.length;
@@ -290,7 +303,7 @@ var V50Transcript = (function () {
     objs[1] = "<< /Type /Catalog /Pages 2 0 R >>";
     objs[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
     objs[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
-    objs[5] = "<< /Title " + pdfString("Transcription du chat vocal — salle " + (data.room || "")) + " /Creator " + pdfString("Qui suis-je ?") + " /Producer " + pdfString("Qui suis-je ?") + " >>";
+    objs[5] = "<< /Title " + pdfString((hasText ? "Transcription du chat vocal" : "Rapport d'appel du chat vocal") + " — salle " + (data.room || "")) + " /Creator " + pdfString("Qui suis-je ?") + " /Producer " + pdfString("Qui suis-je ?") + " >>";
     var next2 = 6;
     d.pages.forEach(function (ops) {
       var content = ops.join("\n"), pid = next2++, cid = next2++;
@@ -363,6 +376,8 @@ var V50Transcript = (function () {
     var dateText = isNaN(when.getTime()) ? "" : days[when.getDay()] + " " + when.getDate() + " " + months[when.getMonth()] + " " + when.getFullYear() + " à " + clockText(startedAt).slice(0, 5);
     var talk = (Array.isArray(data.talk) ? data.talk : []).filter(function (t) { return t && t.ms >= 1000; });
     var talkOf = {}; talk.forEach(function (t) { talkOf[t.name] = t.ms; });
+    var people = (Array.isArray(data.participants) ? data.participants : []).map(String).filter(Boolean);
+    var hasText = lines.length > 0, talkTotal = talk.reduce(function (sum, t) { return sum + t.ms; }, 0), nPart = Math.max(st.speakers.length, people.length, talk.length);
     var colWidths = {};
     var span = function (style, text) { return '<text:span text:style-name="' + style + '">' + xe(text) + "</text:span>"; };
     var para = function (style, inner) { return '<text:p text:style-name="' + style + '">' + inner + "</text:p>"; };
@@ -378,10 +393,19 @@ var V50Transcript = (function () {
       return out + "</table:table>";
     }
     var body = [];
-    body.push(para("Title", xe("Transcription du chat vocal")));
+    body.push(para("Title", xe(hasText ? "Transcription du chat vocal" : "Rapport d'appel du chat vocal")));
     body.push(para("Sub", xe("Salle " + (data.room || "—") + (dateText ? "  ·  " + dateText : ""))));
-    body.push(para("P", span("B", "Durée de l'appel : ") + xe(fmtDuration(Math.max(0, endedAt - startedAt))) + " · " + span("B", "Participants : ") + (st.speakers.length || talk.length)
-      + " · " + span("B", "Phrases : ") + st.phrases + " · " + span("B", "Mots dits : ") + st.words + " · " + span("B", "Mots différents : ") + st.distinct));
+    body.push(para("P", span("B", "Durée de l'appel : ") + xe(fmtDuration(Math.max(0, endedAt - startedAt))) + " · " + span("B", "Participants : ") + nPart
+      + (hasText ? " · " + span("B", "Phrases : ") + st.phrases + " · " + span("B", "Mots dits : ") + st.words + " · " + span("B", "Mots différents : ") + st.distinct : " · " + span("B", "Temps de parole cumulé : ") + xe(fmtDuration(talkTotal)))));
+    if (people.length) body.push(para("P", span("B", "Au vocal : ") + xe(people.join(", "))));
+    if (!hasText) {
+      body.push(heading("Rapport d'appel"));
+      body.push(para("G", xe("Aucune phrase n'a été transcrite pendant cet appel (la transcription est désactivée par défaut ; chacun l'active pour sa propre voix). Ce rapport récapitule la durée de l'appel, les participants et le temps de parole mesuré au micro.")));
+      if (talk.length) {
+        var maxT = Math.max.apply(null, talk.map(function (t) { return t.ms; }));
+        body.push(table([5, 3, 9], ["Participant", "Temps de parole", "Graphique"], talk.slice().sort(function (a, b) { return b.ms - a.ms; }).map(function (t, i) { return [xe(t.name), xe(fmtDuration(t.ms)), bar(t.ms, maxT, "BarC" + (i % PALETTE.length))]; })));
+      } else body.push(para("G", xe("Aucun temps de parole mesuré pour l'instant.")));
+    } else {
     body.push(heading("Mots les plus dits"));
     if (st.top.length) {
       var maxTop = st.top[0][1];
@@ -407,6 +431,7 @@ var V50Transcript = (function () {
       var ci = idxOf[String(l.id == null ? l.name : l.id)];
       body.push(para("P", span("G", "[" + clockText(l.ts) + "] ") + span(ci == null ? "B" : "C" + ci, (l.name || "Joueur") + " : ") + xe(l.text)));
     });
+    }
 
     var styles = '<style:style style:name="Title" style:family="paragraph"><style:paragraph-properties fo:margin-bottom="0.1cm"/><style:text-properties fo:font-size="22pt" fo:font-weight="bold" fo:color="' + hex(ACCENT) + '"/></style:style>'
       + '<style:style style:name="Sub" style:family="paragraph"><style:paragraph-properties fo:margin-bottom="0.3cm"/><style:text-properties fo:font-size="11pt" fo:color="#6b6d80"/></style:style>'
@@ -427,7 +452,7 @@ var V50Transcript = (function () {
     var head = '<?xml version="1.0" encoding="UTF-8"?>\n';
     var content = head + "<office:document-content " + NS + ' office:version="1.2"><office:automatic-styles>' + styles + "</office:automatic-styles><office:body><office:text>" + body.join("") + "</office:text></office:body></office:document-content>";
     var stylesXml = head + "<office:document-styles " + NS + ' office:version="1.2"><office:styles/></office:document-styles>';
-    var meta = head + "<office:document-meta " + NS + ' office:version="1.2"><office:meta><dc:title>' + xe("Transcription du chat vocal — salle " + (data.room || "")) + "</dc:title><meta:generator>Qui suis-je ?</meta:generator></office:meta></office:document-meta>";
+    var meta = head + "<office:document-meta " + NS + ' office:version="1.2"><office:meta><dc:title>' + xe((hasText ? "Transcription du chat vocal" : "Rapport d'appel du chat vocal") + " — salle " + (data.room || "")) + "</dc:title><meta:generator>Qui suis-je ?</meta:generator></office:meta></office:document-meta>";
     var manifest = head + '<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2">'
       + '<manifest:file-entry manifest:full-path="/" manifest:version="1.2" manifest:media-type="application/vnd.oasis.opendocument.text"/>'
       + '<manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>'

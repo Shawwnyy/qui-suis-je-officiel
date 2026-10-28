@@ -138,5 +138,17 @@ for (const [label, data] of [["vide", {}], ["null", null], ["bizarre", { lines: 
 ok(T.crc32(Buffer.from("123456789")) === 0xCBF43926, "crc32 : valeur de référence (« 123456789 »)");
 ok(T.utf8("é😀").length === 6, "utf8 : é = 2 octets, emoji = 4 octets");
 
+/* ---- rapport d'appel sans transcription ---- */
+const rep0 = { room: "482913", startedAt: base, endedAt: base + 754000, participants: ["Léo", "Cam", "Noé"], talk: [{ name: "Léo", ms: 95000 }, { name: "Cam", ms: 143000 }], lines: [] };
+const rp = checkPdf(T.makePdf(rep0), "Rapport sans texte");
+ok(/Rapport d'appel du chat vocal/.test(rp.s) && /Au vocal : L\\351o, Cam, No\\351/.test(rp.s) && /Temps de parole mesur/.test(rp.s) && !/Transcription compl/.test(rp.s) && !/Mots les plus dits/.test(rp.s), "Rapport sans texte : titre, participants, temps de parole ; ni mots ni transcription vides");
+ok(/12:34/.test(rp.s) && /2:23/.test(rp.s), "Rapport sans texte : durée (12:34) et temps de parole (2:23) affichés");
+checkPdf(T.makePdf({ room: "1", participants: ["Seul"], talk: [], lines: [] }), "Rapport sans texte ni parole");
+checkPdf(T.makePdf({ participants: [null, 5, "ok"], talk: [{ name: "x", ms: 2000 }], lines: [] }), "Rapport participants bizarres");
+const rz = readZip(T.makeOdt(rep0)), rc = rz.find(f => f.name === "content.xml").data.toString("utf8");
+ok(xmlProblems(rc).length === 0 && /Rapport d'appel du chat vocal/.test(rc) && /Au vocal : <\/text:span>Léo, Cam, Noé/.test(rc) && /Temps de parole/.test(rc) && !/Transcription complète/.test(rc), "ODT rapport sans texte : XML valide, participants, temps de parole, rien de vide");
+ok(xmlProblems(readZip(T.makeOdt({ lines: [], participants: ["a<b"] })).find(f => f.name === "content.xml").data.toString("utf8")).length === 0, "ODT rapport minimal : XML valide");
+ok(/Transcription du chat vocal/.test(checkPdf(T.makePdf({ room: "1", lines: mk(2), participants: ["Léo"] }), "PDF avec texte + participants").s), "avec du texte, le titre reste « Transcription du chat vocal »");
+
 console.log("Transcription (stats + PDF) : " + (checks - fails) + " / " + checks + " OK" + (fails ? ", " + fails + " échec(s)" : ""));
 process.exit(fails ? 1 : 0);

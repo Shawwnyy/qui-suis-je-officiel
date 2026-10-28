@@ -441,6 +441,7 @@ var V50Voice = (function () {
 
   /* ----- transcription : chacun transcrit SA voix (reconnaissance vocale du navigateur) et partage le texte ----- */
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var callInfo = null;                                         /* récapitulatif du dernier appel terminé (rapport disponible après avoir quitté) */
   var trLog = [], trWanted = false, trBlocked = false, trRec = null, trErrs = 0, trSeen = {};
   var TR_LANGS = [["fr-FR", "Français"], ["en-US", "English"], ["es-ES", "Español"], ["de-DE", "Deutsch"], ["it-IT", "Italiano"], ["pt-PT", "Português"]];
   function trDefaultLang() {
@@ -462,7 +463,7 @@ var V50Voice = (function () {
   }
   function paintTr() {
     var box = $("vcTr"); if (!box) return;
-    box.hidden = !(snap.joined || trLog.length > 0);
+    box.hidden = !(snap.joined || trLog.length > 0 || callInfo);
     var btn = $("vcTrBtn");
     if (btn) { btn.textContent = trWanted ? "⏹ Arrêter ma transcription" : "📝 Transcrire ma voix"; btn.disabled = !SR; }
     var sel = $("vcTrLang"); if (sel && sel.value !== trLang) sel.value = trLang;
@@ -528,11 +529,15 @@ var V50Voice = (function () {
     box.innerHTML = '<div class="vc-test-title">📊 Mots les plus dits</div>' + st.top.map(function (t) { return bar(t[0], t[1], max, "", "×" + t[1]); }).join("")
       + (st.speakers.length > 1 ? '<div class="vc-test-title vc-bars-2">🗣️ Qui parle le plus</div>' + st.speakers.map(function (p) { return bar(p.name, p.words, maxW, "alt", p.words + " mots"); }).join("") : "");
   }
-  /* données communes aux exports PDF et ODT */
+  /* données communes aux exports PDF et ODT : l'appel en cours, ou le dernier appel terminé */
+  function namesOf(ids) { var me = typeof myId !== "undefined" ? myId : ""; return (ids || []).map(function (id) { return nameOf(id === me ? me : id); }); }
+  function talkList() { var me = typeof myId !== "undefined" ? myId : ""; return Object.keys(talkMs).map(function (k) { return { name: nameOf(k === "me" ? me : k), ms: talkMs[k] }; }); }
+  function trCanReport() { return trLog.length > 0 || !!(snap.joined && joinedAt) || !!callInfo; }
   function trReportData() {
-    var me = typeof myId !== "undefined" ? myId : "", last = trLog[trLog.length - 1];
-    return { room: typeof roomCode !== "undefined" ? roomCode : "", startedAt: joinedAt || trLog[0].ts, endedAt: joinedAt ? Date.now() : last.ts,
-      talk: Object.keys(talkMs).map(function (k) { return { name: k === "me" ? nameOf(me) : nameOf(k), ms: talkMs[k] }; }),
+    var live = !!(snap.joined && joinedAt), info = live ? null : callInfo, last = trLog[trLog.length - 1];
+    var startedAt = live ? joinedAt : (info ? info.startedAt : (trLog.length ? trLog[0].ts : Date.now()));
+    return { room: typeof roomCode !== "undefined" ? roomCode : "", startedAt: startedAt, endedAt: live ? Date.now() : (info ? info.endedAt : (last ? last.ts : startedAt)),
+      participants: live ? namesOf(snap.members) : (info ? info.people : []), talk: live ? talkList() : (info ? info.talk : []),
       lines: trLog.map(function (x) { return { id: x.id, name: x.name, text: x.text, at: x.at, ts: x.ts }; }) };
   }
   /* télécharge un fichier (texte ou octets) sous « transcription-vocal-<salle>.<ext> » */
@@ -545,14 +550,14 @@ var V50Voice = (function () {
   }
   /* PDF : statistiques + graphiques + transcription complète */
   function trPdf() {
-    if (!trLog.length) { trMsg("Rien à exporter pour l'instant : active la transcription et parle un peu.", true); return; }
+    if (!trCanReport()) { trMsg("Rejoins d'abord le vocal : le rapport d'appel sera alors disponible, même sans transcription.", true); return; }
     var T = window.V50Transcript; if (!T || !T.makePdf) { trMsg("Export PDF indisponible : recharge la page (Ctrl+F5).", true); return; }
-    try { trDownload(T.makePdf(trReportData()), "pdf", "application/pdf", "📄 PDF enregistré (statistiques et transcription)"); }
+    try { trDownload(T.makePdf(trReportData()), "pdf", "application/pdf", "📄 Rapport PDF enregistré"); }
     catch (e) { trMsg("Impossible de créer le PDF ici : utilise « Copier » ou « Texte (.txt) ».", true); }
   }
   /* ODT : même contenu, modifiable dans LibreOffice, Word, Google Docs… */
   function trOdt() {
-    if (!trLog.length) { trMsg("Rien à exporter pour l'instant : active la transcription et parle un peu.", true); return; }
+    if (!trCanReport()) { trMsg("Rejoins d'abord le vocal : le rapport d'appel sera alors disponible, même sans transcription.", true); return; }
     var T = window.V50Transcript; if (!T || !T.makeOdt) { trMsg("Export ODT indisponible : recharge la page (Ctrl+F5).", true); return; }
     try { trDownload(T.makeOdt(trReportData()), "odt", "application/vnd.oasis.opendocument.text", "📝 Document ODT enregistré (modifiable dans Word, LibreOffice, Google Docs…)"); }
     catch (e) { trMsg("Impossible de créer le document ici : utilise « PDF » ou « Texte (.txt) ».", true); }
@@ -602,10 +607,10 @@ var V50Voice = (function () {
         prevMembers.forEach(function (id) { if (id !== me && s.members.indexOf(id) < 0) toast("🎙️ " + nameOf(id) + " a quitté le vocal"); });
       }
       prevMembers = s.members.slice();
-      var wasJoined = snap.joined;
+      var wasJoined = snap.joined, prevSnap = snap;
       snap = s;
-      if (s.joined && !wasJoined) { joinedAt = Date.now(); talkMs = {}; trLog = []; trSeen = {}; trMsg(""); }
-      if (!s.joined && wasJoined) { joinedAt = 0; trWanted = false; }
+      if (s.joined && !wasJoined) { joinedAt = Date.now(); talkMs = {}; trLog = []; trSeen = {}; callInfo = null; trMsg(""); }
+      if (!s.joined && wasJoined) { if (joinedAt) callInfo = { startedAt: joinedAt, endedAt: Date.now(), people: namesOf(prevSnap.members), talk: talkList() }; joinedAt = 0; trWanted = false; }
       render(); paintTr(); paintClock();
     }
   });
@@ -666,8 +671,8 @@ var V50Voice = (function () {
       + '<div class="vc-test-msg" id="vcTrMsg" role="status" aria-live="polite"></div>'
       + '<div class="vc-tr-log" id="vcTrLog"></div><div class="vc-tr-interim" id="vcTrInterim"></div>'
       + '<div class="vc-tr-stats" id="vcTrStats" hidden></div>'
-      + '<div class="vc-test-btns"><button type="button" class="btn btn-primary vc-wide" data-vc="trpdf" id="vcTrPdf">📄 PDF avec graphiques</button><button type="button" class="btn btn-secondary" data-vc="trodt" id="vcTrOdt">📝 Document (.odt)</button><button type="button" class="btn btn-secondary" data-vc="trsave">💾 Texte (.txt)</button><button type="button" class="btn btn-secondary vc-wide" data-vc="trcopy">📋 Copier le texte</button></div>'
-      + '<div class="vc-hint" id="vcTrNote">Chacun ne transcrit que sa propre voix, et seulement s\'il l\'active. Le texte est produit par la reconnaissance vocale de ton navigateur (sur Chrome et Edge, un service en ligne du fabricant), puis envoyé aux autres personnes du vocal. Elle se met en pause quand ton micro est coupé.</div></div>'
+      + '<div class="vc-test-btns"><button type="button" class="btn btn-primary vc-wide" data-vc="trpdf" id="vcTrPdf">📄 Rapport PDF avec graphiques</button><button type="button" class="btn btn-secondary" data-vc="trodt" id="vcTrOdt">📝 Rapport (.odt)</button><button type="button" class="btn btn-secondary" data-vc="trsave">💾 Texte (.txt)</button><button type="button" class="btn btn-secondary vc-wide" data-vc="trcopy">📋 Copier le texte</button></div>'
+      + '<div class="vc-hint" id="vcTrNote">Chacun ne transcrit que sa propre voix, et seulement s\'il l\'active. Le texte est produit par la reconnaissance vocale de ton navigateur (sur Chrome et Edge, un service en ligne du fabricant), puis envoyé aux autres personnes du vocal. Elle se met en pause quand ton micro est coupé. Le rapport PDF / ODT (durée, participants, temps de parole) est disponible même sans transcription, et après avoir quitté le vocal.</div></div>'
       + '<div class="vc-test" id="vcTest"><div class="vc-test-title" id="vcTestTitle">🔧 Tester avant de rejoindre</div>'
       + '<div class="vc-test-btns"><button type="button" class="btn btn-secondary" data-vc="testmic" id="vcTestMic">🎤 Tester mon micro</button><button type="button" class="btn btn-secondary" data-vc="testsound" id="vcTestSound">🔔 Tester le son</button></div>'
       + '<div class="vc-meter" id="vcMeter" hidden><i id="vcMeterFill"></i></div>'

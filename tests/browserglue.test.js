@@ -279,10 +279,20 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   click("testmic"); await flush();
   ok(/écoute seule/.test(w.byId.vcTestMsg.textContent) && w.byId.vcMeter.hidden === true, "tester en écoute seule : message explicatif, pas de barre");
   ok(/Rien pour l'instant/.test(w.byId.vcTrLog.innerHTML), "un nouvel appel repart d'une transcription vide");
+  /* rapport d'appel « au cas où » : disponible même sans aucune phrase transcrite */
   const nDl = w.downloads.length; click("trpdf"); click("trodt");
-  ok(w.downloads.length === nDl && /Rien à exporter/.test(w.byId.vcTrMsg.textContent) && w.byId.vcTrStats.hidden === true, "PDF sans rien dire : message clair, aucun fichier, pas de graphique vide");
+  ok(w.downloads.length === nDl + 2 && /\.pdf$/.test(w.downloads[nDl].name) && /\.odt$/.test(w.downloads[nDl + 1].name) && w.byId.vcTrStats.hidden === true, "sans aucune transcription, le rapport PDF et ODT s'exporte quand même (pas de graphique de mots vide)");
+  const emptyRep = Buffer.from(w.blobs[w.blobs.length - 2].parts[0]).toString("latin1");
+  ok(/Rapport d'appel du chat vocal/.test(emptyRep) && /Aucune phrase n'a /.test(emptyRep), "le PDF sans transcription est un rapport d'appel (durée, participants, temps de parole)");
   const nSr2 = w.sr.length; click("trtoggle");
   ok(w.sr.length === nSr2 && /écoute seule/.test(w.byId.vcTrMsg.textContent) && /Transcrire/.test(w.byId.vcTrBtn.textContent), "en écoute seule : pas de transcription de sa voix (message clair)");
+
+  /* on quitte le vocal : le rapport du dernier appel reste disponible */
+  click("leave"); await flush();
+  ok(w.byId.vcTr.hidden === false && /Rapport PDF avec graphiques/.test(w.byId.vcPanel.innerHTML), "après avoir quitté le vocal, le bloc rapport reste visible");
+  const nDl2 = w.downloads.length; click("trpdf");
+  const afterLeave = Buffer.from(w.blobs[w.blobs.length - 1].parts[0]).toString("latin1");
+  ok(w.downloads.length === nDl2 + 1 && /Rapport d'appel du chat vocal/.test(afterLeave), "après avoir quitté le vocal, le rapport du dernier appel s'exporte encore");
   ctx.navigator.mediaDevices.getUserMedia = gum0;
 
   /* quitter la salle (resetConnection) : le vocal se coupe tout seul, puis la fonction d'origine est appelée */
