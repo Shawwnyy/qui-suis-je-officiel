@@ -455,7 +455,7 @@ var V50Voice = (function () {
     if (!l || !l.text) return;
     var me = typeof myId !== "undefined" ? myId : "", mine = l.id === me;
     var name = String(nameOf(l.id)).replace(/[\r\n]+/g, " ");
-    trLog.push({ at: joinedAt ? Math.max(0, l.at - joinedAt) : 0, id: l.id, name: name, text: l.text, mine: mine });
+    trLog.push({ at: joinedAt ? Math.max(0, l.at - joinedAt) : 0, ts: l.at, id: l.id, name: name, text: l.text, mine: mine });
     if (trLog.length > 500) trLog.shift();
     if (!mine && !trSeen[l.id]) { trSeen[l.id] = 1; toast("📝 " + name + " active la transcription de sa voix"); }
     paintTr();
@@ -517,7 +517,8 @@ var V50Voice = (function () {
   }
   function trText() {
     var head = "Transcription du chat vocal — salle " + (typeof roomCode !== "undefined" ? roomCode : "") + " — " + new Date().toLocaleString() + "\n\n";
-    return head + trLog.map(function (x) { return "[" + fmtDuration(x.at) + "] " + x.name + " : " + x.text; }).join("\n") + "\n";
+    /* heure réelle dans l'export : la même phrase porte la même heure chez tout le monde (la durée d'appel, elle, dépend de l'arrivée de chacun) */
+    return head + trLog.map(function (x) { return "[" + new Date(x.ts).toLocaleTimeString() + "] " + x.name + " : " + x.text; }).join("\n") + "\n";
   }
   function fallbackCopy(txt) {
     try { var ta = document.createElement("textarea"); ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); var okc = document.execCommand("copy"); ta.remove(); return !!okc; } catch (e) { return false; }

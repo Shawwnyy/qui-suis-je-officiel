@@ -241,7 +241,7 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   ok(/refuse la transcription/.test(w.byId.vcTrMsg.textContent) && /Transcrire/.test(w.byId.vcTrBtn.textContent), "transcription refusée par le navigateur : message clair, bouton remis à zéro");
   /* copier / enregistrer */
   click("trcopy"); await flush();
-  ok(w.copied.some(c => /Transcription du chat vocal/.test(c) && /\] Moi : bonjour tout le monde/.test(c) && /Cam : Salut <b>Léo<\/b>/.test(c)), "copier : le texte brut contient l'en-tête, les heures et les noms réels");
+  ok(w.copied.some(c => /Transcription du chat vocal/.test(c) && /\[\d{1,2}[:h]\d{2}[:h]\d{2}[^\]]*\] Moi : bonjour tout le monde/.test(c) && /Cam : Salut <b>Léo<\/b>/.test(c)), "copier : le texte brut contient l'en-tête, l'heure réelle de chaque phrase et les noms réels");
   click("trsave");
   ok(w.downloads.length === 1 && /^transcription-vocal-123456\.txt$/.test(w.downloads[0].name), "enregistrer : un fichier .txt est proposé");
   /* langue */
