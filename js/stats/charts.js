@@ -254,6 +254,77 @@ var V40Charts = (function () {
     host.appendChild(svg);
   }
 
+
+  /* ---------- Boîtes à moustaches (min · 1ᵉʳ quartile · médiane · 3ᵉ quartile · max) ---------- */
+  /* o : {rows:[{label, avatar, min, q1, med, q3, max, color, text, tip}], max, tickFmt, ariaLabel} */
+  function boxplot(host, o) {
+    var rows = o.rows, W = Math.max(280, host.clientWidth || 640), rowH = 38;
+    var longestLab = rows.reduce(function (m, r) { return Math.max(m, String((r.avatar ? r.avatar + "  " : "") + r.label).length); }, 0);
+    var labelW = Math.round(Math.min(Math.max(48, W * 0.34), 210, Math.max(40, longestLab * 7.6 + 14)));
+    var longest = rows.reduce(function (m, r) { return Math.max(m, String(r.text || "").length); }, 0);
+    var valW = Math.min(Math.round(W * 0.45), Math.max(40, Math.round(longest * 7.2) + 14));
+    var axisH = 24, plotH = rows.length * rowH + 2, H = plotH + axisH, bx = labelW + 8, bw = Math.max(40, W - bx - valW);
+    var dataMax = Math.max.apply(null, rows.map(function (r) { return r.max || 0; }).concat([1]));
+    var tk = o.max ? { max: o.max, ticks: niceTicks(0, o.max, 4).ticks.filter(function (v) { return v <= o.max + 1e-9; }) } : niceTicks(0, dataMax, 4), max = o.max || tk.max || dataMax;
+    var tickFmt = o.tickFmt || fmt.int;
+    function X(v) { return bx + Math.max(0, Math.min(1, v / max)) * bw; }
+    var svg = sv("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, "class": "v40s-svg", role: "img", "aria-label": o.ariaLabel || "Boîtes à moustaches" });
+    tk.ticks.forEach(function (v) {
+      if (v > 0) svg.appendChild(sv("line", { x1: X(v), x2: X(v), y1: 0, y2: plotH, stroke: C.grid, "stroke-width": 1 }));
+      svg.appendChild(sv("text", { x: X(v), y: plotH + 17, "text-anchor": v === 0 ? "start" : "middle", "font-size": 11, fill: C.muted, text: tickFmt(v) }));
+    });
+    svg.appendChild(sv("line", { x1: bx, x2: bx, y1: 0, y2: plotH, stroke: C.axis, "stroke-width": 1 }));
+    rows.forEach(function (r, i) {
+      var cy = i * rowH + rowH / 2 + 1, col = r.color || C.palette[0];
+      var g = sv("g", { tabindex: "0", role: "img", "aria-label": r.label + " : " + (r.text || "") });
+      g.appendChild(sv("rect", { x: 0, y: cy - rowH / 2, width: W, height: rowH, fill: "transparent" }));
+      g.appendChild(sv("text", { x: 0, y: cy + 4, "font-size": 12.5, "font-weight": 700, fill: C.ink2, text: cut((r.avatar ? r.avatar + " " : "") + r.label, Math.floor(labelW / 6.8)) }));
+      if (r.min !== null && r.min !== undefined) {
+        g.appendChild(sv("line", { x1: X(r.min), x2: X(r.max), y1: cy, y2: cy, stroke: col, "stroke-width": 2 }));
+        g.appendChild(sv("line", { x1: X(r.min), x2: X(r.min), y1: cy - 6, y2: cy + 6, stroke: col, "stroke-width": 2 }));
+        g.appendChild(sv("line", { x1: X(r.max), x2: X(r.max), y1: cy - 6, y2: cy + 6, stroke: col, "stroke-width": 2 }));
+        var bwid = Math.max(3, X(r.q3) - X(r.q1));
+        g.appendChild(sv("rect", { x: X(r.q1), y: cy - 9, width: bwid, height: 18, rx: 3, fill: col, "fill-opacity": 0.45, stroke: col, "stroke-width": 1.5 }));
+        g.appendChild(sv("line", { x1: X(r.med), x2: X(r.med), y1: cy - 11, y2: cy + 11, stroke: C.ink, "stroke-width": 3 }));
+        if (r.text) g.appendChild(sv("text", { x: X(r.max) + 10, y: cy + 4, "font-size": 12.5, "font-weight": 800, fill: C.ink, text: r.text }));
+      }
+      if (r.tip) hover(g, function () { return r.tip; });
+      svg.appendChild(g);
+    });
+    host.appendChild(svg);
+  }
+
+  /* ---------- Nuage de points (rapidité contre précision) ---------- */
+  /* o : {points:[{label, x, y (0..1), color, tip}], xMax, xTitle, yTitle, xFmt, ariaLabel} */
+  function scatter(host, o) {
+    var W = Math.max(280, host.clientWidth || 640), H = W < 480 ? 280 : 340, m = { l: 60, r: 20, t: 14, b: 46 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+    var xMax = o.xMax || Math.max.apply(null, o.points.map(function (p) { return p.x; }).concat([1]));
+    var tk = niceTicks(0, xMax, 5), xm = tk.max || xMax, xFmt = o.xFmt || fmt.int;
+    function X(v) { return m.l + Math.max(0, Math.min(1, v / xm)) * pw; }
+    function Y(v) { return m.t + (1 - Math.max(0, Math.min(1, v))) * ph; }
+    var svg = sv("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, "class": "v40s-svg", role: "img", "aria-label": o.ariaLabel || "Nuage de points", tabindex: "0" });
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+      svg.appendChild(sv("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: v === 0 ? C.axis : C.grid, "stroke-width": 1 }));
+      svg.appendChild(sv("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: C.muted, text: Math.round(v * 100) + " %" }));
+    });
+    tk.ticks.forEach(function (v) {
+      if (v > 0) svg.appendChild(sv("line", { x1: X(v), x2: X(v), y1: m.t, y2: H - m.b, stroke: C.grid, "stroke-width": 1 }));
+      svg.appendChild(sv("text", { x: X(v), y: H - m.b + 16, "text-anchor": "middle", "font-size": 11, fill: C.muted, text: xFmt(v) }));
+    });
+    svg.appendChild(sv("text", { x: m.l + pw / 2, y: H - 6, "text-anchor": "middle", "font-size": 11, fill: C.muted, text: o.xTitle || "" }));
+    svg.appendChild(sv("text", { x: 12, y: m.t + ph / 2, "text-anchor": "middle", "font-size": 11, fill: C.muted, transform: "rotate(-90 12 " + (m.t + ph / 2) + ")", text: o.yTitle || "" }));
+    o.points.forEach(function (p) {
+      var cx = X(p.x), cy = Y(p.y), g = sv("g", { tabindex: "0", role: "img", "aria-label": p.label + " : " + (p.tip && p.tip.rows ? p.tip.rows.map(function (r) { return r.label + " " + r.value; }).join(", ") : "") });
+      g.appendChild(sv("circle", { cx: cx, cy: cy, r: 18, fill: "transparent" }));
+      g.appendChild(sv("circle", { cx: cx, cy: cy, r: 7, fill: p.color || C.palette[0], stroke: C.surface, "stroke-width": 2 }));
+      var right = cx < W - m.r - 90;
+      g.appendChild(sv("text", { x: right ? cx + 12 : cx - 12, y: cy + 4, "text-anchor": right ? "start" : "end", "font-size": 11.5, "font-weight": 700, fill: C.ink2, text: cut(p.label, 14) }));
+      if (p.tip) hover(g, function () { return p.tip; });
+      svg.appendChild(g);
+    });
+    host.appendChild(svg);
+  }
+
   /* ---------- Barres empilées (bonnes / mauvaises / sans réponse) ---------- */
   /* rows : [{label, avatar, parts:[{name, value, color, glyph}], total}] ; max = total le plus grand */
   function stack(host, o) {
@@ -494,7 +565,7 @@ var V40Charts = (function () {
   }
 
   return { C: C, STATE: STATE, fmt: fmt, el: el, sv: sv, cut: cut, colorOf: colorOf, niceTicks: niceTicks, barPath: barPath,
-    legend: legend, line: line, hbars: hbars, stack: stack, columns: columns, matrix: matrix, table: table, card: card,
+    legend: legend, line: line, hbars: hbars, boxplot: boxplot, scatter: scatter, stack: stack, columns: columns, matrix: matrix, table: table, card: card,
     showTip: showTip, hideTip: hideTip, hover: hover, cardCanvas: cardCanvas, tableText: tableText };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V40Charts;
