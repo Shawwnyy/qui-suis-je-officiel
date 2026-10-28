@@ -465,7 +465,7 @@
         if (!timed.length) { host.appendChild(el("p", { "class": "v40s-note", text: "Aucune réponse chronométrée pour l’instant." })); return; }
         K.hbars(host, { rows: timed.map(function (r) { return { label: label(r), avatar: r.avatar, value: r.avgTime, color: colorFor(r.idx), text: fmt.sec(r.avgTime),
           tip: { title: label(r), rows: [{ label: "Temps moyen", value: fmt.sec(r.avgTime), strong: true }, { label: "Réponses chronométrées", value: r.correct + r.wrong }] } }; }),
-          max: Math.max(log.qt || 0, Math.max.apply(null, timed.map(function (r) { return r.avgTime; }))), ariaLabel: "Temps de réponse moyen par joueur" });
+          max: Math.max(log.qt || 0, Math.max.apply(null, timed.map(function (r) { return r.avgTime; }))), ariaLabel: "Temps de réponse moyen par joueur", tickFmt: fmt.sec });
       },
       table: function () { return K.table(["Joueur", "Temps moyen"], timed.map(function (r) { return [label(r), fmt.sec(r.avgTime)]; }), "Temps de réponse moyen"); }
     }));
@@ -486,7 +486,7 @@
         if (!quick.length) { host.appendChild(el("p", { "class": "v40s-note", text: "Aucune bonne réponse chronométrée pour l’instant." })); return; }
         K.hbars(host, { rows: quick.map(function (r) { return { label: label(r), avatar: r.avatar, value: r.fastest, color: colorFor(r.idx), text: fmt.sec(r.fastest),
           tip: { title: label(r), rows: [{ label: "Meilleur temps", value: fmt.sec(r.fastest), strong: true }, { label: "Temps moyen", value: fmt.sec(r.avgTime) }] } }; }),
-          max: Math.max(log.qt || 0, Math.max.apply(null, quick.map(function (r) { return r.fastest; }))), ariaLabel: "Réponse correcte la plus rapide par joueur" });
+          max: Math.max(log.qt || 0, Math.max.apply(null, quick.map(function (r) { return r.fastest; }))), ariaLabel: "Réponse correcte la plus rapide par joueur", tickFmt: fmt.sec });
       },
       table: function () { return K.table(["Joueur", "Meilleur temps", "Temps moyen"], quick.map(function (r) { return [label(r), fmt.sec(r.fastest), fmt.sec(r.avgTime)]; }), "Réponse correcte la plus rapide"); }
     }));
@@ -575,6 +575,12 @@
     ]);
     var host = el("div", { "class": "v40s-body" });
     sec.appendChild(host);
+    var cp = el("button", { type: "button", "class": "v40s-tool", "data-copy": "1", text: "📋 Copier le tableau", title: "Copier le tableau (à coller dans un tableur ou un document)" });
+    cp.addEventListener("click", function () {
+      var done = function (m) { cp.textContent = m; setTimeout(function () { cp.textContent = "📋 Copier le tableau"; }, 2600); };
+      try { navigator.clipboard.writeText(K.tableText(host)).then(function () { done("✓ Tableau copié"); }, function () { done("✗ Copie impossible"); }); } catch (e) { done("✗ Copie impossible"); }
+    });
+    sec.querySelector(".v40s-cardhead").appendChild(el("div", { "class": "v40s-cardctl", "aria-live": "polite" }, [cp]));
     K.matrix(host, { players: rows.map(function (r) { return { name: label(r), avatar: r.avatar, color: colorFor(r.idx) }; }),
       rounds: log.R.map(function (R, i) { return { label: String(i + 1), q: R.q }; }),
       cell: function (pi, ri) { var e = log.R[ri].r[pi]; return { state: e[0], seconds: e[1], score: fmt.int(e[2]) }; } });

@@ -224,13 +224,23 @@ var V40Charts = (function () {
   /* ---------- Barres horizontales (une valeur par ligne) ---------- */
   /* rows : [{label, sub, value, color, text, tip:{title,sub,rows}}] ; max : valeur correspondant à 100 % de la largeur */
   function hbars(host, o) {
-    var rows = o.rows, W = Math.max(280, host.clientWidth || 640), rowH = 32, labelW = Math.round(Math.min(210, Math.max(92, W * 0.30)));
+    var rows = o.rows, W = Math.max(280, host.clientWidth || 640), rowH = 32;
+    var longestLab = rows.reduce(function (m, r) { return Math.max(m, String((r.avatar ? r.avatar + "  " : "") + r.label).length); }, 0);
+    var labelW = Math.round(Math.min(Math.max(48, W * 0.34), 210, Math.max(40, longestLab * 7.6 + 14)));      /* colonne des étiquettes ajustée au texte : pas de grand vide */
     var longest = rows.reduce(function (m, r) { return Math.max(m, String(r.text).length); }, 0);
     var valW = Math.min(Math.round(W * 0.5), Math.max(64, Math.round(longest * 7.6) + 16));      /* place réservée au texte de valeur : jamais rogné */
-    var H = rows.length * rowH + 6, bx = labelW + 8, bw = Math.max(40, W - bx - valW);
-    var max = o.max || Math.max.apply(null, rows.map(function (r) { return r.value || 0; }).concat([1]));
+    var axisH = 24, H = rows.length * rowH + 6 + axisH, bx = labelW + 8, bw = Math.max(40, W - bx - valW);
+    var dataMax = Math.max.apply(null, rows.map(function (r) { return r.value || 0; }).concat([1]));
+    var tk = o.max ? { max: o.max, ticks: niceTicks(0, o.max, 4).ticks.filter(function (v) { return v <= o.max + 1e-9; }) } : niceTicks(0, dataMax, 4);
+    var max = o.max || tk.max || dataMax, tickFmt = o.tickFmt || (o.max === 1 ? fmt.pct : fmt.int);
     var svg = sv("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H, "class": "v40s-svg", role: "img", "aria-label": o.ariaLabel || "Graphique en barres" });
-    svg.appendChild(sv("line", { x1: bx, x2: bx, y1: 0, y2: H - 4, stroke: C.axis, "stroke-width": 1 }));
+    var plotH = rows.length * rowH + 2;
+    tk.ticks.forEach(function (v) {
+      var gx = bx + v / max * bw;
+      if (v > 0) svg.appendChild(sv("line", { x1: gx, x2: gx, y1: 0, y2: plotH, stroke: C.grid, "stroke-width": 1 }));
+      svg.appendChild(sv("text", { x: gx, y: plotH + 17, "text-anchor": v === 0 ? "start" : "middle", "font-size": 11, fill: C.muted, text: tickFmt(v) }));
+    });
+    svg.appendChild(sv("line", { x1: bx, x2: bx, y1: 0, y2: plotH, stroke: C.axis, "stroke-width": 1 }));
     rows.forEach(function (r, i) {
       var y = i * rowH + 5, w = r.value > 0 ? Math.max(3, r.value / max * bw) : 0;
       var g = sv("g", { tabindex: "0", role: "img", "aria-label": r.label + " : " + r.text });
@@ -334,6 +344,99 @@ var V40Charts = (function () {
 
   /* ---------- Carte de graphique : titre, bascule Graphique / Tableau, légende ---------- */
   /* o : {title, desc, draw(host), table()->node, legend()->node|null} */
+  /* ---------- Copier / coller un graphique : image PNG (comme à l'écran, fond sombre) ou tableau ---------- */
+  function svgMarkup(svg) {
+    var vb = (svg.getAttribute("viewBox") || "0 0 640 300").split(/\s+/).map(Number), c = svg.cloneNode(true);
+    c.setAttribute("xmlns", NS); c.setAttribute("width", vb[2]); c.setAttribute("height", vb[3]);
+    ["class", "style", "tabindex", "role", "aria-label"].forEach(function (a) { c.removeAttribute(a); });
+    [].forEach.call(c.querySelectorAll("[tabindex]"), function (n) { n.removeAttribute("tabindex"); });
+    c.setAttribute("font-family", "Arial, Helvetica, sans-serif");
+    return { xml: new XMLSerializer().serializeToString(c), w: vb[2], h: vb[3] };
+  }
+  function loadSvg(m) {
+    return new Promise(function (res, rej) {
+      var img = new Image();
+      img.onload = function () { res(img); };
+      img.onerror = function () { rej(new Error("svg")); };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(m.xml);
+    });
+  }
+  function wrapLines(ctx, text, maxW) {
+    var words = String(text).split(/\s+/), lines = [], cur = "";
+    words.forEach(function (w) { var t = cur ? cur + " " + w : w; if (ctx.measureText(t).width <= maxW || !cur) cur = t; else { lines.push(cur); cur = w; } });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  /* Dessine la carte telle qu'à l'écran : titre, explication, légende, graphique(s) sur le fond sombre */
+  function cardCanvas(node) {
+    var svgs = [].slice.call(node.querySelectorAll(".v40s-body svg.v40s-svg")).map(svgMarkup);
+    if (!svgs.length) return Promise.reject(new Error("pas de graphique"));
+    var scale = 2, pad = 18, W = Math.max.apply(null, svgs.map(function (m) { return m.w; }).concat([Math.round(node.getBoundingClientRect().width) - 28, 320])) + pad * 2 - 4;
+    var h3 = node.querySelector("h3"), p = node.querySelector(".v40s-cardhead p");
+    var fam = (h3 && getComputedStyle(h3).fontFamily) || "Arial, sans-serif";
+    var legend = [].slice.call(node.querySelectorAll(".v40s-legendhost .v40s-leg")).map(function (b) {
+      var i = b.querySelector("i"), sp = b.querySelector("span");
+      return { name: sp ? sp.textContent : "", color: i ? (i.style.background || getComputedStyle(i).backgroundColor) : C.palette[0], off: b.classList.contains("off") };
+    });
+    var m = document.createElement("canvas").getContext("2d");
+    m.font = "400 13px " + fam;
+    var descLines = p ? wrapLines(m, p.textContent, W - pad * 2) : [];
+    m.font = "800 13px " + fam;
+    var pills = [], px = pad, py = 0, rowsN = legend.length ? 1 : 0;
+    legend.forEach(function (it) { var w = Math.ceil(m.measureText(it.name).width) + 44; if (px + w > W - pad && px > pad) { px = pad; rowsN++; } pills.push({ it: it, x: px, row: rowsN - 1, w: w }); px += w + 8; });
+    var y0 = pad + 22 + descLines.length * 19 + (descLines.length ? 6 : 0), legH = rowsN * 36 + (rowsN ? 6 : 0);
+    var H = y0 + legH + svgs.reduce(function (a, g) { return a + g.h + 8; }, 0) + pad - 2;
+    var cv = document.createElement("canvas"); cv.width = Math.round(W * scale); cv.height = Math.round(H * scale);
+    var ctx = cv.getContext("2d"); ctx.scale(scale, scale);
+    ctx.fillStyle = C.surface; ctx.fillRect(0, 0, W, H);
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = C.ink; ctx.font = "900 17px " + fam; ctx.fillText(h3 ? h3.textContent : "", pad, pad + 16);
+    ctx.fillStyle = "#a9a8a0"; ctx.font = "400 13px " + fam;
+    descLines.forEach(function (l, i) { ctx.fillText(l, pad, pad + 38 + i * 19); });
+    pills.forEach(function (o) {
+      var x = o.x, y = y0 + o.row * 36;
+      ctx.globalAlpha = o.it.off ? 0.45 : 1;
+      rr(ctx, x + .5, y + .5, o.w - 1, 30, 15); ctx.strokeStyle = "rgba(255,255,255,.22)"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = o.it.color; rr(ctx, x + 12, y + 9, 12, 12, 3); ctx.fill();
+      ctx.fillStyle = C.ink; ctx.font = "800 13px " + fam; ctx.fillText(o.it.name, x + 32, y + 20);
+      ctx.globalAlpha = 1;
+    });
+    return Promise.all(svgs.map(loadSvg)).then(function (imgs) {
+      var y = y0 + legH;
+      imgs.forEach(function (img, k) { ctx.drawImage(img, Math.round((W - svgs[k].w) / 2), y, svgs[k].w, svgs[k].h); y += svgs[k].h + 8; });
+      return cv;
+    });
+  }
+  function canvasBlob(cv) { return new Promise(function (res, rej) { cv.toBlob(function (b) { b ? res(b) : rej(new Error("png")); }, "image/png"); }); }
+  function slug(t) { return String(t || "graphique").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "graphique"; }
+  function saveBlob(blob, name) {
+    var a = el("a", { href: URL.createObjectURL(blob), download: name });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 4000);
+  }
+  /* Tableau affiché → texte à tabulations (se colle dans un tableur) */
+  function tableText(root) {
+    var t = root.querySelector("table"); if (!t) return "";
+    return [].map.call(t.rows, function (r) { return [].map.call(r.cells, function (c) { return c.textContent.replace(/\s+/g, " ").trim(); }).join("\t"); }).join("\n");
+  }
+  function copyText(text, html) {
+    if (navigator.clipboard && window.ClipboardItem && navigator.clipboard.write && html) {
+      return navigator.clipboard.write([new ClipboardItem({ "text/plain": new Blob([text], { type: "text/plain" }), "text/html": new Blob([html], { type: "text/html" }) })]);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    return Promise.reject(new Error("presse-papiers indisponible"));
+  }
+  function copyImage(node) {
+    var blobP = cardCanvas(node).then(canvasBlob);
+    if (navigator.clipboard && window.ClipboardItem && navigator.clipboard.write) {
+      return navigator.clipboard.write([new ClipboardItem({ "image/png": blobP })]).then(function () { return "copied"; }, function () {
+        return blobP.then(function (b) { saveBlob(b, slug(node.querySelector("h3").textContent) + ".png"); return "downloaded"; });
+      });
+    }
+    return blobP.then(function (b) { saveBlob(b, slug(node.querySelector("h3").textContent) + ".png"); return "downloaded"; });
+  }
+
   function card(o) {
     var view = "chart";
     var body = el("div", { "class": "v40s-body" });
@@ -341,8 +444,11 @@ var V40Charts = (function () {
     var bChart = el("button", { type: "button", "class": "on", "aria-pressed": "true", text: "📈 Graphique" });
     var bTable = el("button", { type: "button", "aria-pressed": "false", text: "🔢 Tableau" });
     var seg = el("div", { "class": "v40s-seg", role: "group", "aria-label": "Mode d'affichage" }, [bChart, bTable]);
+    var bCopy = el("button", { type: "button", "class": "v40s-tool", "data-copy": "1" });
+    var bSave = el("button", { type: "button", "class": "v40s-tool", "data-save": "1", text: "⬇️ PNG", title: "Télécharger ce graphique en image PNG" });
+    var ctl = el("div", { "class": "v40s-cardctl", "aria-live": "polite" }, [seg, bCopy, bSave]);
     var node = el("section", { "class": "v40s-card" }, [
-      el("div", { "class": "v40s-cardhead" }, [el("div", null, [el("h3", { text: o.title }), o.desc ? el("p", { text: o.desc }) : null]), seg]),
+      el("div", { "class": "v40s-cardhead" }, [el("div", null, [el("h3", { text: o.title }), o.desc ? el("p", { text: o.desc }) : null]), ctl]),
       legendHost, body
     ]);
     function redraw() {
@@ -351,10 +457,36 @@ var V40Charts = (function () {
       while (legendHost.firstChild) legendHost.removeChild(legendHost.firstChild);
       bChart.className = view === "chart" ? "on" : ""; bTable.className = view === "table" ? "on" : "";
       bChart.setAttribute("aria-pressed", String(view === "chart")); bTable.setAttribute("aria-pressed", String(view === "table"));
-      if (view === "table") { body.appendChild(o.table()); return; }
+      if (view === "table") { body.appendChild(o.table()); setTools(false); return; }
       var lg = o.legend ? o.legend(redraw) : null; if (lg) legendHost.appendChild(lg);
       o.draw(body);
+      setTools(!!body.querySelector("svg.v40s-svg"));
     }
+    var copyLabel = "";
+    function setTools(isImage) {
+      copyLabel = isImage ? "📋 Copier l’image" : "📋 Copier le tableau";
+      bCopy.textContent = copyLabel; bCopy.title = isImage ? "Copier ce graphique comme une image (à coller dans un message, un document, une présentation…)" : "Copier le tableau (à coller dans un tableur ou un document)";
+      bSave.style.display = isImage ? "" : "none";
+    }
+    function say(btn, msg, base) { btn.textContent = msg; setTimeout(function () { btn.textContent = base(); }, 2600); }
+    function viewTableText() {
+      /* la vue « Tableau » n'est pas forcément affichée : on construit le tableau hors écran */
+      var holder = el("div"); holder.appendChild(o.table()); return { text: tableText(holder), html: (holder.querySelector("table") || {}).outerHTML || "" };
+    }
+    bCopy.addEventListener("click", function () {
+      var isImage = view === "chart" && !!body.querySelector("svg.v40s-svg");
+      if (isImage) {
+        copyImage(node).then(function (r) { say(bCopy, r === "copied" ? "✓ Image copiée" : "⬇️ Copie refusée : image téléchargée", function () { return copyLabel; }); },
+          function () { say(bCopy, "✗ Copie impossible", function () { return copyLabel; }); });
+      } else {
+        var t = view === "table" ? { text: tableText(body), html: (body.querySelector("table") || {}).outerHTML || "" } : viewTableText();
+        copyText(t.text, t.html).then(function () { say(bCopy, "✓ Tableau copié", function () { return copyLabel; }); }, function () { say(bCopy, "✗ Copie impossible", function () { return copyLabel; }); });
+      }
+    });
+    bSave.addEventListener("click", function () {
+      cardCanvas(node).then(canvasBlob).then(function (b) { saveBlob(b, slug(o.title) + ".png"); say(bSave, "✓ Image enregistrée", function () { return "⬇️ PNG"; }); },
+        function () { say(bSave, "✗ Échec", function () { return "⬇️ PNG"; }); });
+    });
     bChart.addEventListener("click", function () { view = "chart"; redraw(); });
     bTable.addEventListener("click", function () { view = "table"; redraw(); });
     node.__redraw = redraw;      /* le premier dessin est lancé par l'appelant, une fois la carte dans le DOM (largeur réelle) */
@@ -363,7 +495,7 @@ var V40Charts = (function () {
 
   return { C: C, STATE: STATE, fmt: fmt, el: el, sv: sv, cut: cut, colorOf: colorOf, niceTicks: niceTicks, barPath: barPath,
     legend: legend, line: line, hbars: hbars, stack: stack, columns: columns, matrix: matrix, table: table, card: card,
-    showTip: showTip, hideTip: hideTip, hover: hover };
+    showTip: showTip, hideTip: hideTip, hover: hover, cardCanvas: cardCanvas, tableText: tableText };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V40Charts;
 if (typeof window !== "undefined") window.V40Charts = V40Charts;
