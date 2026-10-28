@@ -130,7 +130,7 @@ var V40Charts = (function () {
   }
 
   /* ---------- Courbe (évolution des scores, réussite par question…) ---------- */
-  /* o : {n, series:[{key,name,color,values:[n+1 valeurs ou null]}], hidden:Set, yMax, yFmt, xTitle, yTitle, height,
+  /* o : {n, series:[{key,name,color,values:[n+1 valeurs ou null]}], hidden:Set, yMax, yTicks (graduations imposées, ex. [1,2,3]), yFmt, xTitle, yTitle, height,
           endLabels, header(i), valueText(s,i), ariaLabel} */
   function line(host, o) {
     var W = Math.max(280, host.clientWidth || 640), H = o.height || (W < 480 ? 250 : 310);
@@ -138,7 +138,7 @@ var V40Charts = (function () {
     var n = o.n, yFmt = o.yFmt || fmt.int;
     var maxV = 0, minV = 0;
     all.forEach(function (s) { s.values.forEach(function (v) { if (v !== null && v !== undefined) { maxV = Math.max(maxV, v); minV = Math.min(minV, v); } }); });
-    var tk = o.yMax !== undefined ? { min: 0, max: o.yMax, ticks: niceTicks(0, o.yMax, 4).ticks.filter(function (v) { return v <= o.yMax; }) } : niceTicks(minV, maxV || 1, 4);
+    var tk = o.yTicks ? { min: o.yTicks[0], max: o.yTicks[o.yTicks.length - 1], ticks: o.yTicks } : o.yMax !== undefined ? { min: 0, max: o.yMax, ticks: niceTicks(0, o.yMax, 4).ticks.filter(function (v) { return v <= o.yMax; }) } : niceTicks(minV, maxV || 1, 4);
     var showEnd = !!o.endLabels && all.length >= 1 && all.length <= 4 && W >= 380;
     var m = { l: 12 + String(yFmt(tk.max)).length * 7, r: showEnd ? 92 : 16, t: 14, b: o.xTitle ? 46 : 30 };
     var pw = W - m.l - m.r, ph = H - m.t - m.b;

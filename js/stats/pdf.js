@@ -3,8 +3,8 @@
 
    Le PDF est écrit directement (police Helvetica intégrée à tous les lecteurs, texte et graphiques vectoriels :
    net à n'importe quel zoom, texte sélectionnable). Fonctionne hors connexion. Aucun accès au DOM : testable avec Node.
-   V40Pdf.build(log)   → Uint8Array (le fichier PDF)
-   V40Pdf.download(log) → télécharge le fichier dans le navigateur
+   V40Pdf.build(log, {theme})    → Uint8Array (le fichier PDF) ; theme = "light" (fond blanc, défaut) ou "dark" (fond sombre)
+   V40Pdf.download(log, {theme}) → télécharge le fichier dans le navigateur
    ============================================================================= */
 var V40Pdf = (function () {
   "use strict";
@@ -74,20 +74,21 @@ var V40Pdf = (function () {
   var PW = 595.28, PH = 841.89;
   function Writer(meta) {
     this.pages = []; this.cur = null; this.meta = meta || {};
+    this.bg = this.meta.bg || null; this.ink = this.meta.ink || "#1a1a19"; this.edge = this.meta.edge || "#d4d3cf";
     this.addPage();
   }
-  Writer.prototype.addPage = function () { this.cur = []; this.pages.push(this.cur); return this.pages.length; };
+  Writer.prototype.addPage = function () { this.cur = []; this.pages.push(this.cur); if (this.bg) this.rect(0, 0, PW, PH, { fill: this.bg }); return this.pages.length; };
   Writer.prototype.raw = function (s) { this.cur.push(s); };
   Writer.prototype.text = function (x, y, s, o) {
     o = o || {}; var size = o.size || 10, bold = !!o.bold, str = o.maxW ? fit(s, o.maxW, size, bold) : clean(s);
     if (!str) return;
     var w = widthOf(str, size, bold);
     if (o.align === "right") x -= w; else if (o.align === "center") x -= w / 2;
-    this.raw("BT /" + (bold ? "F2" : "F1") + " " + num(size) + " Tf " + rgb(o.color || "#1a1a19") + " rg 1 0 0 1 " + num(x) + " " + num(PH - y) + " Tm " + pdfStr(toCp(str)) + " Tj ET");
+    this.raw("BT /" + (bold ? "F2" : "F1") + " " + num(size) + " Tf " + rgb(o.color || this.ink) + " rg 1 0 0 1 " + num(x) + " " + num(PH - y) + " Tm " + pdfStr(toCp(str)) + " Tj ET");
   };
   Writer.prototype.line = function (x1, y1, x2, y2, o) {
     o = o || {};
-    this.raw("q " + rgb(o.color || "#d4d3cf") + " RG " + num(o.w || 0.5) + " w " + (o.dash ? "[" + o.dash.join(" ") + "] 0 d " : "") + num(x1) + " " + num(PH - y1) + " m " + num(x2) + " " + num(PH - y2) + " l S Q");
+    this.raw("q " + rgb(o.color || this.edge) + " RG " + num(o.w || 0.5) + " w " + (o.dash ? "[" + o.dash.join(" ") + "] 0 d " : "") + num(x1) + " " + num(PH - y1) + " m " + num(x2) + " " + num(PH - y2) + " l S Q");
   };
   Writer.prototype.poly = function (pts, o) {
     if (pts.length < 2) return; o = o || {};
@@ -96,7 +97,7 @@ var V40Pdf = (function () {
   };
   Writer.prototype.rect = function (x, y, w, h, o) {
     o = o || {}; var op = o.fill && o.stroke ? "B" : (o.fill ? "f" : "S");
-    this.raw("q " + (o.fill ? rgb(o.fill) + " rg " : "") + (o.stroke ? rgb(o.stroke) + " RG " + num(o.w || 0.5) + " w " : (o.fill ? "" : rgb("#d4d3cf") + " RG 0.5 w ")) + num(x) + " " + num(PH - y - h) + " " + num(w) + " " + num(h) + " re " + op + " Q");
+    this.raw("q " + (o.fill ? rgb(o.fill) + " rg " : "") + (o.stroke ? rgb(o.stroke) + " RG " + num(o.w || 0.5) + " w " : (o.fill ? "" : rgb(this.edge) + " RG 0.5 w ")) + num(x) + " " + num(PH - y - h) + " " + num(w) + " " + num(h) + " re " + op + " Q");
   };
   Writer.prototype.dot = function (cx, cy, r, color) {
     var k = 0.5523 * r, X = cx, Y = PH - cy;
@@ -127,11 +128,27 @@ var V40Pdf = (function () {
   };
 
   /* ---------- Mise en page du rapport ---------- */
-  var C = { ink: "#1a1a19", sub: "#52514e", mute: "#6f6e69", grid: "#e1e0dc", line: "#c9c8c3", band: "#f4f3f0", head: "#2d2a4a",
-    good: "#0c8a0c", bad: "#d03b3b", none: "#6f6e69", accent: "#4c1d95" };
-  var SERIES = ["#2a6fd6", "#c8501a", "#12856a", "#a86e00", "#c23d73", "#2f7d00", "#6f63d6", "#d03b3b"];   /* validés pour fond clair */
+  /* Deux thèmes. Séries : mêmes teintes dans le même ordre ; le jeu sombre est celui des graphiques à l'écran (validé sur #1a1a19). */
+  var PALETTES = {
+    light: { bg: null, ink: "#1a1a19", sub: "#52514e", mute: "#6f6e69", grid: "#e1e0dc", line: "#c9c8c3", band: "#f4f3f0", card: "#faf9f7", head: "#2d2a4a", headSub: "#d9d6f2",
+      good: "#0c8a0c", bad: "#d03b3b", none: "#6f6e69", accent: "#4c1d95", cross: "#ffffff", edge: "#d4d3cf",
+      series: ["#2a6fd6", "#c8501a", "#12856a", "#a86e00", "#c23d73", "#2f7d00", "#6f63d6", "#d03b3b"] },
+    dark: { bg: "#1a1a19", ink: "#f0efec", sub: "#c3c2b7", mute: "#a3a29b", grid: "#2c2c2a", line: "#4a4945", band: "#2a2a28", card: "#222220", head: "#34305a", headSub: "#d9d6f2",
+      good: "#2db84d", bad: "#ec5b5b", none: "#8a8983", accent: "#b9a8ff", cross: "#1a1a19", edge: "#4a4945",
+      series: ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#008300", "#9085e9", "#e66767"] }
+  };
+  var NSERIES = 8;
   var M = 40, CW = PW - 2 * M;                                                                          /* marges et largeur utile */
 
+  function ordinalFr(n) { return n === 1 ? "1er" : n + "e"; }
+  function mix(a, b, t) {
+    var pa = [1, 3, 5].map(function (i) { return parseInt(a.substr(i, 2), 16); }), pb = [1, 3, 5].map(function (i) { return parseInt(b.substr(i, 2), 16); });
+    return "#" + pa.map(function (v, i) { return ("0" + Math.round(v + (pb[i] - v) * Math.max(0, Math.min(1, t))).toString(16)).slice(-2); }).join("");
+  }
+  function lum(hex) {
+    var c = [1, 3, 5].map(function (i) { var x = parseInt(hex.substr(i, 2), 16) / 255; return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
   function pct(x) { return x === null || x === undefined ? "–" : Math.round(x * 100) + " %"; }
   function secs(x) { return x === null || x === undefined ? "–" : x.toFixed(1).replace(".", ",") + " s"; }
   function dateFr(ms) { try { return new Date(ms || Date.now()).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" }); } catch (e) { return ""; } }
@@ -141,13 +158,14 @@ var V40Pdf = (function () {
   function build(log, opts) {
     opts = opts || {};
     if (!log || !log.P || !log.R) throw new Error("Aucune partie à exporter.");
-    var t = A.totals(log), rows = A.perPlayer(log), W = new Writer({ title: "Statistiques de la partie - Qui suis-je ?", author: "Qui suis-je ?" });
+    var theme = opts.theme === "dark" ? "dark" : "light", C = PALETTES[theme], SERIES = C.series;
+    var t = A.totals(log), rows = A.perPlayer(log), W = new Writer({ title: "Statistiques de la partie - Qui suis-je ?", author: "Qui suis-je ?", bg: C.bg, ink: C.ink, edge: C.edge });
     var y = 0, pageNo = 1;
 
     function header(sub) {
       W.rect(0, 0, PW, 54, { fill: C.head });
       W.text(M, 26, "Qui suis-je ? — Statistiques", { size: 17, bold: true, color: "#ffffff" });
-      W.text(M, 43, sub || (dateFr(log.at) + " · " + log.P.length + " joueur" + (log.P.length > 1 ? "s" : "") + " · " + log.R.length + " question" + (log.R.length > 1 ? "s" : "")), { size: 9.5, color: "#d9d6f2" });
+      W.text(M, 43, sub || (dateFr(log.at) + " · " + log.P.length + " joueur" + (log.P.length > 1 ? "s" : "") + " · " + log.R.length + " question" + (log.R.length > 1 ? "s" : "")), { size: 9.5, color: C.headSub });
       y = 78;
     }
     function newPage(sub) { W.addPage(); pageNo++; header(sub || "Statistiques de la partie (suite)"); }
@@ -168,7 +186,7 @@ var V40Pdf = (function () {
       head();
       data.forEach(function (r, ri) {
         if (y + rh > PH - 46) { newPage(); head(); }
-        if (ri % 2 === 1) W.rect(M, y - 11, CW, rh, { fill: "#faf9f7" });
+        if (ri % 2 === 1) W.rect(M, y - 11, CW, rh, { fill: C.card });
         cols.forEach(function (c, i) {
           var tx = c.a === "right" ? xs[i] + c.pw - 4 : (c.a === "center" ? xs[i] + c.pw / 2 : xs[i] + 4);
           W.text(tx, y, c.f(r, ri), { size: fs, bold: !!(c.bold && c.bold(r)), color: (c.color && c.color(r)) || C.ink, align: c.a || "left", maxW: c.pw - 8 });
@@ -185,7 +203,7 @@ var V40Pdf = (function () {
     var kw = (CW - 4 * 10) / 5;
     kpis.forEach(function (k, i) {
       var x = M + i * (kw + 10);
-      W.rect(x, y - 14, kw, 52, { fill: "#faf9f7", stroke: C.grid, w: 0.8 });
+      W.rect(x, y - 14, kw, 52, { fill: C.card, stroke: C.grid, w: 0.8 });
       W.text(x + 10, y + 3, k[0], { size: 8.5, color: C.sub, maxW: kw - 16 });
       W.text(x + 10, y + 26, k[1], { size: 18, bold: true, color: i === 4 && t.cheats ? C.bad : C.ink, maxW: kw - 16 });
     });
@@ -207,45 +225,131 @@ var V40Pdf = (function () {
       { h: "Infract.", w: 8, a: "right", f: function (r) { return String(r.cheats); }, color: function (r) { return r.cheats ? C.bad : C.ink; } }
     ], ranked);
 
-    /* ----- Évolution des scores (courbes vectorielles) ----- */
-    var series = A.scoreSeries(log), order = ranked.slice(0, SERIES.length);
-    if (log.R.length >= 1) {
-      var ch = 190, cw = CW - 4;
-      room(ch + 70); title("Évolution des scores");
-      var vmin = 0, vmax = 10;
-      order.forEach(function (r) { series[r.idx].values.forEach(function (v) { if (v !== null) { vmax = Math.max(vmax, v); vmin = Math.min(vmin, v); } }); });
-      var step = niceStep((vmax - vmin) / 4), top = Math.ceil(vmax / step) * step, bot = Math.floor(vmin / step) * step;
-      var px0 = M + 38, px1 = M + cw - 16, py0 = y + 4, py1 = y + ch - 24, n = log.R.length;
-      for (var g = bot; g <= top + 1e-9; g += step) {
-        var gy = py1 - (g - bot) / (top - bot) * (py1 - py0);
+    /* ----- Couleur d'un joueur : la même dans tous les graphiques (selon son rang final) ----- */
+    var series = A.scoreSeries(log), order = ranked.slice(0, SERIES.length), colorOf = {};
+    order.forEach(function (r, i) { colorOf[r.idx] = SERIES[i]; });
+    function plottedSeries(valuesOf) { return order.map(function (r) { return { name: r.name, color: colorOf[r.idx], values: valuesOf(r) }; }); }
+
+    /* Courbes vectorielles : o = { n, min, max, step, yFmt, invert, xTitle, series: [{name, color, values[0..n] (null = pas de point)}] } + légende (toujours présente) */
+    function lineChart(titleText, o) {
+      var ch = 190, cw = CW - 4, n = o.n, bot = o.min, top = o.max, step = o.step > 0 ? o.step : 1;
+      if (!(top > bot)) top = bot + step;
+      var span = top - bot;
+      room(ch + 70); title(titleText);
+      var px0 = M + 38, px1 = M + cw - 16, py0 = y + 4, py1 = y + ch - 24;
+      function yOf(v) { var f = Math.max(0, Math.min(1, (v - bot) / span)); return o.invert ? py0 + f * (py1 - py0) : py1 - f * (py1 - py0); }
+      var cnt = Math.min(40, Math.round(span / step));
+      for (var k = 0; k <= cnt; k++) {
+        var g = bot + k * step, gy = yOf(g);
         W.line(px0, gy, px1, gy, { color: g === 0 ? C.line : C.grid, w: g === 0 ? 0.8 : 0.5 });
-        W.text(px0 - 6, gy + 3, String(Math.round(g)), { size: 8, color: C.mute, align: "right" });
+        var lab = o.yFmt ? o.yFmt(g) : String(Math.round(g));
+        if (lab) W.text(px0 - 6, gy + 3, lab, { size: 8, color: C.mute, align: "right" });
       }
       var tickEvery = Math.max(1, Math.ceil(n / 12));
       for (var q = 0; q <= n; q += tickEvery) { var gx = px0 + (n ? q / n : 0) * (px1 - px0); W.text(gx, py1 + 13, String(q), { size: 8, color: C.mute, align: "center" }); }
-      W.text((px0 + px1) / 2, py1 + 24, "Numéro de la question", { size: 8, color: C.mute, align: "center" });
-      order.forEach(function (r, si) {
-        var vals = series[r.idx].values, seg = [], last = null;
-        function flush() { if (seg.length > 1) W.poly(seg, { color: SERIES[si], w: 1.7 }); seg = []; }
-        vals.forEach(function (v, q2) {
-          if (v === null) { flush(); return; }
-          var X = px0 + (n ? q2 / n : 0) * (px1 - px0), Y = py1 - (v - bot) / (top - bot) * (py1 - py0);
+      W.text((px0 + px1) / 2, py1 + 24, o.xTitle || "Numéro de la question", { size: 8, color: C.mute, align: "center" });
+      o.series.forEach(function (sr) {
+        var seg = [], last = null;
+        function flush() { if (seg.length > 1) W.poly(seg, { color: sr.color, w: 1.7 }); seg = []; }
+        sr.values.forEach(function (v, q2) {
+          if (v === null || v === undefined || !isFinite(v)) { flush(); return; }
+          var X = px0 + (n ? q2 / n : 0) * (px1 - px0), Y = yOf(v);
           seg.push([X, Y]); last = [X, Y];
         });
         flush();
-        if (last) { W.dot(last[0], last[1], 3, SERIES[si]); }
+        if (last) W.dot(last[0], last[1], 3, sr.color);
       });
       y += ch + 20;
-      var lx = M, ly = y;                                                        /* légende : toujours présente (≥ 2 séries) */
-      order.forEach(function (r, si) {
-        var label = fit(r.name, 90, 8.5, false), lw = widthOf(label, 8.5, false) + 26;
+      var lx = M, ly = y;
+      o.series.forEach(function (sr) {
+        var label = fit(sr.name, o.series.length === 1 ? CW - 60 : 120, 8.5, false), lw = widthOf(label, 8.5, false) + 26;
         if (lx + lw > M + CW) { lx = M; ly += 14; }
-        W.rect(lx, ly - 6, 14, 3.4, { fill: SERIES[si] }); W.dot(lx + 7, ly - 4.3, 3, SERIES[si]);
+        W.rect(lx, ly - 6, 14, 3.4, { fill: sr.color }); W.dot(lx + 7, ly - 4.3, 3, sr.color);
         W.text(lx + 19, ly, label, { size: 8.5, color: C.sub }); lx += lw + 8;
       });
       y = ly + 16;
-      if (ranked.length > SERIES.length) note("Courbes des " + SERIES.length + " premiers du classement ; tous les joueurs figurent dans les tableaux.");
     }
+    /* Barres empilées : items = [{label, vals[], text}], parts = [{name, color}] (la légende nomme chaque couleur) */
+    function stackBars(titleText, items, parts, o) {
+      if (!items.length) return;
+      o = o || {};
+      title(titleText, Math.min(items.length, 8) * 17 + 14);
+      var lx = M; room(16);
+      parts.forEach(function (pt) {
+        var w = widthOf(pt.name, 8, false);
+        if (lx + w + 26 > M + CW) { lx = M; y += 12; }
+        W.rect(lx, y - 8, 9, 9, { fill: pt.color }); W.text(lx + 13, y, pt.name, { size: 8, color: C.sub }); lx += 13 + w + 16;
+      });
+      y += 14;
+      var lw = 150, textW = o.textW || 150, bx = M + lw, bw = CW - lw - textW - 16, top = 3;
+      items.forEach(function (it) { top = Math.max(top, it.vals.reduce(function (a, v) { return a + (v > 0 ? v : 0); }, 0)); });
+      items.forEach(function (it) {
+        room(18);
+        W.text(M, y, it.label, { size: 9, color: C.ink, maxW: lw - 8 });
+        W.rect(bx, y - 9, bw, 10, { fill: C.band });
+        var x = bx, lastK = -1;
+        it.vals.forEach(function (v, k) { if (v > 0) lastK = k; });
+        it.vals.forEach(function (v, k) {
+          if (!(v > 0)) return;
+          var w = bw * v / top;
+          W.rect(x, y - 9, Math.max(1.5, w - (k < lastK ? 1.4 : 0)), 10, { fill: parts[k].color });
+          x += w;
+        });
+        W.text(bx + bw + 8, y, it.text, { size: 8.5, color: C.sub, maxW: textW - 8 });
+        y += 17;
+      });
+      y += 8;
+    }
+    /* Carte de chaleur : list = joueurs (lignes et colonnes), valueAt(r, c) → nombre ou null (diagonale) */
+    function heat(titleText, list, valueAt, maxV, hot) {
+      var k = list.length, lw = 110, cwid = Math.min(46, (CW - lw) / k), rh3 = 16;
+      room((k + 2) * rh3 + 56); title(titleText);
+      list.forEach(function (c, ci) { W.text(M + lw + ci * cwid + cwid / 2, y, c.name, { size: 7.5, bold: true, color: C.sub, align: "center", maxW: cwid - 3 }); });
+      y += 8;
+      list.forEach(function (r) {
+        W.text(M, y + 8, r.name, { size: 8.5, bold: true, color: C.ink, maxW: lw - 8 });
+        list.forEach(function (c, ci) {
+          var v = valueAt(r, c), x = M + lw + ci * cwid;
+          if (v === null) { W.rect(x, y, cwid - 1.5, rh3 - 2, { fill: C.band }); W.text(x + (cwid - 1.5) / 2, y + 9, "·", { size: 9, color: C.mute, align: "center" }); return; }
+          var f = v > 0 ? mix(C.band, hot, 0.22 + 0.78 * v / Math.max(1, maxV)) : C.card;
+          W.rect(x, y, cwid - 1.5, rh3 - 2, { fill: f, stroke: v > 0 ? null : C.grid, w: 0.5 });
+          if (v > 0) W.text(x + (cwid - 1.5) / 2, y + 9.5, String(v), { size: 8.5, bold: true, color: lum(f) > 0.22 ? "#1a1a19" : "#ffffff", align: "center" });
+        });
+        y += rh3;
+      });
+      y += 10;
+    }
+
+    /* ----- Évolution des scores (courbes vectorielles) ----- */
+    if (log.R.length >= 1) {
+      var vmin = 0, vmax = 10;
+      order.forEach(function (r) { series[r.idx].values.forEach(function (v) { if (v !== null) { vmax = Math.max(vmax, v); vmin = Math.min(vmin, v); } }); });
+      var step = niceStep((vmax - vmin) / 4), top = Math.ceil(vmax / step) * step, bot = Math.floor(vmin / step) * step;
+      lineChart("Évolution des scores", { n: log.R.length, min: bot, max: top, step: step, series: plottedSeries(function (r) { return series[r.idx].values; }) });
+      if (ranked.length > SERIES.length) note("Courbes des " + SERIES.length + " premiers du classement ; tous les joueurs figurent dans les tableaux.");
+
+      /* ----- Analyses avancées : course au classement, forme du moment, qui a mené ----- */
+      if (log.P.length >= 2) {
+        var rk = A.rankSeries(log), maxRank = 2;
+        order.forEach(function (r) { rk[r.idx].values.forEach(function (v) { if (v !== null && v > maxRank) maxRank = v; }); });
+        var rstep = Math.max(1, Math.ceil((maxRank - 1) / 7)), rmax = 1 + Math.ceil((maxRank - 1) / rstep) * rstep;
+        lineChart("Course au classement", { n: log.R.length, min: 1, max: rmax, step: rstep, invert: true, yFmt: function (v) { return ordinalFr(Math.round(v)); }, series: plottedSeries(function (r) { return rk[r.idx].values; }) });
+        note("Place de chaque joueur après chaque question (1er en haut). Les ex æquo partagent la même place.");
+        var fm = A.formSeries(log, 3);
+        lineChart("Forme du moment", { n: log.R.length, min: 0, max: 100, step: 25, yFmt: function (v) { return Math.round(v) + " %"; }, series: plottedSeries(function (r) { return fm[r.idx].values; }) });
+        note("Pourcentage de bonnes réponses sur les 3 dernières questions (moyenne glissante) : qui monte en puissance, qui décroche.");
+      }
+      var L = A.leadStats(log);
+      if (L.n >= 1) {
+        valueBars("Qui a mené la partie ?", L.players.slice().sort(function (a, b) { return b.led - a.led || a.idx - b.idx; }).slice(0, 20).map(function (r) {
+          return { label: r.name, value: r.led, color: colorOf[r.idx], text: r.led + "/" + L.n + (r.longest > 1 ? " · " + r.longest + " d'affilée" : "") };
+        }), null, L.n);
+        note("Questions après lesquelles le joueur était en tête (les ex æquo comptent pour chacun) et plus longue période en tête. " + L.changes + " changement" + (L.changes > 1 ? "s" : "") + " de leader" + (L.soleRounds ? " sur " + L.soleRounds + " question" + (L.soleRounds > 1 ? "s" : "") + " avec un seul leader." : "."));
+      }
+    }
+    stackBars("Bonnes et mauvaises réponses par joueur", ranked.slice(0, 24).map(function (r) {
+      return { label: r.name, vals: [r.correct, r.wrong, r.none], text: r.correct + " justes · " + r.wrong + " fausses · " + r.none + " sans rép." };
+    }), [{ name: "Bonnes réponses", color: C.good }, { name: "Mauvaises réponses", color: C.bad }, { name: "Sans réponse", color: C.none }]);
 
     /* ----- Barres horizontales : réussite par thème / difficulté / média ----- */
     function bars(titleText, items, labelOf) {
@@ -263,15 +367,15 @@ var V40Pdf = (function () {
       y += 8;
     }
     /* ----- Faits marquants, séries, rapidité, répartition des temps ----- */
-    function valueBars(titleText, items, fillColor) {
+    function valueBars(titleText, items, fillColor, scaleMax) {
       if (!items.length) return;
       title(titleText, Math.min(items.length, 8) * 17);
-      var lw = 150, bx = M + lw, bw = CW - lw - 110, top = Math.max.apply(null, items.map(function (it) { return it.value; }).concat([1e-9]));
+      var lw = 150, bx = M + lw, bw = CW - lw - 110, top = scaleMax > 0 ? scaleMax : Math.max.apply(null, items.map(function (it) { return it.value; }).concat([1e-9]));
       items.forEach(function (it) {
         room(18);
         W.text(M, y, it.label, { size: 9, color: C.ink, maxW: lw - 8 });
         W.rect(bx, y - 9, bw, 10, { fill: C.band });
-        if (it.value > 0) W.rect(bx, y - 9, Math.max(1.5, bw * it.value / top), 10, { fill: fillColor || C.accent });
+        if (it.value > 0) W.rect(bx, y - 9, Math.max(1.5, Math.min(bw, bw * it.value / top)), 10, { fill: it.color || fillColor || C.accent });
         W.text(bx + bw + 8, y, it.text, { size: 8.5, color: C.sub });
         y += 17;
       });
@@ -290,8 +394,15 @@ var V40Pdf = (function () {
     var prows = A.perPlayer(log);
     valueBars("Meilleure série de bonnes réponses", prows.slice().sort(function (a, b) { return b.bestStreak - a.bestStreak || a.idx - b.idx; }).slice(0, 20).map(function (r) { return { label: r.name, value: r.bestStreak, text: r.bestStreak + " d'affilée" }; }));
     valueBars("Temps de réponse moyen", prows.filter(function (r) { return r.avgTime !== null; }).sort(function (a, b) { return a.avgTime - b.avgTime; }).slice(0, 20).map(function (r) { return { label: r.name, value: r.avgTime, text: secs(r.avgTime) }; }));
+    valueBars("Réponse correcte la plus rapide (meilleur temps)", prows.filter(function (r) { return r.fastest !== null; }).sort(function (a, b) { return a.fastest - b.fastest || a.idx - b.idx; }).slice(0, 20).map(function (r) { return { label: r.name, value: r.fastest, text: secs(r.fastest) }; }));
+    valueBars("Plus gros gain en une question", prows.slice().sort(function (a, b) { return b.bestGain - a.bestGain || a.idx - b.idx; }).slice(0, 20).map(function (r) { return { label: r.name, value: Math.max(0, r.bestGain), text: "+" + Math.round(r.bestGain) + " pts" }; }));
     var th = A.timeHistogram(log);
-    if (th.n) valueBars("Répartition des temps de réponse", th.buckets.map(function (b) { return { label: b.label, value: b.correct + b.wrong, text: (b.correct + b.wrong) + "  (✓" + b.correct + " ✗" + b.wrong + ")" }; }));
+    if (th.n) valueBars("Répartition des temps de réponse", th.buckets.map(function (b) { return { label: b.label, value: b.correct + b.wrong, text: (b.correct + b.wrong) + "  (" + b.correct + " justes, " + b.wrong + " fausses)" }; }));
+    if (log.R.length >= 2) {
+      var rs = A.roundStats(log);
+      lineChart("Réussite question par question", { n: log.R.length, min: 0, max: 100, step: 25, yFmt: function (v) { return Math.round(v) + " %"; },
+        series: [{ name: "Part des joueurs qui ont trouvé la bonne réponse", color: SERIES[0], values: [null].concat(rs.map(function (r) { return r.rate === null || r.rate === undefined ? null : Math.round(r.rate * 1000) / 10; })) }] });
+    }
     bars("Réussite par thème", A.byCategory(log).slice(0, 24), function (g) { return g.label; });
     bars("Réussite par difficulté", A.byDifficulty(log), function (g) { return (DIFF[g.key] || g.key) + " (" + g.questions + " q.)"; });
     var med = A.byMedia(log); if (med.length > 1) bars("Questions avec image ou vidéo", med, function (g) { return g.label + " (" + g.questions + " q.)"; });
@@ -299,22 +410,57 @@ var V40Pdf = (function () {
 
     /* ----- Bonus et malus ----- */
     if (log.B && log.B.length) {
-      var pws = A.powers(log), pr = pws.players.filter(function (r) { return r.bonusGiven + r.malusGiven + r.malusReceived > 0; }).sort(function (a, b) { return b.net - a.net || a.idx - b.idx; });
+      var pws = A.powers(log), BON = SERIES[2], MAL = SERIES[1], BLK = SERIES[0], nrm = pws.total - pws.wheel.spins;
+      var pr = pws.players.filter(function (r) { return r.bonusGiven + r.malusGiven + r.malusReceived + r.wheelBonus + r.wheelMalus > 0; }).sort(function (a, b) { return b.net - a.net || a.idx - b.idx; });
       title("Bonus et malus", 16 * Math.min(pr.length + 2, 8));
-      note(pws.total + " pouvoir" + (pws.total > 1 ? "s" : "") + " utilisé" + (pws.total > 1 ? "s" : "") + " : " + pws.bonus + " bonus, " + pws.malus + " malus (" + pws.blocked + " bloqué" + (pws.blocked > 1 ? "s" : "") + (pws.reflected ? " dont " + pws.reflected + " renvoyé" + (pws.reflected > 1 ? "s" : "") : "") + "). " + pws.points + " points déplacés.");
+      note((nrm ? nrm + " pouvoir" + (nrm > 1 ? "s" : "") + " utilisé" + (nrm > 1 ? "s" : "") + " : " + pws.bonus + " bonus, " + pws.malus + " malus (" + pws.blocked + " bloqué" + (pws.blocked > 1 ? "s" : "") + (pws.reflected ? " dont " + pws.reflected + " renvoyé" + (pws.reflected > 1 ? "s" : "") : "") + "). " : "")
+        + (pws.wheel.spins ? "La roue a tourné " + pws.wheel.spins + " fois : " + pws.wheel.bonus + " bonus, " + pws.wheel.malus + " malus" + (pws.wheel.blocked ? " (" + pws.wheel.blocked + " annulé" + (pws.wheel.blocked > 1 ? "s" : "") + " par un bouclier)" : "") + ". " : "") + pws.points + " points déplacés.");
       table([
         { h: "Joueur", w: 22, f: function (r) { return r.name; }, bold: function () { return true; } },
         { h: "Bonus", w: 8, a: "right", f: function (r) { return String(r.bonusGiven); } },
         { h: "Malus", w: 8, a: "right", f: function (r) { return String(r.malusGiven); } },
         { h: "Visé", w: 8, a: "right", f: function (r) { return String(r.malusReceived); } },
         { h: "Bloqués", w: 9, a: "right", f: function (r) { return String(r.shieldSaves); } },
+        { h: "Roue", w: 8, a: "right", f: function (r) { return String(r.wheelBonus + r.wheelMalus); } },
         { h: "Gagnés", w: 10, a: "right", f: function (r) { return String(r.gained); } },
         { h: "Perdus", w: 10, a: "right", f: function (r) { return String(r.lost); } },
         { h: "Bilan", w: 10, a: "right", f: function (r) { return (r.net > 0 ? "+" : "") + r.net; }, color: function (r) { return r.net < 0 ? C.bad : C.ink; }, bold: function () { return true; } }
       ], pr);
-      note("Visé : malus lancés contre le joueur. Bloqués : malus arrêtés par un bouclier ou renvoyés. Gagnés : points bonus, jackpots et points volés. Perdus : points retirés par un malus. Les pouvoirs spéciaux sans montant ne comptent pas dans les points.");
-      valueBars("Pouvoirs lancés par joueur (bonus + malus)", pws.players.filter(function (r) { return r.bonusGiven + r.malusGiven > 0; }).sort(function (a, b) { return (b.bonusGiven + b.malusGiven) - (a.bonusGiven + a.malusGiven) || a.idx - b.idx; }).slice(0, 20).map(function (r) { return { label: r.name, value: r.bonusGiven + r.malusGiven, text: r.bonusGiven + " bonus · " + r.malusGiven + " malus" }; }));
-      valueBars("Types de pouvoirs utilisés", pws.kinds.slice(0, 14).map(function (k) { return { label: (k.choice === 1 ? "Bonus · " : "Malus · ") + k.label, value: k.count, text: k.count + (k.choice === 2 && k.blocked ? "  (" + k.blocked + " bloqué" + (k.blocked > 1 ? "s" : "") + ")" : "") }; }));
+      note("Visé : malus lancés contre le joueur. Bloqués : malus arrêtés par un bouclier ou renvoyés. Roue : tirages de la roue du joueur. Gagnés : points bonus, jackpots et points volés. Perdus : points retirés par un malus. Les pouvoirs spéciaux sans montant ne comptent pas dans les points.");
+      var sgn = function (v) { return (v > 0 ? "+" : v < 0 ? "-" : "") + Math.abs(Math.round(v)); };
+      stackBars("Pouvoirs lancés par joueur", pws.players.filter(function (r) { return r.bonusGiven + r.malusGiven > 0; }).sort(function (a, b) { return (b.bonusGiven + b.malusGiven) - (a.bonusGiven + a.malusGiven) || a.idx - b.idx; }).slice(0, 20).map(function (r) {
+        return { label: r.name, vals: [r.bonusGiven, r.malusGiven], text: r.bonusGiven + " bonus · " + r.malusGiven + " malus" };
+      }), [{ name: "Bonus (pour soi)", color: BON }, { name: "Malus (contre un adversaire)", color: MAL }]);
+      stackBars("Roue des bonus / malus", pws.players.filter(function (r) { return r.wheelBonus + r.wheelMalus > 0; }).sort(function (a, b) { return (b.wheelGain - b.wheelLoss) - (a.wheelGain - a.wheelLoss) || a.idx - b.idx; }).slice(0, 20).map(function (r) {
+        return { label: r.name, vals: [r.wheelBonus, r.wheelMalus - r.wheelBlocked, r.wheelBlocked], text: r.wheelBonus + " bonus · " + (r.wheelMalus - r.wheelBlocked) + " malus" + (r.wheelBlocked ? " · " + r.wheelBlocked + " annulé" + (r.wheelBlocked > 1 ? "s" : "") : "") + " (" + sgn(r.wheelGain - r.wheelLoss) + " pts)" };
+      }), [{ name: "Bonus", color: BON }, { name: "Malus touchés", color: MAL }, { name: "Malus annulés par un bouclier", color: BLK }], { textW: 190 });
+      stackBars("Malus reçus et boucliers", pws.players.filter(function (r) { return r.malusReceived > 0; }).sort(function (a, b) { return b.malusReceived - a.malusReceived || a.idx - b.idx; }).slice(0, 20).map(function (r) {
+        return { label: r.name, vals: [r.malusReceived - r.shieldSaves, r.shieldSaves], text: r.malusReceived + " visant · " + r.shieldSaves + " bloqué" + (r.shieldSaves > 1 ? "s" : "") + " · " + sgn(-r.lost) + " pts" };
+      }), [{ name: "Touchés", color: MAL }, { name: "Bloqués ou renvoyés", color: BLK }], { textW: 190 });
+      stackBars("Points gagnés et perdus grâce aux pouvoirs", pws.players.filter(function (r) { return r.gained > 0 || r.lost > 0; }).sort(function (a, b) { return b.net - a.net || a.idx - b.idx; }).slice(0, 20).map(function (r) {
+        return { label: r.name, vals: [r.gained, r.lost], text: "+" + r.gained + " / -" + r.lost + " (bilan " + sgn(r.net) + ")" };
+      }), [{ name: "Gagnés", color: BON }, { name: "Perdus", color: MAL }], { textW: 190 });
+      var netS = pws.netSeries.filter(function (sr) { var pp = pws.players[sr.idx]; return colorOf[sr.idx] && (pp.gained || pp.lost); });
+      if (netS.length && log.R.length >= 1) {
+        var lo = 0, hi = 0; netS.forEach(function (sr) { sr.values.forEach(function (v) { lo = Math.min(lo, v); hi = Math.max(hi, v); }); });
+        var nst = niceStep((hi - lo) / 4);
+        lineChart("Bilan net des pouvoirs au fil des questions", { n: log.R.length, min: Math.floor(lo / nst) * nst, max: Math.max(Math.ceil(hi / nst) * nst, Math.floor(lo / nst) * nst + nst), step: nst,
+          series: netS.map(function (sr) { return { name: log.P[sr.idx].n, color: colorOf[sr.idx], values: sr.values }; }) });
+        note("Points gagnés moins points perdus grâce aux pouvoirs (roue comprise), cumulés après chaque question.");
+      }
+      valueBars("Types de pouvoirs utilisés", pws.kinds.slice(0, 14).map(function (k) { return { label: (k.choice === 1 ? "Bonus · " : "Malus · ") + k.label, value: k.count, color: k.choice === 1 ? BON : MAL, text: k.count + (k.choice === 2 && k.blocked ? "  (" + k.blocked + " bloqué" + (k.blocked > 1 ? "s" : "") + ")" : "") }; }));
+      var tgt = pws.players.filter(function (r) { return r.malusGiven > 0 || r.malusReceived > 0; }).sort(function (a, b) { return (b.malusGiven + b.malusReceived) - (a.malusGiven + a.malusReceived) || a.idx - b.idx; }).slice(0, 12);
+      if (pws.malus && tgt.length > 1) {
+        var mxv = 1; pws.matrix.forEach(function (row) { row.forEach(function (v) { mxv = Math.max(mxv, v); }); });
+        heat("Qui vise qui ?", tgt, function (r, c) { return r.idx === c.idx ? null : pws.matrix[r.idx][c.idx]; }, mxv, MAL);
+        note("Nombre de malus lancés par le joueur de la ligne contre le joueur de la colonne. Plus la case est foncée, plus il y en a." + (pws.players.filter(function (r) { return r.malusGiven > 0 || r.malusReceived > 0; }).length > 12 ? " Les 12 joueurs les plus impliqués sont affichés." : ""));
+      }
+      if (log.R.length >= 1) {
+        var cb = [0], cm = [0];
+        for (var qb = 0; qb < log.R.length; qb++) { var prr = pws.perRound[qb] || { bonus: 0, malus: 0 }; cb.push(cb[qb] + prr.bonus); cm.push(cm[qb] + prr.malus); }
+        var cmax = Math.max(cb[cb.length - 1], cm[cm.length - 1], 1), cst = Math.max(1, niceStep(cmax / 4));
+        lineChart("Bonus et malus cumulés", { n: log.R.length, min: 0, max: Math.ceil(cmax / cst) * cst, step: cst, series: [{ name: "Bonus", color: BON, values: cb }, { name: "Malus", color: MAL, values: cm }] });
+      }
     }
 
     /* ----- Questions les plus difficiles / faciles ----- */
@@ -350,7 +496,7 @@ var V40Pdf = (function () {
           for (var qi = from; qi < to; qi++) {
             var e = log.R[qi].r[r.idx], cx = gx0 + (qi - from) * cell, st = e ? e[0] : 0, s = cell - 1.2;
             if (st === 1) W.rect(cx, y, s, rh2 - 2, { fill: C.good });
-            else if (st === 2) { W.rect(cx, y, s, rh2 - 2, { fill: C.bad }); W.line(cx + 1, y + 1.5, cx + s - 1, y + rh2 - 3.5, { color: "#ffffff", w: 0.8 }); W.line(cx + s - 1, y + 1.5, cx + 1, y + rh2 - 3.5, { color: "#ffffff", w: 0.8 }); }
+            else if (st === 2) { W.rect(cx, y, s, rh2 - 2, { fill: C.bad }); W.line(cx + 1, y + 1.5, cx + s - 1, y + rh2 - 3.5, { color: C.cross, w: 0.8 }); W.line(cx + s - 1, y + 1.5, cx + 1, y + rh2 - 3.5, { color: C.cross, w: 0.8 }); }
             else if (st === 3) W.rect(cx, y, s, rh2 - 2, { stroke: C.none, w: 0.9 });
             else W.rect(cx, y + (rh2 - 2) / 2 - 0.4, s, 0.8, { fill: C.grid });
           }
@@ -361,7 +507,7 @@ var V40Pdf = (function () {
         var legend = [["good", "Bonne réponse"], ["bad", "Mauvaise réponse"], ["none", "Pas de réponse"], ["abs", "Pas dans la partie"]], lx2 = M;
         legend.forEach(function (l) {
           if (l[0] === "good") W.rect(lx2, y - 8, 9, 9, { fill: C.good });
-          else if (l[0] === "bad") { W.rect(lx2, y - 8, 9, 9, { fill: C.bad }); W.line(lx2 + 1.5, y - 6.5, lx2 + 7.5, y - 0.5, { color: "#ffffff", w: 0.8 }); W.line(lx2 + 7.5, y - 6.5, lx2 + 1.5, y - 0.5, { color: "#ffffff", w: 0.8 }); }
+          else if (l[0] === "bad") { W.rect(lx2, y - 8, 9, 9, { fill: C.bad }); W.line(lx2 + 1.5, y - 6.5, lx2 + 7.5, y - 0.5, { color: C.cross, w: 0.8 }); W.line(lx2 + 7.5, y - 6.5, lx2 + 1.5, y - 0.5, { color: C.cross, w: 0.8 }); }
           else if (l[0] === "none") W.rect(lx2, y - 8, 9, 9, { stroke: C.none, w: 0.9 });
           else W.rect(lx2, y - 4, 9, 0.8, { fill: C.line });
           W.text(lx2 + 13, y, l[1], { size: 8, color: C.sub }); lx2 += 13 + widthOf(l[1], 8, false) + 16;
@@ -409,11 +555,11 @@ var V40Pdf = (function () {
     return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p;
   }
 
-  function download(log) {
-    var bytes = build(log), blob = new Blob([bytes], { type: "application/pdf" });
+  function download(log, opts) {
+    var dark = !!(opts && opts.theme === "dark"), bytes = build(log, { theme: dark ? "dark" : "light" }), blob = new Blob([bytes], { type: "application/pdf" });
     var a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "qui-suis-je-statistiques-" + new Date(log.at || Date.now()).toISOString().slice(0, 10) + ".pdf";
+    a.download = "qui-suis-je-statistiques-" + new Date(log.at || Date.now()).toISOString().slice(0, 10) + (dark ? "-sombre" : "") + ".pdf";
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   }

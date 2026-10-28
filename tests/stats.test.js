@@ -132,5 +132,46 @@ const flood = A.normalize({ P: [{ i: "a", n: "A" }, { i: "b", n: "B" }], R: [], 
 t("journal B plafonné", flood.B.length === A.MAX_POWERS);
 t("anciens journaux sans B acceptés", A.normalize({ P: [{ i: "a", n: "A" }], R: [] }).B.length === 0);
 
+/* --- analyses avancées : course au classement, forme du moment, qui mène --- */
+const adv = A.normalize({ id: "adv", P: [{ i: "a", n: "A" }, { i: "b", n: "B" }, { i: "c", n: "C" }], R: [
+  { q: "Q1", c: "x", d: "facile", m: 0, r: [[1, 2, 100], [1, 3, 50], [2, 4, 50]] },
+  { q: "Q2", c: "x", d: "facile", m: 0, r: [[2, 2, 100], [1, 3, 200], [2, 4, 50]] },
+  { q: "Q3", c: "x", d: "facile", m: 0, r: [[1, 2, 300], [2, 3, 200], [1, 4, 300]] }
+] });
+const rks = A.rankSeries(adv);
+t("rankSeries : départ, tous 1er", rks.every(x => x.values[0] === 1));
+t("rankSeries A = 1,1,2,1 (ex æquo en tête partagé)", rks[0].values.join() === "1,1,2,1");
+t("rankSeries B = 1,2,1,3 (l'ex æquo fait sauter la place suivante)", rks[1].values.join() === "1,2,1,3");
+t("rankSeries C = 1,2,3,1", rks[2].values.join() === "1,2,3,1");
+const frm = A.formSeries(adv, 3);
+t("formSeries : pas de valeur au départ", frm.every(x => x.values[0] === null));
+t("formSeries A = 100 %, 50 %, 66,7 %", frm[0].values.slice(1).join() === "100,50,66.7");
+t("formSeries C = 0 %, 0 %, 33,3 %", frm[2].values.slice(1).join() === "0,0,33.3");
+t("formSeries : fenêtre bornée (w=1 → réussite de la dernière question)", A.formSeries(adv, 1)[1].values.slice(1).join() === "100,100,0");
+t("formSeries : fenêtre invalide → 3", A.formSeries(adv, "abc")[0].values.join() === frm[0].values.join());
+const lead = A.leadStats(adv);
+t("leadStats : questions en tête A=2, B=1, C=1", lead.players.map(x => x.led).join() === "2,1,1");
+t("leadStats : plus longue période (1 chacun)", lead.players.map(x => x.longest).join() === "1,1,1");
+t("leadStats : 1 changement de leader sur 2 questions à leader unique", lead.changes === 1 && lead.soleRounds === 2 && lead.n === 3);
+const absent = A.normalize({ id: "abs", P: [{ i: "a", n: "A" }, { i: "b", n: "B" }], R: [{ q: "Q1", c: "x", d: "facile", m: 0, r: [[1, 2, 100], [0, 0, 0]] }, { q: "Q2", c: "x", d: "facile", m: 0, r: [[2, 2, 100], [0, 0, 0]] }] });
+t("joueur absent : rankSeries valide, formSeries toujours null", Array.isArray(A.rankSeries(absent)[1].values) && A.formSeries(absent, 3)[1].values.every(v => v === null));
+t("partie sans question : analyses sans erreur", A.rankSeries(empty).length === 1 && A.leadStats(empty).n === 0 && A.formSeries(empty, 3)[0].values.length === 1);
+
+/* --- roue des bonus / malus dans le journal --- */
+const wl = A.normalize({ id: "w", P: [{ i: "a", n: "A" }, { i: "b", n: "B" }], R: [{ q: "Q1", c: "x", d: "facile", m: 0, r: [[1, 2, 100], [1, 3, 50]] }, { q: "Q2", c: "x", d: "facile", m: 0, r: [[1, 2, 200], [1, 3, 100]] }],
+  B: [[1, 0, 0, 1, "w_xp", 300, 0, "Roue"], [1, 1, 1, 2, "w_crush", 500, 0, "Roue"], [2, 1, 1, 2, "w_tax", 150, 1, "Roue"], [2, 0, 0, 2, "crush", 90, 0, "x"], [2, 0, -1, 1, "xp", 50, 0, "x"]] });
+t("roue : le malus garde le joueur lui-même pour cible", wl.B[1][2] === 1 && wl.B[1][1] === 1);
+t("pouvoir normal ciblant soi-même : cible retirée", wl.B[3][2] === -1);
+t("roue : bonus sans cible", wl.B[0][2] === -1);
+const wp = A.powers(wl);
+t("roue : 3 tirages comptés à part", wp.wheel.spins === 3 && wp.wheel.bonus === 1 && wp.wheel.malus === 2 && wp.wheel.blocked === 1);
+t("roue : points gagnés 300, perdus 500 (le malus bloqué ne retire rien)", wp.wheel.gained === 300 && wp.wheel.lost === 500);
+t("roue : par joueur A bonus 1 / gain 300 ; B malus 2, 1 bloqué, perte 500", wp.players[0].wheelBonus === 1 && wp.players[0].wheelGain === 300 && wp.players[1].wheelMalus === 2 && wp.players[1].wheelBlocked === 1 && wp.players[1].wheelLoss === 500);
+t("roue : non comptée comme pouvoir « lancé » ni « visé »", wp.players[1].malusGiven === 0 && wp.players[1].malusReceived === 0 && wp.players[0].bonusGiven === 1);
+t("roue : incluse dans le bilan net (A +300 +50 ; B −500)", wp.players[0].net === 350 && wp.players[1].net === -500);
+t("roue : séries nettes cohérentes", wp.netSeries[0].values.join() === "0,300,350" && wp.netSeries[1].values.join() === "0,-500,-500");
+t("roue : libellés lisibles", A.powerName([1, 0, 0, 1, "w_jackpot", 0, 0, ""]) === "Roue : jackpot +1000" && A.powerName([1, 0, 0, 2, "w_tax", 0, 0, ""]) === "Roue : impôt −15 %");
+t("roue : total = pouvoirs + tirages", wp.total === 5 && wp.bonus === 1 && wp.malus === 1);
+
 console.log("Stats : " + ok + " OK, " + ko + " échec(s)");
 process.exit(ko ? 1 : 0);

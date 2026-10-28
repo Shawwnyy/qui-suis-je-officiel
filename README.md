@@ -5,11 +5,11 @@ partie, les autres rejoignent avec un code, et les questions s'enchaînent avec 
 Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **aucun serveur n'est nécessaire** pour jouer.
 
 - **157 thèmes**, environ **15 800 questions** de texte, plus **≈ 700 questions avec image ajoutées à tous les thèmes** (tirées à chaque partie) (4 niveaux : facile, moyen, difficile, impossible)
-- Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, Word, PowerPoint, ODP, Excel, EPUB, page web, audio, vidéo…)
+- Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, Word, PowerPoint, ODP, Excel, EPUB, page web, audio, vidéo…), **avec les images du cours** pour les PDF
 - **Modération stricte** du chat (voir plus bas)
 - **Anti-triche progressif** : avertissements, malus, puis exclusion jusqu'à la fin de la partie
 - **Questions avec image ou vidéo YouTube** (agrandissables), dont quatre thèmes dessinés par le jeu : questions en images (« de quelle couleur est le pull ? »), **Code de la route en images** (panneaux, feux, priorités à une intersection, rond-point, vitesse selon la météo), **Drapeaux en images** et **Lire l'heure** (horloge à aiguilles)
-- **Statistiques et graphiques** de chaque partie (classement, évolution des scores, séries de bonnes réponses, réponses les plus rapides, répartition des temps, faits marquants), historique des 12 dernières parties, export **PDF** (tableaux + graphiques) et CSV
+- **Statistiques et graphiques** de chaque partie (classement, évolution des scores, séries de bonnes réponses, réponses les plus rapides, répartition des temps, faits marquants, **analyses avancées** : course au classement, forme du moment, qui a mené la partie), historique des 12 dernières parties, export **PDF clair ou sombre** (tableaux + tous les graphiques) et CSV
 
 ## ▶️ Lancer le jeu
 
@@ -83,6 +83,9 @@ Bouton **« QCM depuis un cours »** sur l'accueil et dans le gestionnaire de qu
 1. choisis un **fichier** (voir le tableau), colle un **lien** ou colle le texte ;
 2. donne un nom de thème et choisis le nombre de questions, **de 5 à 100** ;
 3. vérifie l'aperçu (tu peux décocher des questions), puis ajoute au jeu : le thème est créé, sélectionné, et le nombre de manches réglé.
+
+### Images du cours (PDF) — `js/qcm/images.js`
+Pour un PDF, le jeu récupère les **images du cours** (schémas, photos, figures bitmap) et les **rattache aux questions** dont la phrase source se trouve sur la même page (3 images par page au plus, 12 au total, ≈ 640 px de large, compressées en JPEG). Les doublons, logos répétés, bandeaux et petites icônes sont écartés. Dans l'aperçu, chaque question concernée affiche sa miniature, et la case **« Inclure les images du cours »** permet de les retirer ; en partie, l'image s'affiche (agrandissable) avec la question, comme pour les questions avec image du gestionnaire. **Limites :** seules les images *bitmap* d'un PDF sont reprises (pas les figures vectorielles ni les images de Word / PowerPoint / ODP), et le mode IA n'en reçoit pas. Les tests utilisent pdf.js 6.x en local ; la page charge pdf.js 3.11.174 depuis cdnjs, dont l'extraction d'images n'a pas pu être exécutée ici (téléchargement bloqué).
 
 ### Formats acceptés
 
@@ -211,7 +214,10 @@ les joueurs (même un joueur exclu) : tout le monde voit les mêmes chiffres. On
 
 Chaque graphique se survole / se touche (infobulle), a une version **Tableau** et la légende masque ou affiche un joueur sans changer les couleurs des autres.
 Les bonus et malus sont notés par l'hôte (évènement « v35Event ») et envoyés aux joueurs comme le reste du journal.
-Export **CSV** de toutes les réponses (compatible tableur) et export **📄 PDF** : classement, **courbes d'évolution des scores**, réussite par thème / difficulté, grille joueurs × questions, détail de chaque question, infractions et **section « Bonus et malus »** (tableau par joueur, pouvoirs lancés, types de pouvoirs). Le PDF est généré dans le navigateur, **sans bibliothèque externe ni connexion**, en vectoriel (net à tout zoom, texte sélectionnable) ; les emojis, absents de la police intégrée, en sont retirés. Les couleurs sont validées pour le thème sombre et les daltoniens ; au-delà de 8 joueurs, les courbes montrent les 8 premiers arrivés et les autres figurent dans les tableaux.
+- **Analyses** (onglet dédié) : **course au classement** (place de chaque joueur après chaque question), **forme du moment** (% de bonnes réponses sur les 3 dernières questions) et **qui a mené la partie** (questions passées en tête, plus longue période en tête, nombre de changements de leader).
+- **Bonus / Malus** : la **roue** y figure aussi (tuile « tirages », carte « Roue des bonus / malus », bilans en points).
+
+Export **CSV** de toutes les réponses (compatible tableur) et export **📄 PDF**, au choix en **fond clair** (impression) ou en **fond sombre** (écran) via les boutons « 📄 PDF clair » et « 🌙 PDF sombre » : classement, **tous les graphiques de l'écran** en vectoriel (évolution des scores, course au classement, forme du moment, qui a mené, bonnes / mauvaises réponses, séries, temps, réussite par question, thème / difficulté, roue, malus reçus, points gagnés / perdus, bilan net, types de pouvoirs, **qui vise qui**, cumuls), grille joueurs × questions, détail de chaque question, infractions et tableau « Bonus et malus ». Seul l'historique multi-parties n'y figure pas (il n'est pas dans le journal d'une partie). Le PDF est généré dans le navigateur, **sans bibliothèque externe ni connexion**, en vectoriel (net à tout zoom, texte sélectionnable) ; les emojis, absents de la police intégrée, en sont retirés. Les deux palettes de séries sont validées pour leur fond et les daltoniens ; au-delà de 8 joueurs, les courbes montrent les 8 premiers arrivés et les autres figurent dans les tableaux.
 
 Les journaux reçus par le réseau sont nettoyés et bornés avant usage (`V40Analysis.normalize`).
 
@@ -241,7 +247,7 @@ L'heure **HH:MM:SS** (24 h, en gras) s'affiche **en bas à gauche, sur tous les 
 C'est l'heure **de l'appareil de chaque joueur** (pas une heure serveur : si l'horloge d'un téléphone est déréglée, elle l'est aussi à l'écran). Elle n'apparaît pas à l'impression.
 
 ## 🎡 Roue des bonus et malus (`js/wheel/wheel.js`)
-Une roue tourne **entre deux questions, après la 3e, la 6e, la 9e… manche** (jamais après la dernière ; pas de roue dans une partie de 3 manches ou moins). **Chaque joueur tire sa propre case en même temps** : l'hôte tire au sort (8 cases, toutes équiprobables : la taille d'une case est sa vraie probabilité) puis diffuse le résultat ; chacun voit la roue s'arrêter sur SA case, puis la liste des résultats de tous. La question suivante démarre juste après (≈ 9,5 s).
+Une roue tourne **entre deux questions**. **L'hôte choisit dans le salon d'attente (« 🎡 Roue des bonus / malus »)** : **moments fixes** (après la 3e, la 6e, la 9e… manche, par défaut), **moments aléatoires** (de 1 à 6 roues à des manches tirées au sort au début de la partie, non annoncées, jamais avant la 2e manche ni après la dernière, jamais deux de suite) ou **désactivée**. Le choix est gardé dans le navigateur de l'hôte et figé au début de la partie ; les joueurs le subissent comme le reste des réglages de l'hôte. Jamais après la dernière manche ; pas de roue dans une partie de 3 manches ou moins en mode fixe. **Chaque joueur tire sa propre case en même temps** : l'hôte tire au sort (8 cases, toutes équiprobables : la taille d'une case est sa vraie probabilité) puis diffuse le résultat ; chacun voit la roue s'arrêter sur SA case, puis la liste des résultats de tous. La question suivante démarre juste après (≈ 9,5 s).
 
 | Case | Effet |
 |---|---|
@@ -252,7 +258,7 @@ Une roue tourne **entre deux questions, après la 3e, la 6e, la 9e… manche** (
 | 🏛️ −15 % | impôt de 15 % du score (arrondi vers le bas) |
 | 💔 Série | série de bonnes réponses remise à zéro |
 
-Un bouclier déjà obtenu annule le malus et se consomme. Les effets sont appliqués **uniquement par l'hôte** ; les joueurs ne font qu'afficher (messages réseau bornés et nettoyés). **Limite connue : la roue n'apparaît pas encore dans l'onglet « Bonus / Malus » des statistiques ni dans le PDF** (leur modèle suppose un lanceur et une cible).
+Un bouclier déjà obtenu annule le malus et se consomme. Les effets sont appliqués **uniquement par l'hôte** ; les joueurs ne font qu'afficher (messages réseau bornés et nettoyés). Chaque tirage est noté dans le journal de la partie (type `w_…`, le joueur est sa propre cible) : la roue apparaît donc dans l'onglet « Bonus / Malus » et dans le PDF, **comptée à part** des pouvoirs lancés / visés mais incluse dans les points gagnés / perdus et le bilan net.
 
 ## ➕ Ajouter des questions ou un thème
 
@@ -280,7 +286,8 @@ node tests/road.test.js                  # code de la route en images : chaque r
 node tests/images.test.js                # drapeaux et horloges : la réponse est relue sur le dessin (couleurs, angle des aiguilles)
 node tests/mix.test.js                   # images dans tous les thèmes : chaque réponse est recalculée en relisant le dessin
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
-node tests/pdf.test.js                   # export PDF : structure du fichier, métriques, caractères, pagination
+node tests/pdf.test.js                   # export PDF clair / sombre : structure du fichier, métriques, caractères, pagination, un équivalent PDF pour chaque graphique d'écran
+node tests/qcmimages.test.js             # images du cours : rattachement aux questions, doublons, plafonds, tri des figures
 node tests/wheel.test.js                 # roue : moments de déclenchement, effet exact de chaque case, bouclier, plafonds, équiprobabilité, messages réseau
 node tests/clock.test.js                 # horloge : format HH:MM:SS recalculé autrement (20 000 dates, changements d'heure), recalage sur la seconde
 node tests/justif.test.js                # justifications (bonne / mauvaise / temps écoulé, écarts, confusions, HTML échappé) et texte lu par la voix off
