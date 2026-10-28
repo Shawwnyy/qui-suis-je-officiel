@@ -90,10 +90,21 @@ w.textContent=text;
 clearTimeout(window.__chatWarnT);
 window.__chatWarnT=setTimeout(()=>{w.textContent="";},3500);
 }
+/* Un message d'une seule lettre (« a », « k », « 5 », « a ! »…) est supprimé automatiquement :
+   jamais envoyé, jamais affiché, jamais compté dans les statistiques. Les mots de 2 lettres (« ok », « si ») passent. */
+function isOneLetterMsg(text){
+const core=Array.from(String(text==null?"":text).replace(/[\s\p{P}]/gu,""));
+return core.length===1&&/[\p{L}\p{N}]/u.test(core[0]);
+}
 function chatSubmit(){
 const input=chatEl("chatInput");
 const raw=input.value.trim();
 if(!raw)return;
+if(isOneLetterMsg(raw)){
+input.value="";
+chatWarn("🗑️ Message d'une seule lettre supprimé automatiquement.");
+return;
+}
 if(Date.now()-chatState.last<1200){
 chatWarn("⏳ Doucement, un message à la fois.");
 return;
@@ -121,7 +132,7 @@ const now=Date.now();
 if(chatState.lastFrom[msg.playerId]&&now-chatState.lastFrom[msg.playerId]<700)return;
 chatState.lastFrom[msg.playerId]=now;
 const check=profanityCheck(String(msg.text||"").slice(0,140));
-if(check.blocked||!check.clean.trim())return;
+if(check.blocked||!check.clean.trim()||isOneLetterMsg(check.clean))return;
 const out={type:"chat",playerId:msg.playerId,name:p?p.name:String(msg.name||"?").slice(0,12),text:check.clean};
 addChatMessage(out);
 broadcast(out);
@@ -131,7 +142,7 @@ handleData=function(data){
 if(data&&data.type==="chat"){
 if(isHost){
 if(data.playerId!==myId)relayChat(data);
-}else{
+}else if(!isOneLetterMsg(data.text)){
 addChatMessage(data);
 }
 return;

@@ -44,6 +44,7 @@ js/
                         + visual-questions.js (thème « Questions en images », généré à chaque partie)
                         + road-questions.js (thème « Code de la route en images », généré à chaque partie)
                         + image-themes.js (thèmes « Drapeaux en images » et « Lire l'heure », générés à chaque partie)
+                        + image-more.js (8 thèmes de plus : 51 drapeaux, partition, dés, boussole, thermomètre, solides, chiffres romains, graphiques)
                         + image-mix.js (questions avec image ajoutées à TOUS les thèmes, sans rien remplacer)
   media/                media.js : validation et affichage des images / vidéos YouTube / illustrations SVG
   stats/                analysis.js (calculs), charts.js (graphiques SVG), pdf.js (export PDF), stats.js (capture + tableau de bord)
@@ -63,6 +64,8 @@ Ce sont des scripts classiques (pas de bundler, pas de build) : **l'ordre des ba
 
 Chaque message est analysé **avant l'envoi** (côté joueur) **et à la réception** (côté hôte, qui fait foi). Un message interdit est supprimé instantanément, y compris chez les joueurs qui l'auraient déjà reçu.
 
+**Messages d'une seule lettre** (« a », « k », « 5 », « a ! »…) : supprimés **automatiquement** — jamais envoyés, jamais affichés chez les autres, jamais comptés dans les statistiques ; l'expéditeur voit « 🗑️ Message d'une seule lettre supprimé automatiquement » et la règle vaut aussi à la réception (hôte et joueurs) et pour la modification d'un message. Les mots de 2 lettres (« ok », « si ») passent.
+
 Détection notamment de :
 
 - texte écrit **lettre par lettre sur plusieurs lignes** (`B` ⏎ `I` ⏎ `T` ⏎ `E`), même avec des lignes vides ou du texte autour ;
@@ -79,6 +82,8 @@ Aucun filtre n'est parfait : le lexique est dans `js/moderation/lexicon.js`, fac
 ## 📄 QCM à partir d'un cours
 
 Bouton **« QCM depuis un cours »** sur l'accueil et dans le gestionnaire de questions :
+
+**Jeu direct** : sur la fenêtre d'options, **« ▶️ Générer et jouer »** (bouton principal) tire les questions du cours, les ajoute **toutes**, crée ta salle solo, ne garde que le thème du cours et lance la partie — **sans passer par la liste de relecture**. **« ✨ Générer et relire »** garde l'ancien parcours (décocher des questions avant d'ajouter) ; dans la relecture, la barre **« ▶️ Ajouter et jouer maintenant · 👥 Ajouter et réviser à plusieurs · ➕ Ajouter »** reste collée en bas de la fenêtre (plus besoin de défiler jusqu'au bout des 20 questions). Si la salle ne peut pas s'ouvrir (connexion), un bandeau rouge reste affiché jusqu'au clic sur OK.
 
 1. choisis un **fichier** (voir le tableau), colle un **lien** ou colle le texte ;
 2. donne un nom de thème et choisis le nombre de questions, **de 5 à 100** ;
@@ -185,6 +190,12 @@ Le thème **🚦 Code de la route en images** fonctionne de la même façon (≈
 - **Conditions** : vitesse maximale selon la route (autoroute, route à chaussées séparées, agglomération) et la météo (sec / pluie).
 
 Les thèmes **🏳️ Drapeaux en images** (30 drapeaux à bandes, croix nordiques, disques et croix suisse, sans armoiries) et **🕐 Lire l'heure** (horloge à aiguilles : heures pleines, quarts d'heure, puis toutes les 5 minutes) suivent la même règle ; `tests/images.test.js` relit les couleurs dessinées et l'angle des aiguilles.
+
+### D'autres drapeaux et d'autres thèmes en images (`js/data/image-more.js`)
+Huit thèmes de plus, dessinés par le jeu (SVG, aucune image extérieure) et régénérés à chaque partie :
+- **🚩 Drapeaux du monde (suite)** — **51 drapeaux de plus** (Afrique, Amériques, Asie, Europe, Océanie : Sénégal, Canada, Brésil, Chine, Inde, Turquie, Royaume-Uni, Grèce, Australie…), schémas simplifiés sans armoiries. Trois types de questions : *À quel pays appartient ce drapeau ?*, *Quelle est la capitale du pays de ce drapeau ?* (sauf capitales ambiguës : Bolivie, Burundi, Israël, Afrique du Sud, Bénin) et *Lequel de ces quatre drapeaux (A à D) est celui de… ?*
+- **🎼 Lire une partition** (nom d'une note en clé de sol, nombre de notes), **🎲 Dés et dominos** (somme, face opposée, total d'un domino), **🧭 Boussole et orientation**, **🌡️ Thermomètres**, **🔷 Solides et volumes** (nom, faces, sommets), **🏛️ Chiffres romains**, **📊 Lire un graphique** (barre la plus haute, valeur, total).
+- La bonne réponse est calculée à partir des données qui servent à dessiner l'image ; `tests/more.test.js` la **relit dans le SVG** avec des tables indépendantes (noms, familles de couleurs de chaque drapeau, graduation du thermomètre, angle de la flèche, hauteur des barres…).
 
 ### Des images dans tous les thèmes (`js/data/image-mix.js`)
 
@@ -298,6 +309,8 @@ node tests/media.test.js                 # liens YouTube / images, filtrage SVG,
 node tests/visual.test.js                # chaque question en image est cohérente avec son dessin
 node tests/road.test.js                  # code de la route en images : chaque réponse est recalculée en relisant le dessin
 node tests/images.test.js                # drapeaux et horloges : la réponse est relue sur le dessin (couleurs, angle des aiguilles)
+node tests/more.test.js                  # 8 nouveaux thèmes en images : 51 drapeaux (couleurs), notes, dés, boussole, thermomètre, solides, chiffres romains, graphiques — réponse relue sur le dessin
+node tests/chat.test.js                  # chat : messages d'une seule lettre supprimés (envoi, relais de l'hôte, réception, modification)
 node tests/mix.test.js                   # images dans tous les thèmes : chaque réponse est recalculée en relisant le dessin
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 node tests/pdf.test.js                   # export PDF clair / sombre : structure du fichier, métriques, caractères, pagination, un équivalent PDF pour chaque graphique d'écran

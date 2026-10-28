@@ -20,6 +20,17 @@
   function $(id) { return document.getElementById(id); }
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   function toast(m) { try { if (typeof root.v34Toast === "function") root.v34Toast(m); } catch (e) {} }
+  /* message qui reste affiché jusqu'au clic (contrairement au toast) : pour les échecs du lancement direct */
+  function notice(msg) {
+    toast(msg);
+    try {
+      var old = document.getElementById("qcmNotice"); if (old) old.remove();
+      var d = document.createElement("div"); d.id = "qcmNotice"; d.setAttribute("role", "alert");
+      var t = document.createElement("span"); t.textContent = msg;
+      var b = document.createElement("button"); b.type = "button"; b.textContent = "OK"; b.onclick = function () { d.remove(); };
+      d.appendChild(t); d.appendChild(b); document.body.appendChild(d);
+    } catch (e) {}
+  }
   function store(k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) {} }
   function read(k) { try { return sessionStorage.getItem(k) || ""; } catch (e) { return ""; } }
 
@@ -149,7 +160,8 @@
       + '<label class="qcm-step" for="qcmLang">4 · Langue du cours</label>'
       + '<select id="qcmLang"><option value="auto">🔎 Détection automatique</option><option value="fr">🇫🇷 Français</option><option value="en">🇬🇧 English</option><option value="es">🇪🇸 Español</option></select>'
       + '<label class="qcm-step">5 · Méthode</label><div id="qcmModeBox"></div>'
-      + '<div class="v35q-actions"><button type="button" class="btn btn-primary" data-qcm="generate" id="qcmGo">✨ Générer le QCM</button></div>';
+      + '<div class="v35q-actions qcm-gobar qcm-sticky"><button type="button" class="btn btn-primary" data-qcm="generateplay" id="qcmGoPlay">▶️ Générer et jouer</button><button type="button" class="btn btn-secondary" data-qcm="generate" id="qcmGo">✨ Générer et relire</button></div>'
+      + '<div class="v35q-hint">« Générer et jouer » ajoute toutes les questions et lance la partie tout de suite (une question à la fois, comme d\'habitude). « Générer et relire » te laisse d\'abord décocher les questions que tu ne veux pas.</div>';
   }
   function fillSource() {
     var set = function (id, v) { var e = $(id); if (e) e.value = v; };
@@ -196,10 +208,11 @@
         + '</ul><span class="m">' + (q.media ? '🖼️ Figure du cours (page ' + esc(q.figurePage || '?') + ') · ' : '') + esc(({ facile: "🟢 Facile", moyen: "🔵 Moyen", difficile: "🟠 Difficile" })[q.difficulty] || "🔵 Moyen") + '</span></span></label>';
     });
     h += '<label class="qcm-only"><input type="checkbox" id="qcmOnly"' + (S.onlyThis ? " checked" : "") + '> 🎯 Jouer uniquement ce thème à la prochaine partie</label>';
-    h += '<div class="v35q-actions"><button type="button" class="btn btn-secondary" data-qcm="back">← Modifier</button><button type="button" class="btn btn-secondary" data-qcm="regen">🔄 Régénérer</button>'
-      + '<button type="button" class="btn btn-secondary" data-qcm="add" id="qcmAdd">➕ Ajouter ' + nChecked + ' question' + (nChecked > 1 ? "s" : "") + '</button>'
+    h += '<div class="v35q-actions qcm-sticky">'
       + '<button type="button" class="btn btn-primary" data-qcm="addplay" id="qcmAddPlay">▶️ Ajouter et jouer maintenant</button>'
-      + '<button type="button" class="btn btn-secondary" data-qcm="addmulti" id="qcmAddMulti">👥 Ajouter et réviser à plusieurs</button></div>'
+      + '<button type="button" class="btn btn-secondary" data-qcm="addmulti" id="qcmAddMulti">👥 Ajouter et réviser à plusieurs</button>'
+      + '<button type="button" class="btn btn-secondary" data-qcm="add" id="qcmAdd">➕ Ajouter ' + nChecked + ' question' + (nChecked > 1 ? "s" : "") + '</button></div>'
+      + '<div class="v35q-actions"><button type="button" class="btn btn-secondary" data-qcm="back">← Modifier</button><button type="button" class="btn btn-secondary" data-qcm="regen">🔄 Régénérer</button></div>'
       + '<div class="v35q-hint">Ces questions sont enregistrées sur cet appareil et utilisées quand <b>tu</b> es l\'hôte de la partie.</div>';
     return h;
   }
@@ -355,6 +368,11 @@
     attachImages();
     S.checked = res.questions.map(function () { return true; });
     S.step = "preview";
+    if (S.autoPlay) {                                    /* « Générer et jouer » : on saute la relecture */
+      S.autoPlay = false; S.onlyThis = true;
+      addToGame();
+      if (S.step === "done") { playNow(); return; }
+    }
     render();
   }
 
@@ -448,21 +466,21 @@
     var cat = S && S.done && S.done.category;
     if (!cat) return;
     var host = typeof isHost !== "undefined" && !!isHost, room = typeof roomCode !== "undefined" && !!roomCode, started = typeof gameStarted !== "undefined" && !!gameStarted;
-    if (started) { toast("Une partie est déjà en cours."); return; }
+    if (started) { notice("Une partie est déjà en cours."); return; }
     var inLobby = host && room && $("lobbyScreen") && $("lobbyScreen").classList.contains("active");
-    if (!host && room) { toast("Tu es dans la salle de quelqu'un d'autre : quitte-la d'abord."); return; }
+    if (!host && room) { notice("Tu es dans la salle de quelqu'un d'autre : quitte-la d'abord."); return; }
     var count = S.done.added;
     close();
     if (inLobby) { launch(cat, count, multi); return; }
     var hn = $("hostName");
-    if (!hn || typeof root.createRoom !== "function") { toast("Crée la partie depuis l'accueil : le thème est présélectionné."); return; }
+    if (!hn || typeof root.createRoom !== "function") { notice("Crée la partie depuis l'accueil : le thème est présélectionné."); return; }
     if (!hn.value.trim()) hn.value = "Moi";
     toast(multi ? "👥 Création de la salle de révision…" : "📚 Création de ta partie de révision…");
     root.createRoom();
     var t0 = Date.now(), iv = setInterval(function () {
       var lobby = $("lobbyScreen") && $("lobbyScreen").classList.contains("active");
       if (lobby) { clearInterval(iv); launch(cat, count, multi); }
-      else if (Date.now() - t0 > 12000) { clearInterval(iv); toast("⚠️ Impossible de créer la salle (connexion ?). Crée la partie à la main : le thème est présélectionné."); }
+      else if (Date.now() - t0 > 12000) { clearInterval(iv); notice("⚠️ Impossible de créer la salle (connexion ?). Crée la partie à la main : le thème est présélectionné."); }
     }, 150);
   }
   function launch(cat, count, multi) {
@@ -483,10 +501,10 @@
       } else if (stable >= 3) {
         clearInterval(iv);
         var qt = $("questionTime"); if (qt && [].some.call(qt.options, function (o) { return o.value === "30"; })) qt.value = "30";
-        try { root.startGame(); } catch (e) { toast("⚠️ La partie n'a pas pu démarrer : lance-la depuis la salle d'attente."); }
+        try { root.startGame(); } catch (e) { notice("⚠️ La partie n'a pas pu démarrer : lance-la depuis la salle d'attente."); }
       } else if (tries > 40) {
         clearInterval(iv);
-        toast("⚠️ Le thème du cours n'a pas pu être sélectionné : choisis-le dans la salle d'attente puis lance la partie.");
+        notice("⚠️ Le thème du cours n'a pas pu être sélectionné : choisis-le dans la salle d'attente puis lance la partie.");
       }
     }, 150);
   }
@@ -521,10 +539,11 @@
     var a = t.dataset.qcm;
     if (a === "close") close();
     else if (a === "preset") { setCount(Number(t.dataset.n)); }
-    else if (a === "generate") generate(false);
+    else if (a === "generate") { S.autoPlay = false; generate(false); }
+    else if (a === "generateplay") { S.autoPlay = true; generate(false); }
     else if (a === "url") loadUrl();
     else if (a === "cancel") { if (S.abort) S.abort.cancelled = true; job++; S.abort = null; setBusy(""); setMsg("", "Lecture annulée."); S.docText = ""; S.docInfo = ""; var dd = $("qcmDoc"); if (dd) dd.textContent = ""; var ff = $("qcmFile"); if (ff) ff.value = ""; }
-    else if (a === "regen") generate(true);
+    else if (a === "regen") { S.autoPlay = false; generate(true); }
     else if (a === "back") { S.step = "source"; render(); }
     else if (a === "all" || a === "none") { S.checked = S.checked.map(function () { return a === "all"; }); document.querySelectorAll("#qcmBody .qcm-q input").forEach(function (c) { c.checked = a === "all"; }); updatePreviewCounts(); }
     else if (a === "add") addToGame();

@@ -78,3 +78,10 @@ html.qcm-open #dock,html.qcm-open #v231QuickNav,html.qcm-open #soundToggle,html.
 .v35q-body .qcm-qbody{min-width:0;flex:1}
 .v35q-body img.qcm-thumb{display:block;max-width:100%;max-height:170px;object-fit:contain;margin:0 0 8px;border-radius:10px;background:#fff;border:1px solid rgba(255,255,255,.2)}
 .v35q-body label.qcm-only.qcm-imgs{margin:10px 0 6px;border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.08);color:#bae6fd}
+/* les boutons principaux restent visibles en bas de la fenêtre, même avec 20 questions à faire défiler */
+.v35q-body .qcm-sticky{position:sticky;bottom:0;z-index:5;margin:14px -14px 0;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:#17182d;border-top:1px solid rgba(255,255,255,.14);box-shadow:0 -8px 18px rgba(0,0,0,.35)}
+.v35q-body .qcm-sticky .btn{min-height:44px;font-size:14px;padding:8px 10px}
+.v35q-body .qcm-sticky #qcmAddPlay,.v35q-body .qcm-sticky #qcmGoPlay{flex:2 1 220px}
+.qcm-gobar{margin-top:18px}
+#qcmNotice{position:fixed;left:12px;right:12px;top:12px;z-index:5000;display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:12px;background:#7f1d1d;border:1px solid #fca5a5;color:#fff;font-weight:700;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#qcmNotice button{flex:none;min-height:40px;padding:0 16px;border-radius:10px;border:0;background:#fff;color:#7f1d1d;font-weight:900;cursor:pointer}
