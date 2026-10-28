@@ -198,7 +198,8 @@
     h += '<label class="qcm-only"><input type="checkbox" id="qcmOnly"' + (S.onlyThis ? " checked" : "") + '> 🎯 Jouer uniquement ce thème à la prochaine partie</label>';
     h += '<div class="v35q-actions"><button type="button" class="btn btn-secondary" data-qcm="back">← Modifier</button><button type="button" class="btn btn-secondary" data-qcm="regen">🔄 Régénérer</button>'
       + '<button type="button" class="btn btn-secondary" data-qcm="add" id="qcmAdd">➕ Ajouter ' + nChecked + ' question' + (nChecked > 1 ? "s" : "") + '</button>'
-      + '<button type="button" class="btn btn-primary" data-qcm="addplay" id="qcmAddPlay">▶️ Ajouter et jouer maintenant</button></div>'
+      + '<button type="button" class="btn btn-primary" data-qcm="addplay" id="qcmAddPlay">▶️ Ajouter et jouer maintenant</button>'
+      + '<button type="button" class="btn btn-secondary" data-qcm="addmulti" id="qcmAddMulti">👥 Ajouter et réviser à plusieurs</button></div>'
       + '<div class="v35q-hint">Ces questions sont enregistrées sur cet appareil et utilisées quand <b>tu</b> es l\'hôte de la partie.</div>';
     return h;
   }
@@ -207,6 +208,7 @@
     var s = $("qcmSel"); if (s) s.textContent = n + " / " + total + " sélectionnée" + (n > 1 ? "s" : "");
     var a = $("qcmAdd"); if (a) { a.textContent = "➕ Ajouter " + n + " question" + (n > 1 ? "s" : ""); a.disabled = n === 0; }
     var ap = $("qcmAddPlay"); if (ap) ap.disabled = n === 0;
+    var am = $("qcmAddMulti"); if (am) am.disabled = n === 0;
   }
 
   function doneHTML() {
@@ -219,7 +221,7 @@
       + (d.persisted ? '' : '<div class="v35q-msg warn show">⚠️ Le stockage du navigateur est indisponible : ces questions seront perdues à la fermeture de la page (exporte-les depuis « 📝 Mes questions »).</div>')
       + '<div class="v35q-msg ok show">📚 <b>Mode révision</b> : pour ce cours, la partie se joue sans roue ni malus (uniquement des bonus à gagner), et chaque mauvaise réponse est justifiée avec le passage du cours (réglable dans la salle d\'attente).</div>'
       + '<p class="qcm-done-txt">' + (d.selected ? 'Le thème est <b>présélectionné</b> et le nombre de questions est réglé sur <b>' + d.rounds + '</b>. Il te reste à créer la partie.' : 'Le thème est disponible dans la liste des thèmes de la salle d\'attente.') + '</p>'
-      + '<div class="v35q-actions"><button type="button" class="btn btn-secondary" data-qcm="manage">📝 Voir mes questions</button><button type="button" class="btn btn-secondary" data-qcm="again">📄 Un autre cours</button><button type="button" class="btn btn-secondary" data-qcm="close">Terminer</button><button type="button" class="btn btn-primary" data-qcm="play">▶️ Jouer maintenant</button></div>';
+      + '<div class="v35q-actions"><button type="button" class="btn btn-secondary" data-qcm="manage">📝 Voir mes questions</button><button type="button" class="btn btn-secondary" data-qcm="again">📄 Un autre cours</button><button type="button" class="btn btn-secondary" data-qcm="close">Terminer</button><button type="button" class="btn btn-secondary" data-qcm="multi">👥 Réviser à plusieurs</button><button type="button" class="btn btn-primary" data-qcm="play">▶️ Jouer maintenant</button></div>';
   }
 
   /* ---------- Occupé / progression ---------- */
@@ -442,7 +444,7 @@
   }
 
   /* ---------- « Jouer maintenant » : crée une salle solo avec ce thème seul et lance la partie, question après question ---------- */
-  function playNow() {
+  function playNow(multi) {
     var cat = S && S.done && S.done.category;
     if (!cat) return;
     var host = typeof isHost !== "undefined" && !!isHost, room = typeof roomCode !== "undefined" && !!roomCode, started = typeof gameStarted !== "undefined" && !!gameStarted;
@@ -451,19 +453,19 @@
     if (!host && room) { toast("Tu es dans la salle de quelqu'un d'autre : quitte-la d'abord."); return; }
     var count = S.done.added;
     close();
-    if (inLobby) { launch(cat, count); return; }
+    if (inLobby) { launch(cat, count, multi); return; }
     var hn = $("hostName");
     if (!hn || typeof root.createRoom !== "function") { toast("Crée la partie depuis l'accueil : le thème est présélectionné."); return; }
     if (!hn.value.trim()) hn.value = "Moi";
-    toast("📚 Création de ta partie de révision…");
+    toast(multi ? "👥 Création de la salle de révision…" : "📚 Création de ta partie de révision…");
     root.createRoom();
     var t0 = Date.now(), iv = setInterval(function () {
       var lobby = $("lobbyScreen") && $("lobbyScreen").classList.contains("active");
-      if (lobby) { clearInterval(iv); launch(cat, count); }
+      if (lobby) { clearInterval(iv); launch(cat, count, multi); }
       else if (Date.now() - t0 > 12000) { clearInterval(iv); toast("⚠️ Impossible de créer la salle (connexion ?). Crée la partie à la main : le thème est présélectionné."); }
     }, 150);
   }
-  function launch(cat, count) {
+  function launch(cat, count, multi) {
     /* la salle réinitialise la grille des thèmes juste après son ouverture : on (re)sélectionne
        le thème du cours jusqu'à ce que la sélection soit stable, puis seulement on démarre */
     var want = String(Math.max(MIN_COUNT, Math.min(MAX_COUNT, count))), tries = 0, stable = 0;
@@ -473,7 +475,12 @@
       var on = [].slice.call(document.querySelectorAll("#themeGrid input:checked")), rc = $("roundCount");
       if (on.length === 1 && on[0].value === cat && rc && rc.value === want) stable++;
       else { stable = 0; selectTheme(cat, true); setRounds(count); }
-      if (stable >= 3) {
+      if (stable >= 3 && multi) {
+        clearInterval(iv);
+        var code = typeof roomCode !== "undefined" ? roomCode : "";
+        toast("👥 Salle prête : donne le code " + code + " à tes camarades. Ils rejoignent depuis l'accueil, puis tu lances la partie (thème du cours seul, mode révision).");
+        try { var ls = $("lobbyScreen"); if (ls && ls.scrollIntoView) ls.scrollIntoView(); window.scrollTo(0, 0); } catch (e) {}
+      } else if (stable >= 3) {
         clearInterval(iv);
         var qt = $("questionTime"); if (qt && [].some.call(qt.options, function (o) { return o.value === "30"; })) qt.value = "30";
         try { root.startGame(); } catch (e) { toast("⚠️ La partie n'a pas pu démarrer : lance-la depuis la salle d'attente."); }
@@ -522,7 +529,9 @@
     else if (a === "all" || a === "none") { S.checked = S.checked.map(function () { return a === "all"; }); document.querySelectorAll("#qcmBody .qcm-q input").forEach(function (c) { c.checked = a === "all"; }); updatePreviewCounts(); }
     else if (a === "add") addToGame();
     else if (a === "addplay") { addToGame(); if (S && S.step === "done") playNow(); }
+    else if (a === "addmulti") { addToGame(); if (S && S.step === "done") playNow(true); }
     else if (a === "play") playNow();
+    else if (a === "multi") playNow(true);
     else if (a === "manage") { close(); if (window.v35Q) window.v35Q.open("list"); }
     else if (a === "again") { var keepMode = S.mode, ai = S.ai; S = freshState(); S.mode = keepMode; S.ai = ai; render(); }
   }

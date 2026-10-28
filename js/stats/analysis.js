@@ -50,6 +50,8 @@ var V40Analysis = (function () {
     });
     var np = log.P.length;
     raw.R.forEach(function (r) { log.R.push(normalizeRound(r, np)); });
+    var ch = normalizeChat(raw.Ch);
+    if (ch) log.Ch = ch;
     (Array.isArray(raw.C) ? raw.C : []).slice(0, MAX_CHEATS).forEach(function (c) {
       if (!Array.isArray(c)) return;
       var pi = Math.round(Number(c[0]));
@@ -66,6 +68,81 @@ var V40Analysis = (function () {
       log.B.push([int(b[0], 1, MAX_ROUNDS, 1), gi, ch === 2 ? ti : -1, ch, kind, int(b[5], 0, SCORE_LIMIT, 0), int(b[6], 0, 3, 0), str(b[7], 30)]);
     });
     return log;
+  }
+
+
+  /* ===================================================================== Lettres et mots écrits */
+  /* Chat de la salle : on ne garde QUE des comptages (26 lettres + les mots les plus fréquents), jamais les messages. */
+  var MAX_CHAT_WORDS = 120, MAX_WORD_LEN = 24, ACC_WORD_CAP = 600;
+  var STOP = {};
+  ("le la les un une des de du d l au aux et ou ni mais donc or car que qui quoi dont où se sa son ses ce cet cette ces leur leurs mon ma mes ton ta tes notre nos votre vos je tu il elle on nous vous ils elles me te lui y en ne pas plus par pour sur sous dans avec sans chez vers entre comme si est sont était été être a ai as avons avez ont avait avoir fait faire c j m n s t qu the of and to in is it that for on as are with was be by at an or from this have has not but you your we they he she his her its our their there what which who will would can could do does did so if then than too very just about out up one"
+  ).split(" ").forEach(function (w) { if (w) STOP[w] = 1; });
+
+  function foldWord(w) { return w.normalize ? w.normalize("NFD").replace(/[̀-ͯ]/g, "") : w; }
+  /* Découpe un texte : renvoie { l: [26 comptes a–z, accents ramenés à la lettre de base], w: [mots en minuscules] } */
+  function tokenize(text) {
+    var l = []; for (var i = 0; i < 26; i++) l.push(0);
+    var t = String(text == null ? "" : text).toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").replace(/ß/g, "ss");
+    var words = (t.replace(/[’'`´]/g, " ").match(/[a-zà-öø-ÿ]+/g) || []).filter(function (w) { return w.length <= MAX_WORD_LEN; });
+    words.forEach(function (w) {
+      var f = foldWord(w);
+      for (var k = 0; k < f.length; k++) { var c = f.charCodeAt(k) - 97; if (c >= 0 && c < 26) l[c]++; }
+    });
+    return { l: l, w: words };
+  }
+  function newChat() { var l = []; for (var i = 0; i < 26; i++) l.push(0); return { m: 0, l: l, w: {} }; }
+  function addChat(acc, text) {
+    var tk = tokenize(text);
+    acc.m++;
+    tk.l.forEach(function (n, i) { acc.l[i] += n; });
+    tk.w.forEach(function (w) {
+      if (w.length < 2) return;
+      if (acc.w[w] !== undefined) acc.w[w]++;
+      else if (Object.keys(acc.w).length < ACC_WORD_CAP) acc.w[w] = 1;
+    });
+    return acc;
+  }
+  function wordPairs(w) {
+    var pairs = [];
+    if (Array.isArray(w)) w.forEach(function (e) { if (Array.isArray(e)) pairs.push([e[0], e[1]]); });
+    else if (w && typeof w === "object") Object.keys(w).forEach(function (k) { pairs.push([k, w[k]]); });
+    return pairs;
+  }
+  function normalizeChat(raw) {
+    if (!raw || typeof raw !== "object") return null;
+    var out = { m: int(raw.m, 0, 100000, 0), l: [], w: [] };
+    for (var i = 0; i < 26; i++) out.l.push(int(Array.isArray(raw.l) ? raw.l[i] : 0, 0, 10000000, 0));
+    var seen = {};
+    wordPairs(raw.w).forEach(function (e) {
+      var w = typeof e[0] === "string" ? e[0].toLowerCase().replace(/[^a-zà-öø-ÿ]/g, "").slice(0, MAX_WORD_LEN) : "";
+      var n = int(e[1], 0, 10000000, 0);
+      if (w.length >= 2 && n > 0 && !seen[w]) { seen[w] = 1; out.w.push([w, n]); }
+    });
+    out.w.sort(function (a, b) { return b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0); });
+    out.w = out.w.slice(0, MAX_CHAT_WORDS);
+    return out.m || out.w.length || out.l.some(function (n) { return n > 0; }) ? out : null;
+  }
+  /* Lettres et mots d'un journal.  src : "all" | "chat" | "q" (textes des questions posées) ; common : garder les mots courants (le, de, est…) */
+  function textStats(log, src, common, topWords) {
+    src = src === "chat" || src === "q" ? src : "all";
+    var letters = [], wc = {}, msgs = 0, nq = 0, tw = 0, i;
+    for (i = 0; i < 26; i++) letters.push(0);
+    function addWord(w, n) { if (!common && (STOP[w] || STOP[foldWord(w)])) return; if (w.length < 2) return; wc[w] = (wc[w] || 0) + n; tw += n; }
+    if (src !== "q" && log && log.Ch) {
+      msgs = log.Ch.m; log.Ch.l.forEach(function (n, k) { letters[k] += n; });
+      wordPairs(log.Ch.w).forEach(function (e) { addWord(e[0], e[1]); });
+    }
+    if (src !== "chat" && log && log.R) {
+      log.R.forEach(function (R) {
+        if (!R.q) return; nq++;
+        var tk = tokenize(R.q); tk.l.forEach(function (n, k) { letters[k] += n; }); tk.w.forEach(function (w) { addWord(w, 1); });
+      });
+    }
+    var total = letters.reduce(function (a, b) { return a + b; }, 0);
+    var L = letters.map(function (n, k) { return { ch: String.fromCharCode(65 + k), n: n, share: total ? n / total : 0 }; })
+      .filter(function (x) { return x.n > 0; }).sort(function (a, b) { return b.n - a.n || (a.ch < b.ch ? -1 : 1); });
+    var W = Object.keys(wc).map(function (w) { return { w: w, n: wc[w] }; }).sort(function (a, b) { return b.n - a.n || (a.w < b.w ? -1 : a.w > b.w ? 1 : 0); }).slice(0, topWords || 15);
+    return { src: src, letters: L, words: W, totalLetters: total, totalWords: tw, messages: msgs, questions: nq, distinctWords: Object.keys(wc).length };
   }
 
   function isAnswer(st) { return st >= 1 && st <= 3; }
@@ -316,7 +393,8 @@ var V40Analysis = (function () {
 
   return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
     byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
-    addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell };
+    addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell,
+    tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V40Analysis;
 if (typeof window !== "undefined") window.V40Analysis = V40Analysis;
