@@ -145,6 +145,50 @@ var V40Analysis = (function () {
     return { src: src, letters: L, words: W, totalLetters: total, totalWords: tw, messages: msgs, questions: nq, distinctWords: Object.keys(wc).length };
   }
 
+  /* ---------- Rapport « mots et lettres » : phrases + chiffres prêts à afficher, à télécharger ou à mettre dans le PDF ---------- */
+  var VOWELS = "AEIOUY";
+  function pctFr(x) { return (Math.round(x * 1000) / 10).toString().replace(".", ",") + " %"; }
+  function plural(n, one, many) { return n + " " + (n > 1 ? many : one); }
+  function listFr(items) { return items.length > 1 ? items.slice(0, -1).join(", ") + " et " + items[items.length - 1] : items.join(""); }
+  function textReport(log, common) {
+    var all = textStats(log, "all", common, 30), chat = textStats(log, "chat", common, 10), qs = textStats(log, "q", common, 10);
+    var vowels = 0;
+    all.letters.forEach(function (x) { if (VOWELS.indexOf(x.ch) >= 0) vowels += x.n; });
+    var consonants = all.totalLetters - vowels;
+    var byLetter = {}; all.letters.forEach(function (x) { byLetter[x.ch] = x; });
+    var alpha = [];
+    for (var k = 0; k < 26; k++) { var ch = String.fromCharCode(65 + k); alpha.push(byLetter[ch] || { ch: ch, n: 0, share: 0 }); }
+    var missing = alpha.filter(function (x) { return x.n === 0; }).map(function (x) { return x.ch; });
+    var lines = [];
+    if (all.totalLetters) {
+      lines.push("Analyse de " + plural(chat.messages, "message de chat", "messages de chat") + " et du texte de " + plural(all.questions, "question posée", "questions posées") + " : " + all.totalLetters.toLocaleString("fr-FR") + " lettres et " + all.distinctWords.toLocaleString("fr-FR") + " mots différents" + (common ? "" : " (hors mots courants)") + ".");
+      var top3 = all.letters.slice(0, 3);
+      lines.push("La lettre la plus écrite est " + top3[0].ch + " (" + pctFr(top3[0].share) + ", " + top3[0].n.toLocaleString("fr-FR") + " fois)" + (top3.length > 1 ? ", suivie de " + listFr(top3.slice(1).map(function (x) { return x.ch + " (" + pctFr(x.share) + ")"; })) : "") + ".");
+      lines.push("Voyelles : " + pctFr(vowels / all.totalLetters) + " des lettres ; consonnes : " + pctFr(consonants / all.totalLetters) + ".");
+      if (missing.length && missing.length < 26) lines.push("Lettre" + (missing.length > 1 ? "s jamais écrites" : " jamais écrite") + " : " + missing.join(", ") + ".");
+      if (all.words.length) {
+        var tw = all.words.slice(0, 3);
+        lines.push("Le mot le plus écrit est « " + tw[0].w + " » (" + plural(tw[0].n, "fois", "fois") + ")" + (tw.length > 1 ? ", puis " + listFr(tw.slice(1).map(function (x) { return "« " + x.w + " » (" + x.n + ")"; })) : "") + ".");
+      }
+      if (chat.totalLetters && qs.totalLetters) {
+        lines.push("Dans le chat, la lettre la plus écrite est " + chat.letters[0].ch + (chat.words.length ? " et le mot le plus écrit « " + chat.words[0].w + " »" : "") + " ; dans les questions, la lettre " + qs.letters[0].ch + (qs.words.length ? " et le mot « " + qs.words[0].w + " »" : "") + ".");
+      } else if (!chat.totalLetters) lines.push("Personne n’a écrit dans le chat : le rapport ne porte que sur les questions.");
+    }
+    return { all: all, chat: chat, q: qs, vowels: vowels, consonants: consonants, vowelShare: all.totalLetters ? vowels / all.totalLetters : 0, alpha: alpha, missing: missing, lines: lines };
+  }
+  /* Rapport au format texte (téléchargement) */
+  function textReportTxt(log, common, title) {
+    var R = textReport(log, common), out = [title || "Rapport : mots et lettres les plus écrits", ""];
+    if (!R.all.totalLetters) { out.push("Aucun texte à analyser pour cette partie."); return out.join("\n"); }
+    R.lines.forEach(function (l) { out.push("• " + l); });
+    out.push("", "LETTRES (de la plus à la moins écrite)");
+    R.all.letters.forEach(function (x, i) { out.push((i + 1) + ". " + x.ch + " — " + x.n + " (" + pctFr(x.share) + ")"); });
+    out.push("", "MOTS LES PLUS ÉCRITS" + (common ? "" : " (hors mots courants)"));
+    R.all.words.forEach(function (x, i) { out.push((i + 1) + ". " + x.w + " — " + x.n + " fois"); });
+    out.push("", "Seuls des comptages sont conservés : jamais les messages eux-mêmes.");
+    return out.join("\n");
+  }
+
   function isAnswer(st) { return st >= 1 && st <= 3; }
 
   /* ---------- Chiffres clés ---------- */
@@ -394,7 +438,7 @@ var V40Analysis = (function () {
   return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
     byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell,
-    tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats };
+    tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats, textReport: textReport, textReportTxt: textReportTxt };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V40Analysis;
 if (typeof window !== "undefined") window.V40Analysis = V40Analysis;

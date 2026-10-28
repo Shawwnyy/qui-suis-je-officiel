@@ -70,5 +70,29 @@ t("forme « en cours » (mots en dictionnaire) acceptée", A.textStats({ R: [], 
 const none = Buffer.from(P.build(A.normalize({ id: "y", P: [{ i: "a", n: "A" }], R: [{ q: "", c: "", d: "facile", r: [[1, 1, 100]] }] }), { theme: "light" })).toString("latin1");
 t("sans texte : pas de section vide", !none.includes("Lettres les plus"));
 
+/* ---------- Rapport « mots et lettres » (onglet dédié) ---------- */
+{
+  const A2 = require("../js/stats/analysis.js");
+  const log = A2.normalize({ id: "rp", P: [{ n: "A" }, { n: "B" }], R: [{ q: "Quel est le plus grand océan du monde ?", c: "Géo", d: "facile", m: 0, r: [[1, 3, 500], [2, 4, 0]] }, { q: "Quel océan est le plus grand ?", c: "Géo", d: "facile", m: 0, r: [[1, 2, 500], [1, 3, 500]] }],
+    Ch: { m: 3, l: (() => { const a = new Array(26).fill(0); a[4] = 9; a[0] = 4; return a; })(), w: [["salut", 3], ["bravo", 2], ["le", 4]] } });
+  const R = A2.textReport(log, false);
+  const tt = t;
+  tt("rapport : 26 lettres dans l'ordre alphabétique", R.alpha.length === 26 && R.alpha[0].ch === "A" && R.alpha[25].ch === "Z");
+  tt("rapport : voyelles + consonnes = total des lettres", R.vowels + R.consonants === R.all.totalLetters && R.all.totalLetters > 0);
+  tt("rapport : part des voyelles entre 0 et 1", R.vowelShare > 0 && R.vowelShare < 1);
+  tt("rapport : phrases en français avec lettre n° 1 et mot n° 1", R.lines.length >= 4 && /lettre la plus écrite est/.test(R.lines.join(" ")) && /mot le plus écrit est/.test(R.lines.join(" ")));
+  tt("rapport : mots courants masqués (le absent), mot n° 1 cohérent", !R.all.words.some(x => x.w === "le") && R.all.words[0].n === Math.max.apply(null, R.all.words.map(x => x.n)));
+  tt("rapport : lettres jamais écrites listées (ex. Z, W)", R.missing.indexOf("Z") >= 0 && /jamais écrites/.test(R.lines.join(" ")));
+  tt("rapport : chat et questions séparés", R.chat.messages === 3 && R.q.questions === 2 && R.chat.letters[0].ch === "E");
+  const txt = A2.textReportTxt(log, false, "Titre");
+  tt("rapport .txt : titre, lettres, mots, mention des comptages", txt.startsWith("Titre") && /LETTRES/.test(txt) && /MOTS LES PLUS/.test(txt) && /jamais les messages/.test(txt));
+  tt("rapport .txt : aucun message brut (« Quel est le plus grand » absent)", !/Quel est le plus grand/.test(txt));
+  const R0 = A2.textReport(A2.normalize({ id: "z", P: [{ n: "A" }], R: [{ q: "", c: "x", d: "facile", m: 0, r: [[1, 2, 500]] }] }), false);
+  tt("rapport sans texte : aucune phrase, aucun plantage", R0.lines.length === 0 && R0.alpha.length === 26);
+  tt("rapport .txt sans texte : message clair", /Aucun texte/.test(A2.textReportTxt(A2.normalize({ id: "z", P: [{ n: "A" }], R: [{ q: "", c: "x", d: "facile", m: 0, r: [[1, 2, 500]] }] }), false)));
+  const R1 = A2.textReport(log, true);
+  tt("rapport : avec mots courants, « le » apparaît", R1.all.words.some(x => x.w === "le"));
+}
+
 console.log("Lettres et mots : " + ok + " OK, " + ko + " échec(s)");
 process.exit(ko ? 1 : 0);
