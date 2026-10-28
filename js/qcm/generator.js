@@ -13,7 +13,7 @@
 (function (root) {
   "use strict";
 
-  var LIMITS = { question: 220, answer: 120, correction: 250 };
+  var LIMITS = { question: 220, answer: 120, correction: 250, lesson: 560 };
   var BLANK = "_____";
 
   /* ---------- Mots vides ---------- */
@@ -365,6 +365,13 @@
     var tierA = terms.filter(function (t) { return t.tier === "A"; }), tierB = terms.filter(function (t) { return t.tier === "B"; });
     var seenQ = {}, questions = [];
 
+    /* Passage du cours qui justifie la question : la phrase source + sa voisine précédente / suivante si elles sont dans le même paragraphe. */
+    function contextOf(s) {
+      var parts = [s.text], len = s.text.length, prev = sents[s.idx - 1], next = sents[s.idx + 1];
+      if (prev && prev.block === s.block && len + prev.text.length + 1 <= LIMITS.lesson) { parts.unshift(prev.text); len += prev.text.length + 1; }
+      if (next && next.block === s.block && len + next.text.length + 1 <= LIMITS.lesson) parts.push(next.text);
+      return parts.join(" ");
+    }
     function build(c) {
       var q = null;
       if (c.type === "def") {
@@ -397,7 +404,7 @@
       questions.push({
         question: q.question, answers: answers, correct: correctIndex, difficulty: q.difficulty,
         correction: clip(P.from + c.s.text + (lang === "en" ? "”" : lang === "es" ? "»" : " »"), LIMITS.correction),
-        kind: q.kind, category: title, _pos: c.pos, src: c.s.text
+        kind: q.kind, category: title, _pos: c.pos, src: c.s.text, ctx: contextOf(c.s)
       });
       stats[q.kind]++;
       return true;

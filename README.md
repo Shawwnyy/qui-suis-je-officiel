@@ -273,6 +273,15 @@ V35_BANK["🎻 Mon thème"]=[
 Ajoute ensuite la balise `<script src="js/data/bank/NNN-nom.js"></script>` dans `index.html`, **avant** `999-register.js`.
 La bonne réponse est toujours en premier dans le fichier : le jeu mélange les réponses à l'affichage.
 
+## 📚 Mode révision (QCM de cours) — `js/review/review.js`
+Un QCM généré depuis un cours se joue « comme les parties d'avant » (combos, classement…) mais en **mode révision** :
+
+- **pas de roue** des bonus / malus ;
+- **que des bonus** : un combo ne propose que le bonus (la carte « Malus » est masquée) et **l'hôte l'impose** même si un joueur envoie autre chose ; la pénalité de −200 points après 2 erreurs d'affilée et la question « impossible » (÷4) sont aussi désactivées ;
+- **justification détaillée** à chaque réponse, tirée du cours : le **passage** (la phrase source et ses voisines du même paragraphe) avec la bonne réponse surlignée, la **page** et le titre du cours (PDF), l'écart chiffré si les réponses sont des nombres, **pourquoi ta réponse ne convient pas** (« ne figure pas dans ce passage » / « apparaît dans le passage mais ne répond pas à la question »), et un conseil « À réviser : page N ». La voix off lit la phrase du cours. Cette justification s'affiche pour toute question issue d'un cours, même hors mode révision.
+
+Réglage de l'hôte dans le salon (« 📚 Mode révision ») : **Automatique** (par défaut : révision si *toutes* les questions de la partie viennent d'un cours), **Activé** ou **Désactivé**. La décision est prise au début de la partie puis diffusée aux joueurs. Le passage est enregistré avec chaque question (≈ 700 octets) ; les questions générées avant cette version n'ont pas de passage et gardent la justification habituelle. Les modes de jeu explicites (Survie, etc.) ne sont pas modifiés. Pas de page affichée pour un cours qui n'est pas un PDF.
+
 ## ✅ Tests
 
 ```bash
@@ -289,6 +298,7 @@ node tests/stats.test.js                 # calculs de statistiques, historique, 
 node tests/pdf.test.js                   # export PDF clair / sombre : structure du fichier, métriques, caractères, pagination, un équivalent PDF pour chaque graphique d'écran
 node tests/qcmimages.test.js             # images du cours : rattachement aux questions, doublons, plafonds, tri des figures
 node tests/wheel.test.js                 # roue : moments de déclenchement, effet exact de chaque case, bouclier, plafonds, équiprobabilité, messages réseau
+node tests/review.test.js                # mode révision : décision automatique, bonus imposé, passage du cours, justification détaillée, leçons piégées
 node tests/clock.test.js                 # horloge : format HH:MM:SS recalculé autrement (20 000 dates, changements d'heure), recalage sur la seconde
 node tests/justif.test.js                # justifications (bonne / mauvaise / temps écoulé, écarts, confusions, HTML échappé) et texte lu par la voix off
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)

@@ -48,3 +48,11 @@ html.qcm-open .v43v-panel{display:none!important}
 #v45Wheel .v45-close{margin-top:12px;padding:9px 26px;border:0;border-radius:12px;font-weight:800;color:#fff;background:#7c3aed;cursor:pointer}
 @media(max-width:520px){#v45Wheel .v45-title{font-size:17px}}
 #v45WheelHint{margin-top:6px;font-size:12px;opacity:.75;line-height:1.35}
+
+/* ===== Mode révision (QCM de cours) : bonus seulement ===== */
+body.v46-review #powerModal .power-card.malus{position:absolute!important;visibility:hidden!important;width:0!important;height:0!important;min-height:0!important;padding:0!important;margin:0!important;border:0!important;overflow:hidden!important;pointer-events:none!important}
+body.v46-review #powerModal .power-card.bonus{grid-column:1 / -1!important}
+#v46ReviewHint{margin-top:6px;font-size:12px;opacity:.75;line-height:1.35}
+.v43j mark{background:rgba(250,204,21,.28);color:inherit;border-radius:4px;padding:0 3px;font-weight:800}
+.v43j q{quotes:"«\00a0" "\00a0»";display:inline;font-style:italic}
+.v43j .v43-lesson{line-height:1.45}

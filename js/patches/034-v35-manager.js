@@ -43,12 +43,15 @@ if(!category||!question||answers.length!==4||answers.some(a=>!a)||!(correct>=0&&
 const media=(window.QMedia&&r.media)?window.QMedia.normalize(r.media):null;
 const rec={id:String(r.id||uid()).slice(0,40),category,difficulty,question,answers,correct,correction:clean(r.correction,MAX_C),createdAt:Number(r.createdAt)||Date.now(),updatedAt:Number(r.updatedAt)||Date.now()};
 if(media)rec.media=media;
+const ls=r.lesson&&typeof r.lesson==='object'?r.lesson:null;
+if(ls&&typeof ls.s==='string'&&ls.s.trim()){const p=Math.round(Number(ls.p));rec.lesson={s:clean(ls.s,300),c:clean(typeof ls.c==='string'?ls.c:ls.s,600),p:p>0&&p<10000?p:0,t:clean(typeof ls.t==='string'?ls.t:'',80)};}
 return rec;
 }
 /* ---------- Synchronisation avec QUESTIONS ---------- */
 function toRuntime(r){
 const q={category:r.category,difficulty:r.difficulty,question:r.question,answers:r.answers.slice(),correct:r.correct,correction:r.correction||("La bonne réponse est « "+r.answers[r.correct]+" »."),source:"perso",v35Custom:true,customId:r.id};
 if(r.media)q.media=r.media;
+if(r.lesson)q.lesson=r.lesson;
 return q;
 }
 function addRuntime(r){const q=toRuntime(r);runtime.set(r.id,q);QUESTIONS.push(q);}

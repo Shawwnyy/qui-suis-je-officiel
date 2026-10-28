@@ -215,6 +215,7 @@
       + (d.duplicates ? '<div class="v35q-msg warn show">ℹ️ ' + plural(d.duplicates, "question ignorée (déjà existante)", "questions ignorées (déjà existantes)") + '.</div>' : '')
       + (d.full ? '<div class="v35q-msg warn show">⚠️ ' + plural(d.full, "question refusée", "questions refusées") + ' : limite de ' + esc(window.v35Q ? window.v35Q.max : "") + ' questions perso atteinte.</div>' : '')
       + (d.persisted ? '' : '<div class="v35q-msg warn show">⚠️ Le stockage du navigateur est indisponible : ces questions seront perdues à la fermeture de la page (exporte-les depuis « 📝 Mes questions »).</div>')
+      + '<div class="v35q-msg ok show">📚 <b>Mode révision</b> : pour ce cours, la partie se joue sans roue ni malus (uniquement des bonus à gagner), et chaque mauvaise réponse est justifiée avec le passage du cours (réglable dans la salle d\'attente).</div>'
       + '<p class="qcm-done-txt">' + (d.selected ? 'Le thème est <b>présélectionné</b> et le nombre de questions est réglé sur <b>' + d.rounds + '</b>. Il te reste à créer la partie.' : 'Le thème est disponible dans la liste des thèmes de la salle d\'attente.') + '</p>'
       + '<div class="v35q-actions"><button type="button" class="btn btn-secondary" data-qcm="manage">📝 Voir mes questions</button><button type="button" class="btn btn-secondary" data-qcm="again">📄 Un autre cours</button><button type="button" class="btn btn-primary" data-qcm="close">🎮 Terminer</button></div>';
   }
@@ -421,7 +422,8 @@
     var chosen = S.result.questions.filter(function (q, i) { return S.checked[i]; });
     if (!chosen.length) { setMsg("err", "❌ Coche au moins une question."); return; }
     var cat = withEmoji(S.title.trim() || "Cours");
-    var recs = chosen.map(function (q) { var r = { category: cat, difficulty: q.difficulty, question: q.question, answers: q.answers, correct: q.correct, correction: q.correction }; if (q.media && S.useImages !== false) r.media = q.media; return r; });
+    var norms = root.QcmImages && root.QcmImages.pageNorms ? root.QcmImages.pageNorms(S.pageTexts) : null, courseTitle = S.title.trim() || "Cours";
+    var recs = chosen.map(function (q) { var r = { category: cat, difficulty: q.difficulty, question: q.question, answers: q.answers, correct: q.correct, correction: q.correction }; if (q.src) { var pg = norms ? root.QcmImages.locatePage(q.src, norms) : -1; r.lesson = { s: q.src, c: q.ctx || q.src, p: pg >= 0 ? pg + 1 : 0, t: courseTitle }; } if (q.media && S.useImages !== false) r.media = q.media; return r; });
     var withImg = recs.filter(function (r) { return r.media; }).length;
     var res = window.v35Q.addRecords(recs, { replaceCategory: cat });
     if (!res.added) {
