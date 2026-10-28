@@ -350,11 +350,26 @@ var V40Pdf = (function () {
     /* ----- Lettres et mots les plus écrits (chat + textes des questions) ----- */
     var TX = A.textStats(log, "all", false, 15);
     if (TX.totalLetters) {
+      var TR = A.textReport(log, false);
+      title("Le rapport en quelques phrases", 40);
+      TR.lines.forEach(function (l) { wrap("- " + l, CW, 9, false).forEach(function (ln) { room(13); W.text(M, y, ln, { size: 9, color: C.ink }); y += 12; }); y += 3; });
       var lmax = TX.letters[0].n;
       valueBars("Lettres les plus écrites", TX.letters.slice(0, 26).map(function (x) {
         return { label: x.ch, value: x.n, color: C.accent, text: x.n + " · " + (Math.round(x.share * 1000) / 10).toString().replace(".", ",") + " %" };
       }), C.accent, lmax);
       note("Calculé sur le chat (" + TX.messages + " message" + (TX.messages > 1 ? "s" : "") + ") et le texte des " + TX.questions + " question" + (TX.questions > 1 ? "s" : "") + " posée" + (TX.questions > 1 ? "s" : "") + " ; accents ramenés à la lettre de base. Seuls des comptages sont conservés.");
+      var vowN = TR.vowels, vTot = TX.totalLetters, pc = function (x) { return (Math.round(x * 1000) / 10).toString().replace(".", ",") + " %"; };
+      valueBars("Voyelles et consonnes", [
+        { label: "Voyelles", value: vowN, color: C.accent, text: vowN + " · " + pc(vowN / vTot) },
+        { label: "Consonnes", value: vTot - vowN, color: C.accent, text: (vTot - vowN) + " · " + pc(1 - vowN / vTot) }
+      ], C.accent, Math.max(vowN, vTot - vowN, 1));
+      if (TR.chat.totalLetters && TR.q.totalLetters) {
+        title("Chat ou questions : qui écrit quoi ?", 60);
+        table([{ h: "", w: 2, f: function (r) { return r[0]; } }, { h: "Chat", w: 5, f: function (r) { return r[1]; } }, { h: "Questions", w: 5, f: function (r) { return r[2]; } }], [
+          ["Lettres", TR.chat.letters.slice(0, 4).map(function (x) { return x.ch + " " + pc(x.share); }).join(" · "), TR.q.letters.slice(0, 4).map(function (x) { return x.ch + " " + pc(x.share); }).join(" · ")],
+          ["Mots", TR.chat.words.slice(0, 3).map(function (x) { return x.w + " (" + x.n + ")"; }).join(" · ") || "-", TR.q.words.slice(0, 3).map(function (x) { return x.w + " (" + x.n + ")"; }).join(" · ") || "-"]
+        ], { size: 8.5 });
+      }
       if (TX.words.length) {
         valueBars("Mots les plus écrits", TX.words.map(function (x) { return { label: x.w, value: x.n, color: C.accent, text: x.n + " fois" }; }), C.accent, TX.words[0].n);
         note("Hors mots courants (le, de, est…).");

@@ -22,7 +22,7 @@
   var buf = {};              /* hôte : réponses de la question en cours */
   var seenEv = {};           /* hôte : évènements bonus / malus déjà notés */
   var history = loadHistory();
-  var view = { tab: "overview", src: "live", hidden: new Set(), textSrc: "all", common: false, allLetters: false };
+  var view = { tab: "overview", src: "live", hidden: new Set(), textSrc: "all", common: false, allLetters: true, alpha: false, nWords: 15 };
   var chatAcc = A.newChat();   /* comptages du chat avant le début d'une partie (jamais le texte des messages) */
 
   /* ===================================================================== Historique */
@@ -296,7 +296,7 @@
     refreshTimer = setTimeout(function () { if (isOpen()) render(true); }, 120);
   }
 
-  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
+  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["text", "✍️ Mots & lettres"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
 
   function render(keepScroll) {
     var log = currentLog();
@@ -334,7 +334,7 @@
       else if (!log || !log.R.length) main.appendChild(emptyState(log));
       else {
         if (!liveDone && log === live) main.appendChild(el("p", { "class": "v40s-note", text: "⏳ Partie en cours : les chiffres sont à jour jusqu’à la dernière question terminée (" + log.R.length + (typeof totalRounds === "number" && totalRounds ? "/" + totalRounds : "") + ")." }));
-        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
+        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
         fn(main, log);
       }
     } catch (e) {
@@ -788,13 +788,28 @@
       },
       table: function () { return K.table(["Joueur", "Questions en tête", "Plus longue période"], led.map(function (r) { return [label(rows[r.idx]), r.led + "/" + L.n, r.longest]; }), "Questions passées en tête"); }
     }));
-    buildTextCards(main, log);
   }
 
-  /* ---- Lettres et mots les plus écrits ---- */
-  function buildTextCards(main, log) {
-    var T = A.textStats(log, view.textSrc, view.common, 15);
+  /* ---- Onglet « Mots & lettres » : rapport + lettres + mots les plus écrits ---- */
+  function exportTextReport() {
+    var log = currentLog(); if (!log) return;
+    try {
+      var title = "Rapport : mots et lettres les plus écrits — " + dateLabel(log.at || Date.now());
+      var blob = new Blob(["﻿" + A.textReportTxt(log, view.common, title)], { type: "text/plain;charset=utf-8" });
+      var a = el("a", { href: URL.createObjectURL(blob), download: "qui-suis-je-mots-lettres-" + new Date(log.at || Date.now()).toISOString().slice(0, 10) + ".txt" });
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 4000);
+    } catch (e) { if (window.console) console.error("V40Stats", e); }
+  }
+  function buildTextTab(main, log) {
+    var fr1 = function (x) { return (Math.round(x * 1000) / 10).toString().replace(".", ",") + " %"; };
+    var fn = function (n) { return n.toLocaleString("fr-FR"); };
+    var T = A.textStats(log, view.textSrc, view.common, view.nWords);
+    var RP = A.textReport(log, view.common);
     var SRC = [["all", "Tout"], ["chat", "💬 Chat"], ["q", "❓ Questions"]];
+    var what = view.textSrc === "chat" ? "les messages du chat" : view.textSrc === "q" ? "le texte des questions posées" : "les messages du chat et le texte des questions posées";
+    main.appendChild(el("h3", { "class": "v40s-h", text: "✍️ Mots & lettres : le rapport" }));
+    main.appendChild(el("p", { "class": "v40s-note", text: "Calculé sur " + what + " (" + T.messages + " message" + (T.messages > 1 ? "s" : "") + " de chat, " + T.questions + " question" + (T.questions > 1 ? "s" : "") + "). Seuls des comptages sont conservés : jamais les messages eux-mêmes. Les messages d’une seule lettre sont supprimés et ne comptent pas." }));
     var bar = el("div", { "class": "v40s-textbar", role: "group", "aria-label": "Source des textes analysés" });
     SRC.forEach(function (o) {
       bar.appendChild(el("button", { type: "button", "class": "v40s-btn" + (view.textSrc === o[0] ? " on" : ""), "aria-pressed": String(view.textSrc === o[0]), text: o[1],
@@ -802,33 +817,79 @@
     });
     bar.appendChild(el("button", { type: "button", id: "v40sCommon", "class": "v40s-btn" + (view.common ? " on" : ""), "aria-pressed": String(view.common), title: "Mots comme le, de, est, et…",
       text: view.common ? "Mots courants : affichés" : "Mots courants : masqués", onclick: function () { view.common = !view.common; render(true); } }));
-    var fr1 = function (x) { return (Math.round(x * 1000) / 10).toString().replace(".", ",") + " %"; };
-    var what = view.textSrc === "chat" ? "les messages du chat" : view.textSrc === "q" ? "le texte des questions posées" : "les messages du chat et le texte des questions posées";
-    main.appendChild(el("h3", { "class": "v40s-h", text: "✍️ Ce qui s’écrit le plus" }));
-    main.appendChild(el("p", { "class": "v40s-note", text: "Calculé sur " + what + " (" + T.messages + " message" + (T.messages > 1 ? "s" : "") + " de chat, " + T.questions + " question" + (T.questions > 1 ? "s" : "") + "). Seuls des comptages sont conservés : jamais les messages eux-mêmes." }));
+    bar.appendChild(el("button", { type: "button", id: "v40sTextTxt", "class": "v40s-btn", text: "⬇️ Rapport (.txt)", title: "Télécharger le rapport en texte", onclick: exportTextReport }));
     main.appendChild(bar);
     if (!T.totalLetters) {
       main.appendChild(el("p", { "class": "v40s-note", text: view.textSrc === "chat" ? "Personne n’a écrit dans le chat pendant cette partie : choisis « Tout » ou « Questions »." : "Aucun texte à analyser pour cette partie." }));
       return;
     }
-    var shown = view.allLetters ? T.letters : T.letters.slice(0, 10);
+    /* ---- rapport : chiffres clés + phrases ---- */
+    var top = T.letters[0], topW = T.words[0];
+    main.appendChild(el("div", { "class": "v40s-tiles", "aria-label": "Chiffres clés du texte" }, [
+      tile(fn(T.totalLetters), "lettres écrites", "sur " + what.replace("les messages du chat et le texte des questions posées", "le chat et les questions")),
+      tile(top.ch, "lettre n° 1", fr1(top.share) + " des lettres"),
+      tile(topW ? topW.w : "—", "mot n° 1", topW ? fn(topW.n) + " fois" : "aucun mot"),
+      tile(fn(T.distinctWords), "mots différents", fn(T.totalWords) + " mots comptés"),
+      tile(fr1(T.letters.filter(function (x) { return "AEIOUY".indexOf(x.ch) >= 0; }).reduce(function (a, x) { return a + x.n; }, 0) / T.totalLetters), "voyelles", "consonnes : " + fr1(1 - T.letters.filter(function (x) { return "AEIOUY".indexOf(x.ch) >= 0; }).reduce(function (a, x) { return a + x.n; }, 0) / T.totalLetters))
+    ]));
+    var rep = el("ul", { "class": "v40s-report", "aria-label": "Rapport en phrases" });
+    RP.lines.forEach(function (l) { rep.appendChild(el("li", { text: l })); });
     main.appendChild(K.card({
-      title: "Lettres les plus écrites", desc: "Nombre d’apparitions de chaque lettre (accents ramenés à la lettre de base) — " + T.totalLetters.toLocaleString("fr-FR") + " lettres au total.",
-      draw: function (host) {
-        K.hbars(host, { rows: shown.map(function (x) { return { label: x.ch, value: x.n, text: x.n.toLocaleString("fr-FR") + " · " + fr1(x.share), tip: { title: "Lettre " + x.ch, rows: [{ label: "Apparitions", value: x.n.toLocaleString("fr-FR"), strong: true }, { label: "Part des lettres", value: fr1(x.share) }] } }; }),
-          ariaLabel: "Lettres les plus écrites : " + shown.slice(0, 5).map(function (x) { return x.ch + " " + x.n; }).join(", ") });
-        if (T.letters.length > 10) host.appendChild(el("button", { type: "button", "class": "v40s-btn", text: view.allLetters ? "Afficher seulement les 10 premières" : "Afficher les " + T.letters.length + " lettres",
-          onclick: function () { view.allLetters = !view.allLetters; render(true); } }));
-      },
-      table: function () { return K.table(["Lettre", "Apparitions", "Part"], T.letters.map(function (x) { return [x.ch, x.n, fr1(x.share)]; }), "Fréquence de chaque lettre"); }
+      title: "Le rapport en quelques phrases", desc: "Résumé de toute la partie (chat et questions réunis).",
+      draw: function (host) { host.appendChild(rep); },
+      table: function () { return K.table(["Mesure", "Valeur"], [["Messages de chat", RP.all.messages], ["Questions analysées", RP.all.questions], ["Lettres", RP.all.totalLetters], ["Voyelles", RP.vowels + " (" + fr1(RP.vowelShare) + ")"], ["Consonnes", RP.consonants + " (" + fr1(1 - RP.vowelShare) + ")"], ["Mots différents", RP.all.distinctWords], ["Mots comptés", RP.all.totalWords]], "Rapport mots et lettres"); }
     }));
-    if (T.words.length) main.appendChild(K.card({
-      title: "Mots les plus écrits", desc: "Les " + T.words.length + " mots qui reviennent le plus souvent" + (view.common ? "" : " (hors mots courants)") + " — " + T.distinctWords.toLocaleString("fr-FR") + " mots différents.",
+    /* ---- lettres ---- */
+    var letters = view.alpha ? T.letters.slice().sort(function (a, b) { return a.ch < b.ch ? -1 : 1; }) : T.letters;
+    var shown = view.allLetters ? letters : letters.slice(0, 10);
+    main.appendChild(K.card({
+      title: "Lettres les plus écrites", desc: "Nombre d’apparitions de chaque lettre (accents ramenés à la lettre de base) — " + fn(T.totalLetters) + " lettres au total.",
       draw: function (host) {
-        K.hbars(host, { rows: T.words.map(function (x, i) { return { label: x.w, value: x.n, color: K.C.palette[1] || undefined, text: x.n.toLocaleString("fr-FR") + " fois", tip: { title: x.w, rows: [{ label: "Écrit", value: x.n.toLocaleString("fr-FR") + " fois", strong: true }, { label: "Rang", value: "n° " + (i + 1) }] } }; }),
+        var ctl = el("div", { "class": "v40s-textbar" }, [
+          el("button", { type: "button", id: "v40sAlpha", "class": "v40s-btn" + (view.alpha ? " on" : ""), "aria-pressed": String(view.alpha), text: view.alpha ? "Ordre : A → Z" : "Ordre : du plus au moins écrit", onclick: function () { view.alpha = !view.alpha; render(true); } }),
+          T.letters.length > 10 ? el("button", { type: "button", id: "v40sAllLetters", "class": "v40s-btn", text: view.allLetters ? "Afficher seulement 10 lettres" : "Afficher les " + T.letters.length + " lettres", onclick: function () { view.allLetters = !view.allLetters; render(true); } }) : null
+        ]);
+        host.appendChild(ctl);
+        K.hbars(host, { rows: shown.map(function (x) { return { label: x.ch, value: x.n, text: fn(x.n) + " · " + fr1(x.share), tip: { title: "Lettre " + x.ch, rows: [{ label: "Apparitions", value: fn(x.n), strong: true }, { label: "Part des lettres", value: fr1(x.share) }, { label: "Rang", value: "n° " + (T.letters.indexOf(x) + 1) }] } }; }),
+          ariaLabel: "Lettres les plus écrites : " + T.letters.slice(0, 5).map(function (x) { return x.ch + " " + x.n; }).join(", ") });
+      },
+      table: function () { return K.table(["Rang", "Lettre", "Apparitions", "Part"], T.letters.map(function (x, i) { return [i + 1, x.ch, x.n, fr1(x.share)]; }), "Fréquence de chaque lettre"); }
+    }));
+    /* ---- voyelles / consonnes ---- */
+    var vow = T.letters.filter(function (x) { return "AEIOUY".indexOf(x.ch) >= 0; }), vn = vow.reduce(function (a, x) { return a + x.n; }, 0);
+    main.appendChild(K.card({
+      title: "Voyelles et consonnes", desc: "Part des voyelles (A E I O U Y) parmi toutes les lettres écrites.",
+      draw: function (host) {
+        K.hbars(host, { rows: [
+          { label: "Voyelles", value: vn, color: K.C.palette[0], text: fn(vn) + " · " + fr1(vn / T.totalLetters), tip: { title: "Voyelles", rows: [{ label: "Lettres", value: fn(vn), strong: true }, { label: "Part", value: fr1(vn / T.totalLetters) }] } },
+          { label: "Consonnes", value: T.totalLetters - vn, color: K.C.palette[1] || undefined, text: fn(T.totalLetters - vn) + " · " + fr1(1 - vn / T.totalLetters), tip: { title: "Consonnes", rows: [{ label: "Lettres", value: fn(T.totalLetters - vn), strong: true }, { label: "Part", value: fr1(1 - vn / T.totalLetters) }] } }
+        ], ariaLabel: "Voyelles " + fr1(vn / T.totalLetters) + ", consonnes " + fr1(1 - vn / T.totalLetters) });
+      },
+      table: function () { return K.table(["Type", "Lettres", "Part"], [["Voyelles", vn, fr1(vn / T.totalLetters)], ["Consonnes", T.totalLetters - vn, fr1(1 - vn / T.totalLetters)]], "Voyelles et consonnes"); }
+    }));
+    /* ---- mots ---- */
+    if (T.words.length) main.appendChild(K.card({
+      title: "Mots les plus écrits", desc: "Les " + T.words.length + " mots qui reviennent le plus souvent" + (view.common ? "" : " (hors mots courants)") + " — " + fn(T.distinctWords) + " mots différents.",
+      draw: function (host) {
+        host.appendChild(el("div", { "class": "v40s-textbar" }, [15, 30].map(function (n) {
+          return el("button", { type: "button", "class": "v40s-btn" + (view.nWords === n ? " on" : ""), "aria-pressed": String(view.nWords === n), text: "Top " + n, onclick: function () { view.nWords = n; render(true); } });
+        })));
+        K.hbars(host, { rows: T.words.map(function (x, i) { return { label: x.w, value: x.n, color: K.C.palette[1] || undefined, text: fn(x.n) + " fois", tip: { title: x.w, rows: [{ label: "Écrit", value: fn(x.n) + " fois", strong: true }, { label: "Rang", value: "n° " + (i + 1) }] } }; }),
           ariaLabel: "Mots les plus écrits : " + T.words.slice(0, 5).map(function (x) { return x.w + " " + x.n; }).join(", ") });
       },
       table: function () { return K.table(["Rang", "Mot", "Fois"], T.words.map(function (x, i) { return [i + 1, x.w, x.n]; }), "Mots les plus écrits"); }
+    }));
+    /* ---- chat contre questions ---- */
+    if (RP.chat.totalLetters && RP.q.totalLetters) main.appendChild(K.card({
+      title: "Chat ou questions : qui écrit quoi ?", desc: "Les 5 lettres et les 5 mots les plus écrits dans le chat, puis dans le texte des questions.",
+      draw: function (host) {
+        host.appendChild(K.table(["", "💬 Chat (" + RP.chat.messages + " messages)", "❓ Questions (" + RP.q.questions + ")"], [
+          ["Lettres", RP.chat.letters.slice(0, 5).map(function (x) { return x.ch + " " + fr1(x.share); }).join(" · "), RP.q.letters.slice(0, 5).map(function (x) { return x.ch + " " + fr1(x.share); }).join(" · ")],
+          ["Mots", RP.chat.words.slice(0, 5).map(function (x) { return x.w + " (" + x.n + ")"; }).join(" · ") || "—", RP.q.words.slice(0, 5).map(function (x) { return x.w + " (" + x.n + ")"; }).join(" · ") || "—"],
+          ["Total de lettres", fn(RP.chat.totalLetters), fn(RP.q.totalLetters)]
+        ], "Comparaison chat et questions"));
+      },
+      table: function () { return K.table(["Source", "Lettre n° 1", "Mot n° 1", "Lettres"], [["Chat", RP.chat.letters[0].ch, RP.chat.words[0] ? RP.chat.words[0].w : "—", RP.chat.totalLetters], ["Questions", RP.q.letters[0].ch, RP.q.words[0] ? RP.q.words[0].w : "—", RP.q.totalLetters]], "Comparaison chat et questions"); }
     }));
   }
 

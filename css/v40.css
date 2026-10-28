@@ -163,3 +163,8 @@ html.v40s-lock,html.v40s-lock body{overflow:hidden!important}
 .v40s-h{margin:18px 0 6px;font-size:17px;font-weight:900}
 .v40s-textbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
 .v40s-textbar .v40s-btn.on{background:#f0efec;color:#0d0d0d;border-color:#f0efec}
+
+/* Onglet « Mots & lettres » : rapport en phrases */
+.v40s-report{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.v40s-report li{position:relative;padding:8px 12px 8px 30px;border-radius:10px;background:rgba(255,255,255,.05);font-size:14px;line-height:1.45}
+.v40s-report li::before{content:"✍️";position:absolute;left:8px;top:8px;font-size:14px}
