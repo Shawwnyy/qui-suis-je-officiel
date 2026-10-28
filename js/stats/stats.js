@@ -166,6 +166,24 @@
     refreshOpen();
   }
 
+  /* 🎡 Roue des bonus / malus : un résultat par joueur (hôte). Le malus de la roue touche le joueur lui-même. */
+  function noteWheel(ev) {
+    if (!isHost || !live || !ev || !Array.isArray(ev.results)) return;
+    var key = "w" + String(ev.id == null ? "" : ev.id) + ":" + live.id;
+    if (seenEv[key]) return; seenEv[key] = 1;
+    var added = 0;
+    ev.results.slice(0, 60).forEach(function (r) {
+      if (!r || live.B.length >= A.MAX_POWERS) return;
+      var pi = -1; live.P.forEach(function (P, i) { if (P.i === String(r.id)) pi = i; });
+      if (pi < 0) return;
+      var ch = r.ch === "malus" ? 2 : 1, kind = "w_" + String(r.kind || "x").replace(/[^a-zA-Z0-9]/g, "").slice(0, 12);
+      live.B.push([Math.max(1, live.R.length), pi, ch === 2 ? pi : -1, ch, kind, Math.max(0, Math.round(Number(r.amount) || 0)), r.blocked ? 1 : 0, ""]); added++;
+    });
+    if (!added) return;
+    broadcast({ type: "v40Entry", kind: "powers", id: live.id, B: live.B });
+    refreshOpen();
+  }
+
   /* ===================================================================== Réception (joueurs) */
   function onEntry(d) {
     if (isHost || !d) return;
@@ -261,7 +279,7 @@
     refreshTimer = setTimeout(function () { if (isOpen()) render(true); }, 120);
   }
 
-  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
+  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
 
   function render(keepScroll) {
     var log = currentLog();
@@ -278,10 +296,12 @@
     sel.addEventListener("change", function () { view.src = sel.value; view.hidden = new Set(); render(); });
     var csvBtn = el("button", { type: "button", "class": "v40s-btn", text: "⬇️ CSV", title: "Télécharger toutes les réponses (tableur)", onclick: function () { exportCSV(); } });
     if (!log || !log.R.length) csvBtn.disabled = true;
-    var pdfBtn = el("button", { type: "button", id: "v40sPdf", "class": "v40s-btn", text: "📄 PDF", title: "Télécharger les tableaux et les graphiques en PDF", onclick: function () { exportPDF(); } });
+    var pdfBtn = el("button", { type: "button", id: "v40sPdf", "class": "v40s-btn", text: "📄 PDF clair", title: "Télécharger tous les tableaux et graphiques en PDF, fond blanc (idéal à imprimer)", onclick: function () { exportPDF("light"); } });
     if (!log || !log.R.length) pdfBtn.disabled = true;
+    var pdfDark = el("button", { type: "button", id: "v40sPdfDark", "class": "v40s-btn", text: "🌙 PDF sombre", title: "Télécharger tous les tableaux et graphiques en PDF, fond sombre (idéal à l’écran)", onclick: function () { exportPDF("dark"); } });
+    if (!log || !log.R.length) pdfDark.disabled = true;
     var closeBtn = el("button", { type: "button", id: "v40sClose", "class": "v40s-btn close", "aria-label": "Fermer les statistiques", text: "✕", onclick: close });
-    wrap.appendChild(el("div", { "class": "v40s-top" }, [el("h2", { id: "v40sTitle", text: "📊 Statistiques" }), el("div", { "class": "v40s-actions" }, [sel, pdfBtn, csvBtn, closeBtn])]));
+    wrap.appendChild(el("div", { "class": "v40s-top" }, [el("h2", { id: "v40sTitle", text: "📊 Statistiques" }), el("div", { "class": "v40s-actions" }, [sel, pdfBtn, pdfDark, csvBtn, closeBtn])]));
     /* ---- onglets ---- */
     var tabs = el("div", { "class": "v40s-tabs", role: "tablist" });
     TABS.forEach(function (t) {
@@ -297,7 +317,7 @@
       else if (!log || !log.R.length) main.appendChild(emptyState(log));
       else {
         if (!liveDone && log === live) main.appendChild(el("p", { "class": "v40s-note", text: "⏳ Partie en cours : les chiffres sont à jour jusqu’à la dernière question terminée (" + log.R.length + (typeof totalRounds === "number" && totalRounds ? "/" + totalRounds : "") + ")." }));
-        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
+        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
         fn(main, log);
       }
     } catch (e) {
@@ -316,11 +336,11 @@
       el("p", { text: log ? "Les graphiques apparaissent dès la fin de la première question." : "Joue une partie : les graphiques se remplissent question après question et les 12 dernières parties restent dans l’onglet Historique." })
     ]);
   }
-  function exportPDF() {
+  function exportPDF(theme) {
     var log = currentLog(); if (!log || !log.R.length) return;
     try {
       if (!window.V40Pdf) throw new Error("module PDF absent");
-      window.V40Pdf.download(log);
+      window.V40Pdf.download(log, { theme: theme === "dark" ? "dark" : "light" });
     } catch (e) {
       if (window.console) console.error("V40Stats PDF", e);
       try { if (typeof window.v34Toast === "function") window.v34Toast("Export PDF impossible : " + (e && e.message ? e.message : "erreur")); } catch (e2) {}
@@ -564,10 +584,10 @@
     }
     var pctB = P.malus ? Math.round(P.blocked / P.malus * 100) : 0;
     main.appendChild(el("div", { "class": "v40s-tiles" }, [
-      tile(String(P.total), "Pouvoirs utilisés", log.R.length + " question" + (log.R.length > 1 ? "s" : "")), tile(String(P.bonus), "🎁 Bonus", "pour soi"), tile(String(P.malus), "💥 Malus", "contre un adversaire"),
+      tile(String(P.total - P.wheel.spins), "Pouvoirs utilisés", log.R.length + " question" + (log.R.length > 1 ? "s" : "")), tile(String(P.bonus), "🎁 Bonus", "pour soi"), tile(String(P.malus), "💥 Malus", "contre un adversaire"),
       tile(P.malus ? pctB + " %" : "—", "Malus bloqués", P.blocked + " bloqué" + (P.blocked > 1 ? "s" : "") + (P.reflected ? " dont " + P.reflected + " renvoyé" + (P.reflected > 1 ? "s" : "") : "")),
-      tile(fmt.int(P.points), "Points déplacés", "bonus, vols et pénalités")
-    ]));
+      tile(fmt.int(P.points), "Points déplacés", "bonus, vols, pénalités" + (P.wheel.spins ? " et roue" : ""))
+    ].concat(P.wheel.spins ? [tile(String(P.wheel.spins), "🎡 Tirages de la roue", P.wheel.bonus + " bonus · " + P.wheel.malus + " malus")] : [])));
     function top(key) { var b = null; rows.forEach(function (r) { if (r[key] > 0 && (!b || r[key] > b[key])) b = r; }); return b; }
     var hl = [], g;
     if ((g = top("bonusGiven"))) hl.push(tile(g.bonusGiven + " bonus", "Le plus généreux", g.name));
@@ -587,6 +607,20 @@
         host.appendChild(keyNote([["🎁 Bonus", BON], ["💥 Malus", MAL]]));
       },
       table: function () { return K.table(["Joueur", "Bonus", "Malus", "Total"], launched.map(function (r) { return [label(r), r.bonusGiven, r.malusGiven, r.bonusGiven + r.malusGiven]; }), "Pouvoirs lancés par joueur"); }
+    }));
+
+    var wr = rows.filter(function (r) { return r.wheelBonus + r.wheelMalus > 0; }).sort(function (a, b) { return (b.wheelGain - b.wheelLoss) - (a.wheelGain - a.wheelLoss) || a.idx - b.idx; });
+    if (wr.length) main.appendChild(K.card({
+      title: "🎡 Roue des bonus / malus", desc: "Résultats de la roue pour chaque joueur : bonus, malus touchés, malus annulés par un bouclier. Entre parenthèses : points gagnés moins points perdus grâce à la roue.",
+      draw: function (host) {
+        K.stack(host, { unit: "tirage", ariaLabel: "Résultats de la roue par joueur", rows: wr.map(function (r) {
+          var net = r.wheelGain - r.wheelLoss;
+          return { label: label(r) + " (" + (net > 0 ? "+" : net < 0 ? "−" : "") + fmt.int(Math.abs(net)) + ")", avatar: r.avatar, total: r.wheelBonus + r.wheelMalus,
+            parts: [{ name: "Bonus", glyph: "🎁", value: r.wheelBonus, color: BON }, { name: "Malus touchés", glyph: "💥", value: r.wheelMalus - r.wheelBlocked, color: MAL }, { name: "Malus annulés", glyph: "🛡️", value: r.wheelBlocked, color: BLK }] };
+        }) });
+        host.appendChild(keyNote([["🎁 Bonus", BON], ["💥 Malus touchés", MAL], ["🛡️ Malus annulés", BLK]], "Entre parenthèses : bilan en points de la roue."));
+      },
+      table: function () { return K.table(["Joueur", "Bonus", "Malus touchés", "Malus annulés", "Points gagnés", "Points perdus"], wr.map(function (r) { return [label(r), r.wheelBonus, r.wheelMalus - r.wheelBlocked, r.wheelBlocked, fmt.int(r.wheelGain), fmt.int(r.wheelLoss)]; }), "Roue des bonus et malus"); }
     }));
 
     var targeted = rows.filter(function (r) { return r.malusReceived > 0; }).sort(function (a, b) { return b.malusReceived - a.malusReceived || a.idx - b.idx; });
@@ -677,6 +711,65 @@
           valueText: function (s, i) { return fmt.int(s.values[i]) + (s.key === "b" ? " bonus" : " malus"); } });
       },
       table: function () { var b = []; for (var i = 0; i <= nr; i++) b.push([i === 0 ? "Départ" : i, cb[i], cm[i]]); return K.table(["Question", "Bonus cumulés", "Malus cumulés"], b, "Bonus et malus cumulés"); }
+    }));
+  }
+
+  /* ---------- Analyses avancées : course au classement, forme du moment, qui mène ---------- */
+  function ordinalFr(n) { return n === 1 ? "1er" : n + "e"; }
+  function rankTicks(N) { var t = [], st = Math.max(1, Math.ceil((N - 1) / 7)); for (var v = 1; v <= N; v += st) t.push(v); if (t[t.length - 1] !== N) t.push(N); return t.length > 1 ? t : [1, 2]; }   /* axe 1…N : 1er en haut (valeur = N + 1 − place) */
+  function buildAdvanced(main, log) {
+    var rows = A.perPlayer(log), nr = log.R.length, plotted = rows.filter(function (r) { return r.idx < MAX_PLAYERS_PLOTTED; });
+    var N = Math.max(1, plotted.length);
+    var rk = A.rankSeries(log).filter(function (x) { return x.idx < MAX_PLAYERS_PLOTTED; });
+    var L = A.leadStats(log);
+    var top = L.players.slice().sort(function (a, b) { return b.led - a.led || a.idx - b.idx; })[0];
+    main.appendChild(el("div", { "class": "v40s-tiles v40s-highlights", "aria-label": "Faits marquants des analyses" }, [
+      tile(String(L.changes), "Changements de leader", L.soleRounds ? "sur " + L.soleRounds + " question" + (L.soleRounds > 1 ? "s" : "") + " avec un seul leader" : "aucun leader unique"),
+      tile(top && top.led ? top.led + "/" + L.n : "—", "Le plus souvent en tête", top && top.led ? top.name : ""),
+      tile(top && top.longest ? String(top.longest) : "—", "Plus longue période en tête", top && top.longest ? top.name + " (questions d’affilée)" : "")
+    ]));
+
+    main.appendChild(K.card({
+      title: "Course au classement", desc: "Place de chaque joueur après chaque question (1er en haut). Les ex æquo partagent la même place.",
+      legend: function (redraw) { return playerLegend(rows, redraw); },
+      draw: function (host) {
+        var ser = rk.map(function (s) { return { key: String(s.idx), name: label(rows[s.idx]), color: colorFor(s.idx), values: s.values.map(function (v) { return v === null ? null : N + 1 - Math.min(v, N); }) }; });
+        K.line(host, { n: nr, series: ser, hidden: view.hidden, xTitle: "Questions", endLabels: true, yTicks: rankTicks(N), ariaLabel: "Course au classement de " + ser.map(function (s) { return s.name; }).join(", "),
+          yFmt: function (v) { return v >= 1 && v <= N ? ordinalFr(N + 1 - v) : ""; },
+          header: function (i) { return i === 0 ? { title: "Départ" } : { title: "Après la question " + i }; },
+          valueText: function (s, i) { var v = s.values[i]; return v === null ? "absent" : ordinalFr(N + 1 - v); } });
+      },
+      table: function () {
+        var b = []; for (var i = 0; i <= nr; i++) b.push([i === 0 ? "Départ" : i].concat(rk.map(function (s) { var v = s.values[i]; return v === null ? "–" : ordinalFr(v); })));
+        return K.table(["Question"].concat(rk.map(function (s) { return label(rows[s.idx]); })), b, "Place après chaque question");
+      }
+    }));
+
+    var fm = A.formSeries(log, 3).filter(function (x) { return x.idx < MAX_PLAYERS_PLOTTED; });
+    main.appendChild(K.card({
+      title: "Forme du moment", desc: "Pourcentage de bonnes réponses sur les 3 dernières questions (moyenne glissante) : montre qui monte en puissance et qui décroche.",
+      legend: function (redraw) { return playerLegend(rows, redraw); },
+      draw: function (host) {
+        var ser = fm.map(function (s) { return { key: String(s.idx), name: label(rows[s.idx]), color: colorFor(s.idx), values: s.values }; });
+        K.line(host, { n: nr, series: ser, hidden: view.hidden, xTitle: "Questions", endLabels: true, yMax: 100, ariaLabel: "Forme du moment de " + ser.map(function (s) { return s.name; }).join(", "),
+          yFmt: function (v) { return Math.round(v) + " %"; },
+          header: function (i) { return i === 0 ? { title: "Départ" } : { title: "Questions " + Math.max(1, i - 2) + " à " + i }; },
+          valueText: function (s, i) { var v = s.values[i]; return v === null ? "pas de réponse" : Math.round(v) + " % de réussite"; } });
+      },
+      table: function () {
+        var b = []; for (var i = 1; i <= nr; i++) b.push([i].concat(fm.map(function (s) { var v = s.values[i]; return v === null ? "–" : Math.round(v) + " %"; })));
+        return K.table(["Question"].concat(fm.map(function (s) { return label(rows[s.idx]); })), b, "Forme du moment (3 dernières questions)");
+      }
+    }));
+
+    var led = L.players.slice().sort(function (a, b) { return b.led - a.led || a.idx - b.idx; });
+    main.appendChild(K.card({
+      title: "Qui a mené la partie ?", desc: "Nombre de questions après lesquelles chaque joueur était en tête (les ex æquo comptent pour chacun) et sa plus longue période en tête.",
+      draw: function (host) {
+        K.hbars(host, { rows: led.map(function (r) { return { label: label(rows[r.idx]), value: r.led, color: colorFor(r.idx), text: r.led + "/" + L.n + (r.longest > 1 ? " · " + r.longest + " d’affilée" : ""),
+          tip: { title: label(rows[r.idx]), rows: [{ label: "Questions en tête", value: r.led + " sur " + L.n, strong: true }, { label: "Plus longue période", value: r.longest + " d’affilée" }] } }; }), max: Math.max(1, L.n), ariaLabel: "Questions passées en tête par joueur" });
+      },
+      table: function () { return K.table(["Joueur", "Questions en tête", "Plus longue période"], led.map(function (r) { return [label(rows[r.idx]), r.led + "/" + L.n, r.longest]; }), "Questions passées en tête"); }
     }));
   }
 
@@ -784,5 +877,5 @@
   var resizeTimer = 0;
   window.addEventListener("resize", function () { clearTimeout(resizeTimer); resizeTimer = setTimeout(function () { if (isOpen()) render(true); }, 160); });
 
-  window.V40Stats = { noteCheat: noteCheat, open: open, close: close, isOpen: isOpen, getLive: function () { return live; }, getHistory: function () { return history.slice(); }, exportPDF: exportPDF, _view: view };
+  window.V40Stats = { noteCheat: noteCheat, noteWheel: noteWheel, open: open, close: close, isOpen: isOpen, getLive: function () { return live; }, getHistory: function () { return history.slice(); }, exportPDF: exportPDF, _view: view };
 })();

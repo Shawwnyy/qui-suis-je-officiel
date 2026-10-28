@@ -1,7 +1,10 @@
 /* =============================================================================
    V45 — Roue des bonus et malus
 
-   À certains moments de la partie (après la 3e, la 6e, la 9e… manche, jamais après la dernière), une roue tourne entre deux questions.
+   À certains moments de la partie, une roue tourne entre deux questions. Réglage de l'hôte (salon d'attente, gardé dans son navigateur) :
+   • « Moments fixes » : après la 3e, la 6e, la 9e… manche (jamais après la dernière) ;
+   • « Moments aléatoires » : 1 à plusieurs roues à des moments tirés au sort au début de la partie, non annoncés (jamais avant la 2e manche ni après la dernière, jamais deux de suite) ;
+   • « Désactivée ».
    • Tous les joueurs tirent leur propre case en même temps : l'hôte tire au sort pour chacun (8 cases, toutes équiprobables) puis diffuse le résultat.
    • Chaque joueur voit la roue s'arrêter sur SA case, puis la liste des résultats de tous.
    • Les effets sont appliqués par l'hôte uniquement (score, ×2, bouclier, série) ; un bouclier déjà obtenu annule un malus.
@@ -23,6 +26,19 @@ var V45Wheel = (function () {
   ];
   var AMOUNT = { xp: { bonus: 300, malus: 200 }, jackpot: { bonus: 1000 }, crush: { malus: 500 } };
 
+  /* Moments aléatoires : manches terminées après lesquelles la roue tourne (2 au plus tôt, avant-dernière au plus tard, jamais deux de suite). */
+  function planMoments(total, rnd) {
+    rnd = rnd || rng;
+    if (!Number.isInteger(total) || total < 4) return [];
+    var span = Math.min(total, 60);                           /* marathon : les roues tombent dans les 60 premières manches */
+    var k = Math.max(1, Math.min(6, Math.floor(span / 4) + (rnd() < 0.5 ? 0 : 1)));
+    var cand = []; for (var d = 2; d <= span - 1; d++) cand.push(d);
+    for (var i = cand.length - 1; i > 0; i--) { var j = Math.min(i, Math.floor(rnd() * (i + 1))), t = cand[i]; cand[i] = cand[j]; cand[j] = t; }
+    var picked = [];
+    cand.forEach(function (x) { if (picked.length < k && picked.every(function (p) { return Math.abs(p - x) >= 2; })) picked.push(x); });
+    return picked.sort(function (a, b) { return a - b; });
+  }
+  var MODES = { fixed: "Moments fixes (après la 3e, la 6e, la 9e… manche)", random: "Moments aléatoires (non annoncés)", off: "Désactivée" };
   /* Faut-il lancer la roue avant la question suivante ? « done » = manches terminées. */
   function due(done, total) { return Number.isInteger(done) && Number.isInteger(total) && done >= 3 && done % 3 === 0 && done < total; }
   function rng() {
@@ -74,7 +90,16 @@ var V45Wheel = (function () {
     return res.length ? { id: Math.round(num(d.id)), results: res } : null;
   }
 
-  var api = { SEGMENTS: SEGMENTS, TOTAL_MS: TOTAL_MS, due: due, pick: pick, apply: apply, plan: plan, clean: clean };
+  function cleanMode(m) { return m === "random" || m === "off" ? m : "fixed"; }
+  /* Selon le mode (« fixed » | « random » | « off »), la roue tourne-t-elle avant la question suivante ? moments = résultat de planMoments (mode aléatoire). */
+  function dueMode(mode, done, total, moments) {
+    mode = cleanMode(mode);
+    if (mode === "off") return false;
+    if (mode === "random") return Number.isInteger(done) && Array.isArray(moments) && moments.indexOf(done) >= 0 && done < total;
+    return due(done, total);
+  }
+
+  var api = { SEGMENTS: SEGMENTS, TOTAL_MS: TOTAL_MS, due: due, pick: pick, apply: apply, plan: plan, clean: clean, planMoments: planMoments, dueMode: dueMode, cleanMode: cleanMode, MODES: MODES };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window === "undefined" || typeof document === "undefined") return api;
   window.V45Wheel = api;
@@ -130,7 +155,13 @@ var V45Wheel = (function () {
   }
 
   /* ---------- Hôte : lancer la roue avant la question suivante ---------- */
-  var pending = false, lastSpin = -1, token = 0, seq = 0;
+  var MODE_KEY = "quizV45WheelMode", pending = false, lastSpin = -1, token = 0, seq = 0, moments = null, modeNow = "fixed", planned = false;
+  function loadMode() { try { return cleanMode(localStorage.getItem(MODE_KEY)); } catch (e) { return "fixed"; } }
+  api.getMode = loadMode;
+  api.setMode = function (m) { m = cleanMode(m); try { localStorage.setItem(MODE_KEY, m); } catch (e) {} return m; };
+  api.moments = function () { return moments ? moments.slice() : null; };
+  /* Réglage figé une fois par partie. La toute première question ne passe pas toujours par ce point avec first = true : on planifie donc aussi au premier appel suivant. */
+  function planGame() { modeNow = loadMode(); moments = modeNow === "random" ? planMoments(totalRounds) : null; lastSpin = -1; planned = true; }
   function run() {
     var skip = (typeof excludedOnHost === "object" && excludedOnHost) || null;
     var results = plan(players, skip);
@@ -138,15 +169,18 @@ var V45Wheel = (function () {
     var ev = { type: "v45Wheel", id: ++seq, round: currentQuestionIndex, results: results };
     try { broadcastPlayers(); } catch (e) {}
     try { broadcast(ev); } catch (e) {}
+    try { if (window.V40Stats && typeof window.V40Stats.noteWheel === "function") window.V40Stats.noteWheel(ev); } catch (e) {}
     show(ev); return true;
   }
   if (typeof sendNextQuestion === "function") {
     var baseNext = sendNextQuestion;
     sendNextQuestion = function (first) {
+      if (isHost && first) planGame();                      /* réglage figé au début de la partie */
       if (!isHost || !gameStarted || first) return baseNext.apply(this, arguments);
-      if (currentQuestionIndex < 3) lastSpin = -1;
+      if (!planned) planGame();
+      if (currentQuestionIndex < 2) lastSpin = -1;
       if (pending) return;                                   /* un appel en double pendant la roue : le bon appel part à la fin de la roue */
-      if (due(currentQuestionIndex, totalRounds) && lastSpin !== currentQuestionIndex) {
+      if (dueMode(modeNow, currentQuestionIndex, totalRounds, moments) && lastSpin !== currentQuestionIndex) {
         var self = this, args = arguments, my = ++token, ok = false;
         lastSpin = currentQuestionIndex;
         try { ok = run(); } catch (e) { if (window.console) console.error("V45Wheel", e); }
@@ -159,7 +193,22 @@ var V45Wheel = (function () {
       return baseNext.apply(this, arguments);
     };
   }
-  function cancel() { token++; pending = false; hide(); }
+  function cancel() { token++; pending = false; moments = null; planned = false; hide(); }
+
+  /* ---------- Réglage dans le salon d'attente (hôte) ---------- */
+  function mountMode() {
+    var grid = document.querySelector("#hostSettings .settings-grid"); if (!grid || $("v45WheelMode")) return;
+    var box = document.createElement("div"), title = document.createElement("div"), sel = document.createElement("select"), hint = document.createElement("div");
+    title.className = "setting-title"; title.textContent = "🎡 Roue des bonus / malus";
+    sel.className = "select"; sel.id = "v45WheelMode"; sel.setAttribute("aria-label", "Roue des bonus et malus");
+    Object.keys(MODES).forEach(function (k) { var o = document.createElement("option"); o.value = k; o.textContent = MODES[k]; sel.appendChild(o); });
+    sel.value = loadMode();
+    hint.className = "v45-hint"; hint.id = "v45WheelHint";
+    var say = function () { hint.textContent = sel.value === "random" ? "Les roues tombent à des moments tirés au sort au début de la partie, sans prévenir." : sel.value === "off" ? "Aucune roue pendant la partie." : "Une roue après la 3e, la 6e, la 9e… manche."; };
+    sel.addEventListener("change", function () { api.setMode(sel.value); say(); });
+    say(); box.appendChild(title); box.appendChild(sel); box.appendChild(hint); grid.appendChild(box);
+  }
+  mountMode(); document.addEventListener("DOMContentLoaded", mountMode);
   if (typeof finishGame === "function") { var baseFinish = finishGame; finishGame = function () { cancel(); return baseFinish.apply(this, arguments); }; }
   if (typeof resetConnection === "function") { var baseReset = resetConnection; resetConnection = function () { cancel(); return baseReset.apply(this, arguments); }; }
 

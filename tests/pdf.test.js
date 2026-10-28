@@ -72,7 +72,52 @@ t("journal absent → erreur claire", threw);
 const empty = A.normalize({ id: "e", P: [{ n: "Seul" }], R: [] });
 t("partie sans question → PDF valide", P.build(empty).length > 500);
 
+/* --- thèmes clair / sombre et graphiques ajoutés --- */
+const rich = A.normalize({
+  id: "r", at: 1761640000000, qt: 20, mode: "classic",
+  P: [{ i: "a", n: "Léa", a: "🦊", h: 1 }, { i: "b", n: "Tom", a: "🐻" }, { i: "c", n: "Max", a: "🐸" }, { i: "d", n: "Inès", a: "🐼" }],
+  R: [
+    { q: "Q1 ?", c: "🌍 Géographie", d: "facile", m: 0, r: [[1, 3, 900], [1, 5, 700], [2, 9, 0], [1, 4, 800]] },
+    { q: "Q2 ?", c: "🎨 Arts", d: "moyen", m: 1, r: [[1, 2, 1900], [2, 6, 0], [3, 0, 0], [1, 3, 900]] },
+    { q: "Q3 ?", c: "🧪 Sciences", d: "difficile", m: 0, r: [[2, 7, 0], [1, 4, 600], [1, 5, 500], [2, 8, 0]] },
+    { q: "Q4 ?", c: "🌍 Géographie", d: "facile", m: 0, r: [[1, 1.5, 2600], [1, 2, 1500], [2, 6, 0], [1, 3, 700]] }
+  ],
+  C: [],
+  B: [[2, 0, -1, 1, "xp", 100, 0], [2, 1, 0, 2, "crush", 80, 0], [3, 2, 3, 2, "steal", 60, 0], [3, 1, 1, 1, "w_xp", 300, 0], [3, 2, 2, 2, "w_crush", 500, 0], [4, 3, 3, 2, "w_tax", 200, 1], [4, 0, 0, 1, "w_jackpot", 1000, 0]]
+});
+const bl = P.build(rich), bd = P.build(rich, { theme: "dark" }), bx = P.build(rich, { theme: "n'importe quoi" });
+const sl = Buffer.from(bl).toString("latin1"), sd = Buffer.from(bd).toString("latin1");
+t("thème par défaut = clair (identique à { theme: 'light' })", Buffer.from(P.build(rich, { theme: "light" })).toString("latin1") === sl);
+t("thème inconnu → clair", Buffer.from(bx).toString("latin1") === sl);
+t("clair : pas de fond de page sombre", !sl.includes("rg 0 0 595.28 841.89 re f"));
+t("sombre : fond de page peint sur chaque page", (sd.match(/0\.1 0\.1 0\.1 rg 0 0 595\.28 841\.89 re f/g) || []).length === +/\/Count (\d+)/.exec(sd)[1]);
+t("sombre : structure PDF valide (xref, EOF)", (() => { const x = /startxref\n(\d+)\n/.exec(sd); return !!x && sd.substr(+x[1], 4) === "xref" && sd.trimEnd().endsWith("%%EOF"); })());
+t("sombre : ni NaN ni undefined", !/NaN|undefined|Infinity/.test(sd) && !/NaN|undefined|Infinity/.test(sl));
+t("sombre : texte principal clair (0.94 0.94 0.93)", sd.includes("0.94 0.94 0.93 rg"));
+t("sombre et clair ont le même nombre de pages", +/\/Count (\d+)/.exec(sd)[1] === +/\/Count (\d+)/.exec(sl)[1]);
+["Course au classement", "Forme du moment", "Qui a mené la partie", "Bonnes et mauvaises réponses par joueur", "Réponse correcte la plus rapide", "Plus gros gain en une question", "Réussite question par question",
+ "Roue des bonus", "Malus reçus et boucliers", "Points gagnés et perdus", "Bilan net des pouvoirs", "Types de pouvoirs utilisés", "Qui vise qui", "Bonus et malus cumulés"].forEach(function (name) {
+  const enc = name.normalize("NFC").replace(/é/g, "\\351").replace(/è/g, "\\350").replace(/ê/g, "\\352").replace(/ç/g, "\\347");
+  t("PDF clair : « " + name + " »", sl.includes(enc)); t("PDF sombre : « " + name + " »", sd.includes(enc));
+});
+t("partie sans pouvoir → pas de roue / matrice", !/Roue des bonus|Qui vise qui/.test(Buffer.from(P.build(A.normalize(Object.assign({}, raw, { B: [] })), { theme: "dark" })).toString("latin1")));
+t("le détail de la roue figure dans le tableau (colonne Roue)", sl.includes("(Roue)"));
+const one = A.normalize({ id: "u", P: [{ n: "Seul" }], R: [{ q: "Q", c: "x", d: "facile", m: 0, r: [[1, 2, 500]] }] });
+t("un seul joueur, une question : clair et sombre valides", P.build(one).length > 500 && P.build(one, { theme: "dark" }).length > 500);
+const bigd = Buffer.from(P.build(nb, { theme: "dark" })).toString("latin1");
+t("gros journal sombre : valide, sans NaN", bigd.startsWith("%PDF-1.4") && !/NaN|undefined|Infinity/.test(bigd));
+/* tous les sous-titres de graphique de la page de stats ont leur équivalent dans le PDF (mêmes mots) */
+const statsSrc = fs.readFileSync(path.join(__dirname, "../js/stats/stats.js"), "utf8");
+const cardTitles = [...statsSrc.matchAll(/K\.card\(\{\s*title: "([^"]+)"/g)].map(m => m[1].replace(/^[^\wÀ-ÿ]+/u, "").trim());
+const pdfSrc = fs.readFileSync(path.join(__dirname, "../js/stats/pdf.js"), "utf8");
+const IGNORED = { "Réussite des dernières parties": "historique multi-parties, absent du journal d'une partie" };
+const ALIAS = { "Infractions par joueur": "Infractions détectées", "Chronologie": "Infractions détectées" };
+cardTitles.filter(x => !(x in IGNORED)).forEach(function (title) {
+  const key = (ALIAS[title] || title).split(" ").slice(0, 3).join(" ").replace(/[’']/g, "'");
+  t("graphique d'écran « " + title + " » a un équivalent PDF", pdfSrc.includes(key) || pdfSrc.toLowerCase().includes(key.toLowerCase()));
+});
+
 const wi = process.argv.indexOf("--write");
-if (wi > 0) { const d = process.argv[wi + 1]; fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, "stats-petit.pdf"), bytes); fs.writeFileSync(path.join(d, "stats-gros.pdf"), bb); }
+if (wi > 0) { const d = process.argv[wi + 1]; fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, "stats-petit.pdf"), bytes); fs.writeFileSync(path.join(d, "stats-gros.pdf"), bb); fs.writeFileSync(path.join(d, "stats-riche-clair.pdf"), bl); fs.writeFileSync(path.join(d, "stats-riche-sombre.pdf"), bd); }
 console.log(ko ? ko + " échec(s) sur " + (ok + ko) : "pdf.test.js : " + ok + " vérifications OK");
 process.exit(ko ? 1 : 0);

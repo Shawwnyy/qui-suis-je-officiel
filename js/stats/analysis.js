@@ -60,9 +60,9 @@ var V40Analysis = (function () {
       if (!Array.isArray(b)) return;
       var gi = Math.round(Number(b[1])), ti = b[2] === null || b[2] === undefined ? -1 : Math.round(Number(b[2])), ch = Math.round(Number(b[3]));
       if (!(gi >= 0 && gi < np) || !(ch === 1 || ch === 2)) return;
-      if (!(ti >= 0 && ti < np) || ti === gi) ti = -1;
       var kind = str(b[4], 16).replace(/[^a-zA-Z0-9_\-]/g, "").slice(0, 16);
       if (!kind) return;
+      if (!(ti >= 0 && ti < np) || (ti === gi && !/^w_/.test(kind))) ti = -1;          /* roue : le malus touche le joueur lui-même (cible = joueur) */
       log.B.push([int(b[0], 1, MAX_ROUNDS, 1), gi, ch === 2 ? ti : -1, ch, kind, int(b[5], 0, SCORE_LIMIT, 0), int(b[6], 0, 3, 0), str(b[7], 30)]);
     });
     return log;
@@ -127,6 +127,49 @@ var V40Analysis = (function () {
       log.R.forEach(function (R) { var e = R.r[idx]; values.push(e && e[0] !== 0 ? e[2] : null); });
       return { idx: idx, name: p.n, avatar: p.a, values: values };
     });
+  }
+
+
+  /* ---------- Analyses avancées ---------- */
+  /* Classement après chaque question (1 = en tête ; ex æquo : même rang, le suivant saute). values[0] = départ (tous 1er). null = joueur absent. */
+  function rankSeries(log) {
+    var sc = scoreSeries(log), n = log.R.length;
+    return sc.map(function (s) {
+      var values = [];
+      for (var q = 0; q <= n; q++) {
+        var v = s.values[q]; if (v === null || v === undefined) { values.push(null); continue; }
+        var better = 0; sc.forEach(function (o) { var w = o.values[q]; if (w !== null && w !== undefined && w > v) better++; });
+        values.push(better + 1);
+      }
+      return { idx: s.idx, name: s.name, avatar: s.avatar, values: values };
+    });
+  }
+  /* Forme du moment : % de bonnes réponses sur les w dernières questions auxquelles le joueur était présent (null s'il n'en avait aucune). */
+  function formSeries(log, w) {
+    w = Math.max(1, Math.min(10, Math.round(Number(w) || 3)));
+    return log.P.map(function (p, idx) {
+      var values = [null];
+      for (var q = 1; q <= log.R.length; q++) {
+        var good = 0, tot = 0;
+        for (var k = Math.max(0, q - w); k < q; k++) { var e = log.R[k].r[idx]; if (e && e[0] !== 0) { tot++; if (e[0] === 1) good++; } }
+        values.push(tot ? Math.round(good / tot * 1000) / 10 : null);
+      }
+      return { idx: idx, name: p.n, avatar: p.a, values: values };
+    });
+  }
+  /* Qui mène ? Manches passées en tête (ex æquo compté pour chacun), plus longue période en tête, nombre de changements de leader (leader unique). */
+  function leadStats(log) {
+    var sc = scoreSeries(log), n = log.R.length, np = log.P.length;
+    var rows = log.P.map(function (p, idx) { return { idx: idx, name: p.n, avatar: p.a, led: 0, longest: 0, run: 0 }; });
+    var changes = 0, soleRounds = 0, prevSole = -1;
+    for (var q = 1; q <= n; q++) {
+      var best = null, leaders = [];
+      for (var i = 0; i < np; i++) { var v = sc[i].values[q]; if (v === null || v === undefined) continue; if (best === null || v > best) { best = v; leaders = [i]; } else if (v === best) leaders.push(i); }
+      rows.forEach(function (r) { if (leaders.indexOf(r.idx) >= 0) { r.led++; r.run++; if (r.run > r.longest) r.longest = r.run; } else r.run = 0; });
+      if (leaders.length === 1) { soleRounds++; if (prevSole >= 0 && prevSole !== leaders[0]) changes++; prevSole = leaders[0]; }
+    }
+    rows.forEach(function (r) { delete r.run; });
+    return { players: rows, changes: changes, soleRounds: soleRounds, n: n };
   }
 
   /* ---------- Réussite par thème / difficulté / présence d'un média ---------- */
@@ -225,21 +268,33 @@ var V40Analysis = (function () {
 
   /* ---------- Bonus et malus (pouvoirs gagnés en enchaînant les bonnes réponses) ---------- */
   var POWER_NAMES = { "1:xp": "Points bonus", "1:shield": "Bouclier", "1:double": "Points ×2", "1:jackpot": "Jackpot", "1:triple": "Points ×3",
-    "2:xp": "Pénalité", "2:freeze": "Gel du combo", "2:steal": "Vol de points", "2:crush": "Impact", "2:halve": "Moitié du score" };
+    "2:xp": "Pénalité", "2:freeze": "Gel du combo", "2:steal": "Vol de points", "2:crush": "Impact", "2:halve": "Moitié du score",
+    "1:w_xp": "Roue : +300", "1:w_jackpot": "Roue : jackpot +1000", "1:w_double": "Roue : points ×2", "1:w_shield": "Roue : bouclier",
+    "2:w_xp": "Roue : −200", "2:w_crush": "Roue : −500", "2:w_tax": "Roue : impôt −15 %", "2:w_freeze": "Roue : série brisée" };
   function powerName(b) { return POWER_NAMES[b[3] + ":" + b[4]] || b[7] || b[4]; }
   /* « Gagnés » : points bonus, jackpot, points volés. « Perdus » : points retirés par un malus non bloqué. Les pouvoirs
      spéciaux (sans montant) comptent dans les effectifs mais pas dans les points. */
   function powers(log) {
     var np = log.P.length, nr = log.R.length, B = log.B || [];
-    var pl = log.P.map(function (p, i) { return { idx: i, name: p.n, avatar: p.a, bonusGiven: 0, malusGiven: 0, malusReceived: 0, shieldSaves: 0, blockedOnMe: 0, reflected: 0, gained: 0, lost: 0, dealt: 0, net: 0 }; });
+    var pl = log.P.map(function (p, i) { return { idx: i, name: p.n, avatar: p.a, bonusGiven: 0, malusGiven: 0, malusReceived: 0, shieldSaves: 0, blockedOnMe: 0, reflected: 0, gained: 0, lost: 0, dealt: 0, net: 0, wheelBonus: 0, wheelMalus: 0, wheelBlocked: 0, wheelGain: 0, wheelLoss: 0 }; });
     var kinds = {}, matrix = pl.map(function () { return pl.map(function () { return 0; }); });
     var perRound = []; for (var r = 0; r < Math.max(nr, 1); r++) perRound.push({ bonus: 0, malus: 0, points: 0 });
     var delta = pl.map(function () { var a = []; for (var q = 0; q <= Math.max(nr, 1); q++) a.push(0); return a; });
-    var out = { total: B.length, bonus: 0, malus: 0, blocked: 0, reflected: 0, points: 0, players: pl, kinds: [], matrix: matrix, perRound: perRound, netSeries: [] };
+    var out = { total: B.length, bonus: 0, malus: 0, blocked: 0, reflected: 0, points: 0, players: pl, kinds: [], matrix: matrix, perRound: perRound, netSeries: [], wheel: { spins: 0, bonus: 0, malus: 0, blocked: 0, gained: 0, lost: 0 } };
     B.forEach(function (b) {
       var round = Math.min(b[0], Math.max(nr, 1)), g = pl[b[1]], t = b[2] >= 0 ? pl[b[2]] : null, blocked = !!(b[6] & 1), refl = !!(b[6] & 2), amt = b[5];
       var key = b[3] + ":" + b[4], k = kinds[key] || (kinds[key] = { key: key, label: powerName(b), choice: b[3], count: 0, points: 0, blocked: 0 });
       k.count++;
+      if (/^w_/.test(b[4])) {                                  /* 🎡 roue : comptée à part (ni « lancé » ni « visé »), mais incluse dans les points et le bilan net */
+        var rr = perRound[round - 1]; out.wheel.spins++;
+        if (b[3] === 1) { out.wheel.bonus++; g.wheelBonus++; rr.bonus++; if (amt > 0) { g.gained += amt; g.wheelGain += amt; k.points += amt; out.points += amt; rr.points += amt; delta[g.idx][round] += amt; out.wheel.gained += amt; } }
+        else {
+          out.wheel.malus++; g.wheelMalus++; rr.malus++;
+          if (blocked) { k.blocked++; out.wheel.blocked++; g.wheelBlocked++; }
+          else if (amt > 0) { g.lost += amt; g.wheelLoss += amt; k.points += amt; out.points += amt; rr.points += amt; delta[g.idx][round] -= amt; out.wheel.lost += amt; }
+        }
+        return;
+      }
       if (b[3] === 1) { g.bonusGiven++; out.bonus++; perRound[round - 1].bonus++; if (amt > 0) { g.gained += amt; k.points += amt; out.points += amt; perRound[round - 1].points += amt; delta[g.idx][round] += amt; } return; }
       g.malusGiven++; out.malus++; perRound[round - 1].malus++;
       if (t) { t.malusReceived++; matrix[g.idx][t.idx]++; }
@@ -259,7 +314,7 @@ var V40Analysis = (function () {
     return out;
   }
 
-  return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, byCategory: byCategory,
+  return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
     byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell };
 })();

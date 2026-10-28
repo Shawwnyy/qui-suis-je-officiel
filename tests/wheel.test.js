@@ -56,5 +56,24 @@ ok(c.results[2].seg === 0 && c.results[2].amount === 0, "valeurs négatives rame
 ok(W.clean(null) === null && W.clean({}) === null && W.clean({ results: [] }) === null && W.clean({ results: "x" }) === null, "messages vides refusés");
 ok(Array.from({ length: 500 }, (_, i) => ({ id: i })).length === 500 && W.clean({ results: Array.from({ length: 500 }, (_, i) => ({ id: i })) }).results.length === 60, "60 résultats au plus");
 
+
+/* Moments aléatoires : bornes, espacement, imprévisibilité, déterminisme avec un tirage donné */
+let badPlan = 0, cover = {};
+for (let total = 0; total <= 120; total++) for (let rep = 0; rep < 40; rep++) {
+  const m = W.planMoments(total), span = Math.min(total, 60);
+  if (total < 4) { if (m.length) badPlan++; continue; }
+  const sorted = m.every((x, i) => i === 0 || x > m[i - 1]), inRange = m.every(x => Number.isInteger(x) && x >= 2 && x <= span - 1), spaced = m.every((x, i) => i === 0 || x - m[i - 1] >= 2);
+  if (!m.length || m.length > 6 || !sorted || !inRange || !spaced) { badPlan++; if (badPlan < 4) console.log("plan invalide", total, m); }
+  if (total === 10) m.forEach(x => cover[x] = (cover[x] || 0) + 1);
+}
+ok(badPlan === 0, "planMoments : toujours 1 à 6 moments triés, entre la 2e manche et l'avant-dernière, jamais deux de suite (" + badPlan + " écart)");
+ok([2, 3, 4, 5, 6, 7, 8, 9].every(x => cover[x] > 0), "10 manches : chaque moment possible peut sortir (imprévisible) " + JSON.stringify(cover));
+ok(W.planMoments(3).length === 0 && W.planMoments(NaN).length === 0 && W.planMoments(undefined).length === 0 && W.planMoments(10.5).length === 0, "moins de 4 manches ou valeur invalide : aucune roue");
+ok(JSON.stringify(W.planMoments(10, () => 0)) === JSON.stringify(W.planMoments(10, () => 0)) && JSON.stringify(W.planMoments(10, () => 0.999)).length > 2, "tirage donné : résultat reproductible");
+ok(W.planMoments(999, () => 0.3).every(x => x <= 59), "marathon : les roues tombent dans les 60 premières manches");
+ok(W.dueMode("off", 3, 10, null) === false && W.dueMode("fixed", 3, 10, null) === true && W.dueMode("fixed", 4, 10, null) === false, "mode désactivé / fixe");
+ok(W.dueMode("random", 4, 10, [4, 7]) === true && W.dueMode("random", 5, 10, [4, 7]) === false && W.dueMode("random", 3, 10, null) === false && W.dueMode("random", 10, 10, [10]) === false, "mode aléatoire : seulement aux moments tirés, jamais après la dernière");
+ok(W.dueMode("nimportequoi", 3, 10, null) === true && W.cleanMode("<script>") === "fixed" && W.cleanMode("random") === "random" && W.cleanMode(null) === "fixed", "mode inconnu : retour au mode fixe");
+
 console.log("Roue : " + (n - bad) + " OK, " + bad + " échec(s)");
 process.exit(bad ? 1 : 0);
