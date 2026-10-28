@@ -254,6 +254,10 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   const pdfTxt = Buffer.from(pdfBlob.parts[0]).toString("latin1");
   ok(pdfBlob.type === "application/pdf" && pdfTxt.startsWith("%PDF-1.4") && /Transcription du chat vocal/.test(pdfTxt) && /Salle 123456/.test(pdfTxt), "le PDF produit est un vrai PDF de la salle");
   ok(/bonjour tout le monde/.test(pdfTxt.replace(/\\/g, "")), "le PDF contient la transcription");
+  click("trodt");
+  const odtBlob = w.blobs[w.blobs.length - 1], odtBytes = Buffer.from(odtBlob.parts[0]);
+  ok(w.downloads.length === 3 && /^transcription-vocal-123456\.odt$/.test(w.downloads[2].name), "bouton ODT : un fichier .odt est proposé");
+  ok(odtBlob.type === "application/vnd.oasis.opendocument.text" && odtBytes.slice(0, 2).toString() === "PK" && odtBytes.slice(30, 38).toString() === "mimetype" && /bonjour tout le monde/.test(odtBytes.toString("utf8")), "le fichier ODT est une archive OpenDocument contenant la transcription");
   /* langue */
   click("trtoggle"); const nSr = w.sr.length;
   panel.dispatch("change", { target: { id: "vcTrLang", value: "en-US" } });
@@ -275,7 +279,7 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   click("testmic"); await flush();
   ok(/écoute seule/.test(w.byId.vcTestMsg.textContent) && w.byId.vcMeter.hidden === true, "tester en écoute seule : message explicatif, pas de barre");
   ok(/Rien pour l'instant/.test(w.byId.vcTrLog.innerHTML), "un nouvel appel repart d'une transcription vide");
-  const nDl = w.downloads.length; click("trpdf");
+  const nDl = w.downloads.length; click("trpdf"); click("trodt");
   ok(w.downloads.length === nDl && /Rien à exporter/.test(w.byId.vcTrMsg.textContent) && w.byId.vcTrStats.hidden === true, "PDF sans rien dire : message clair, aucun fichier, pas de graphique vide");
   const nSr2 = w.sr.length; click("trtoggle");
   ok(w.sr.length === nSr2 && /écoute seule/.test(w.byId.vcTrMsg.textContent) && /Transcrire/.test(w.byId.vcTrBtn.textContent), "en écoute seule : pas de transcription de sa voix (message clair)");

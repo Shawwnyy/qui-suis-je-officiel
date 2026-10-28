@@ -76,5 +76,67 @@ checkPdf(T.makePdf({ room: "1", lines: mk(3), talk: [null, { name: "x", ms: "abc
 /* aucune erreur quand un seul participant, ou aucun mot « intéressant » */
 checkPdf(T.makePdf({ room: "1", lines: [{ id: "a", name: "Seul", text: "le la les un", at: 0, ts: base }] }), "PDF sans mot intéressant");
 
+/* ---- ODT : archive ZIP + XML valides ---- */
+const zlib = require("zlib");
+function readZip(bytes) {
+  const b = Buffer.from(bytes), files = [];
+  const eocd = b.length - 22;
+  ok(b.readUInt32LE(eocd) === 0x06054b50, "ODT : fin d'archive (EOCD) en place");
+  const n = b.readUInt16LE(eocd + 10), cdSize = b.readUInt32LE(eocd + 12), cdOff = b.readUInt32LE(eocd + 16);
+  ok(cdOff + cdSize === eocd, "ODT : répertoire central juste avant la fin d'archive");
+  let p = cdOff;
+  for (let i = 0; i < n; i++) {
+    ok(b.readUInt32LE(p) === 0x02014b50, "ODT : entrée " + i + " du répertoire central");
+    const crc = b.readUInt32LE(p + 16), size = b.readUInt32LE(p + 24), nl = b.readUInt16LE(p + 28), el = b.readUInt16LE(p + 30), cl = b.readUInt16LE(p + 32), off = b.readUInt32LE(p + 42);
+    const name = b.slice(p + 46, p + 46 + nl).toString("utf8"), method = b.readUInt16LE(p + 10);
+    ok(b.readUInt32LE(off) === 0x04034b50, "ODT : en-tête local de " + name);
+    const lnl = b.readUInt16LE(off + 26), lel = b.readUInt16LE(off + 28), data = b.slice(off + 30 + lnl + lel, off + 30 + lnl + lel + size);
+    ok(method === 0 && data.length === size && zlib.crc32(data) === crc, "ODT : " + name + " non compressé, taille et CRC32 exacts");
+    files.push({ name, data }); p += 46 + nl + el + cl;
+  }
+  return files;
+}
+/* vérificateur XML minimal (balises appariées, attributs entre guillemets, entités connues, pas de caractère de contrôle) */
+function xmlProblems(xml) {
+  const issues = [], stack = [];
+  if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(xml)) issues.push("caractère de contrôle");
+  const body = xml.replace(/^<\?xml[^>]*\?>\s*/, "");
+  let last = 0;
+  for (const m of body.matchAll(/<(\/?)([\w:.-]+)((?:\s+[\w:.-]+="[^"<]*")*)\s*(\/?)>/g)) {
+    const between = body.slice(last, m.index);
+    if (/<|>/.test(between)) issues.push("chevron brut près de « " + between.slice(0, 30) + " »");
+    if (/&(?!(amp|lt|gt|quot|apos);)/.test(between + m[3])) issues.push("& non échappé près de « " + between.slice(0, 30) + " »");
+    last = m.index + m[0].length;
+    if (m[1]) { if (stack.pop() !== m[2]) issues.push("balise fermante inattendue " + m[2]); } else if (!m[4]) stack.push(m[2]);
+  }
+  if (/<|>/.test(body.slice(last))) issues.push("fin de document invalide");
+  if (stack.length) issues.push("balises non fermées : " + stack.join(","));
+  return issues;
+}
+const oLines = [
+  { id: "a", name: "Léo & <Cam>", text: "Salut <b>tout</b> le monde & \"co\" 😀 œuvre\u0001", at: 5000, ts: base },
+  { id: "b", name: "Cam", text: "la géographie c'est super, la géographie !", at: 65000, ts: base + 60000 },
+  { id: "a", name: "Léo & <Cam>", text: "géographie et histoire de Napoléon", at: 130000, ts: base + 125000 }
+];
+const odt = T.makeOdt({ room: "482913", startedAt: base, endedAt: base + 200000, lines: oLines, talk: [{ name: "Cam", ms: 30000 }] });
+const zf = readZip(odt);
+ok(zf[0].name === "mimetype" && zf[0].data.toString() === "application/vnd.oasis.opendocument.text", "ODT : « mimetype » en premier, avec le bon type");
+ok(Buffer.from(odt).slice(30, 38).toString() === "mimetype", "ODT : « mimetype » lisible à l'octet 30 (détection par les logiciels)");
+ok(["META-INF/manifest.xml", "content.xml", "styles.xml", "meta.xml"].every(n => zf.some(f => f.name === n)), "ODT : manifest, contenu, styles et métadonnées présents");
+for (const f of zf.filter(f => /\.xml$/.test(f.name))) { const pr = xmlProblems(f.data.toString("utf8")); ok(pr.length === 0, "ODT : " + f.name + " est du XML bien formé" + (pr.length ? " (" + pr[0] + ")" : "")); }
+const content = zf.find(f => f.name === "content.xml").data.toString("utf8");
+ok(/Transcription du chat vocal/.test(content) && /Salle 482913/.test(content), "ODT : titre et salle");
+ok(/Léo &amp; &lt;Cam&gt;/.test(content) && /Salut &lt;b&gt;tout&lt;\/b&gt; le monde &amp; &quot;co&quot; 😀 œuvre/.test(content) && !/\u0001/.test(content), "ODT : texte échappé (&, <, >, guillemets), emoji et accents conservés, contrôles retirés");
+ok(/géographie<\/text:p><\/table:table-cell><table:table-cell[^>]*><text:p[^>]*>3<\/text:p>/.test(content), "ODT : tableau des mots les plus dits (géographie × 3)");
+ok(/█/.test(content) && /Mots les plus dits/.test(content) && /Qui parle le plus/.test(content) && /Activité au fil de l'appel/.test(content) && /Transcription complète/.test(content), "ODT : sections et barres de graphique");
+ok(/\[\d\d:\d\d:\d\d\]/.test(content) && content.indexOf("Salut") < content.indexOf("histoire de Napoléon"), "ODT : transcription complète dans l'ordre, avec l'heure réelle");
+ok(/<\/office:document-content>$/.test(content), "ODT : contenu complet");
+for (const [label, data] of [["vide", {}], ["null", null], ["bizarre", { lines: [{ id: 1, name: null, text: "bonjour", at: NaN, ts: NaN }, { text: 5 }, null] }], ["énorme", { room: "1", lines: mk(600), talk: [null, { name: "x", ms: "abc" }] }]]) {
+  const z = readZip(T.makeOdt(data)); const c = z.find(f => f.name === "content.xml").data.toString("utf8");
+  ok(xmlProblems(c).length === 0, "ODT " + label + " : XML bien formé");
+}
+ok(T.crc32(Buffer.from("123456789")) === 0xCBF43926, "crc32 : valeur de référence (« 123456789 »)");
+ok(T.utf8("é😀").length === 6, "utf8 : é = 2 octets, emoji = 4 octets");
+
 console.log("Transcription (stats + PDF) : " + (checks - fails) + " / " + checks + " OK" + (fails ? ", " + fails + " échec(s)" : ""));
 process.exit(fails ? 1 : 0);

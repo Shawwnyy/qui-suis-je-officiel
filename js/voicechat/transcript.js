@@ -310,7 +310,136 @@ var V50Transcript = (function () {
     return bytes;
   }
 
-  var api = { tokenize: tokenize, significant: significant, analyze: analyze, makePdf: makePdf, wrapText: wrapText, widthOf: widthOf, pdfString: pdfString, fmtDuration: fmtDuration, clockText: clockText };
+  /* ----------------------------------------------------------------- ODT (LibreOffice, Word, Google Docs…) ---- */
+  var CRC_T = null;
+  function crc32(bytes) {
+    if (!CRC_T) { CRC_T = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); CRC_T[n] = c >>> 0; } }
+    var crc = 0xFFFFFFFF;
+    for (var i = 0; i < bytes.length; i++) crc = CRC_T[(crc ^ bytes[i]) & 255] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+  function utf8(str) {
+    var s = String(str), out;
+    try { out = unescape(encodeURIComponent(s)); } catch (e) { out = unescape(encodeURIComponent(s.replace(/[\ud800-\udfff]/g, "?"))); }
+    var b = new Uint8Array(out.length);
+    for (var i = 0; i < out.length; i++) b[i] = out.charCodeAt(i);
+    return b;
+  }
+  /* Archive ZIP sans compression (suffisant et sans bibliothèque) : files = [{ name, data: Uint8Array }] */
+  function zipStore(files) {
+    var now = new Date(), y = now.getFullYear() >= 1980 ? now.getFullYear() : 1980;
+    var dt = ((y - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate(), tm = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    var u16 = function (v) { return [v & 255, (v >>> 8) & 255]; }, u32 = function (v) { return [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]; };
+    var chunks = [], central = [], offset = 0, total = 0, centralSize = 0;
+    files.forEach(function (f) {
+      var name = utf8(f.name), crc = crc32(f.data), size = f.data.length;
+      var local = [].concat(u32(0x04034b50), u16(20), u16(0), u16(0), u16(tm), u16(dt), u32(crc), u32(size), u32(size), u16(name.length), u16(0));
+      var cen = [].concat(u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(tm), u16(dt), u32(crc), u32(size), u32(size), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset));
+      chunks.push(new Uint8Array(local), name, f.data);
+      central.push(new Uint8Array(cen), name);
+      offset += local.length + name.length + size; centralSize += cen.length + name.length;
+    });
+    var end = new Uint8Array([].concat(u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length), u32(centralSize), u32(offset), u16(0)));
+    var all = chunks.concat(central, [end]);
+    all.forEach(function (c) { total += c.length; });
+    var out = new Uint8Array(total), pos = 0;
+    all.forEach(function (c) { out.set(c, pos); pos += c.length; });
+    return out;
+  }
+  function xe(s) {
+    return String(s == null ? "" : s).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f￾￿]/g, "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  var hex = function (c) { return "#" + c.map(function (v) { return ("0" + Math.round(v * 255).toString(16)).slice(-2); }).join(""); };
+
+  /* Même contenu que le PDF, en document modifiable (tableaux avec barres █ à la place des graphiques) → Uint8Array (.odt) */
+  function makeOdt(data) {
+    data = data || {};
+    var lines = (Array.isArray(data.lines) ? data.lines : []).filter(function (l) { return l && typeof l.text === "string" && l.text.trim(); });
+    var st = analyze(lines), last = lines.length ? lines[lines.length - 1] : null;
+    var startedAt = data.startedAt || (lines.length ? lines[0].ts : Date.now()), endedAt = data.endedAt || (last ? last.ts : startedAt);
+    var when = new Date(startedAt), days = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+    var months = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    var dateText = isNaN(when.getTime()) ? "" : days[when.getDay()] + " " + when.getDate() + " " + months[when.getMonth()] + " " + when.getFullYear() + " à " + clockText(startedAt).slice(0, 5);
+    var talk = (Array.isArray(data.talk) ? data.talk : []).filter(function (t) { return t && t.ms >= 1000; });
+    var talkOf = {}; talk.forEach(function (t) { talkOf[t.name] = t.ms; });
+    var colWidths = {};
+    var span = function (style, text) { return '<text:span text:style-name="' + style + '">' + xe(text) + "</text:span>"; };
+    var para = function (style, inner) { return '<text:p text:style-name="' + style + '">' + inner + "</text:p>"; };
+    var heading = function (t) { return '<text:h text:style-name="H" text:outline-level="1">' + xe(t) + "</text:h>"; };
+    var bar = function (n, max, col, blocks) { var k = Math.max(1, Math.round(n / (max || 1) * (blocks || 24))); return '<text:span text:style-name="' + col + '">' + new Array(k + 1).join("█") + "</text:span>"; };
+    var tcount = 0;
+    function table(widths, head, rows) {
+      var name = "Tab" + (++tcount), out = '<table:table table:name="' + name + '" table:style-name="Tbl">';
+      widths.forEach(function (w) { var id = "Col" + String(w).replace(".", "_"); colWidths[id] = w; out += '<table:table-column table:style-name="' + id + '"/>'; });
+      var cell = function (inner, style) { return '<table:table-cell table:style-name="' + style + '" office:value-type="string">' + para("P", inner) + "</table:table-cell>"; };
+      out += "<table:table-row>" + head.map(function (h) { return cell(span("B", h), "Cell"); }).join("") + "</table:table-row>";
+      rows.forEach(function (r) { out += "<table:table-row>" + r.map(function (c) { return cell(c, "Cell"); }).join("") + "</table:table-row>"; });
+      return out + "</table:table>";
+    }
+    var body = [];
+    body.push(para("Title", xe("Transcription du chat vocal")));
+    body.push(para("Sub", xe("Salle " + (data.room || "—") + (dateText ? "  ·  " + dateText : ""))));
+    body.push(para("P", span("B", "Durée de l'appel : ") + xe(fmtDuration(Math.max(0, endedAt - startedAt))) + " · " + span("B", "Participants : ") + (st.speakers.length || talk.length)
+      + " · " + span("B", "Phrases : ") + st.phrases + " · " + span("B", "Mots dits : ") + st.words + " · " + span("B", "Mots différents : ") + st.distinct));
+    body.push(heading("Mots les plus dits"));
+    if (st.top.length) {
+      var maxTop = st.top[0][1];
+      body.push(table([4, 2, 11], ["Mot", "Fois", "Graphique"], st.top.map(function (t) { return [xe(t[0]), String(t[1]), bar(t[1], maxTop, "Bar")]; })));
+    } else body.push(para("G", xe("Pas encore assez de mots pour établir un classement.")));
+    body.push(heading("Qui parle le plus"));
+    var maxW = st.speakers.length ? st.speakers[0].words : 1;
+    body.push(table([4, 2, 2.4, 3, 5.6], ["Participant", "Mots", "Phrases", "Temps de parole", "Graphique"], st.speakers.map(function (p, i) {
+      return [span("C" + (i % PALETTE.length), p.name), String(p.words), String(p.phrases), talkOf[p.name] ? fmtDuration(talkOf[p.name]) : "—", bar(p.words, maxW, "BarC" + (i % PALETTE.length), 14)];
+    })));
+    body.push(heading("Les mots préférés de chacun"));
+    st.speakers.forEach(function (p, i) {
+      body.push(para("P", span("C" + (i % PALETTE.length), p.name + " : ") + xe(p.top.length ? p.top.map(function (t) { return t[0] + " (×" + t[1] + ")"; }).join(", ") : "pas assez de mots")));
+    });
+    body.push(heading("Activité au fil de l'appel"));
+    var tl = st.timeline, maxC = Math.max.apply(null, tl.counts.concat([1]));
+    body.push(table([4, 2, 11], ["Tranche (depuis l'arrivée au vocal)", "Mots", "Graphique"], tl.counts.map(function (c, i) {
+      return [xe(fmtDuration(i * tl.bucketMs) + " – " + fmtDuration((i + 1) * tl.bucketMs)), String(c), c ? bar(c, maxC, "Bar") : ""];
+    })));
+    body.push(heading("Transcription complète"));
+    var idxOf = {}; st.speakers.forEach(function (p, i) { idxOf[p.key] = i % PALETTE.length; });
+    lines.forEach(function (l) {
+      var ci = idxOf[String(l.id == null ? l.name : l.id)];
+      body.push(para("P", span("G", "[" + clockText(l.ts) + "] ") + span(ci == null ? "B" : "C" + ci, (l.name || "Joueur") + " : ") + xe(l.text)));
+    });
+
+    var styles = '<style:style style:name="Title" style:family="paragraph"><style:paragraph-properties fo:margin-bottom="0.1cm"/><style:text-properties fo:font-size="22pt" fo:font-weight="bold" fo:color="' + hex(ACCENT) + '"/></style:style>'
+      + '<style:style style:name="Sub" style:family="paragraph"><style:paragraph-properties fo:margin-bottom="0.3cm"/><style:text-properties fo:font-size="11pt" fo:color="#6b6d80"/></style:style>'
+      + '<style:style style:name="H" style:family="paragraph"><style:paragraph-properties fo:margin-top="0.5cm" fo:margin-bottom="0.2cm" fo:keep-with-next="always"/><style:text-properties fo:font-size="14pt" fo:font-weight="bold"/></style:style>'
+      + '<style:style style:name="P" style:family="paragraph"><style:paragraph-properties fo:margin-top="0.04cm" fo:margin-bottom="0.08cm"/></style:style>'
+      + '<style:style style:name="G" style:family="paragraph"><style:text-properties fo:color="#6b6d80"/></style:style>'
+      + '<style:style style:name="B" style:family="text"><style:text-properties fo:font-weight="bold"/></style:style>'
+      + '<style:style style:name="Bar" style:family="text"><style:text-properties fo:color="' + hex(ACCENT) + '"/></style:style>'
+      + '<style:style style:name="Tbl" style:family="table"><style:table-properties style:width="17cm" table:align="left"/></style:style>'
+      + '<style:style style:name="Cell" style:family="table-cell"><style:table-cell-properties fo:padding="0.07cm" fo:border-top="none" fo:border-left="none" fo:border-right="none" fo:border-bottom="0.5pt solid #d8d8e4"/></style:style>';
+    PALETTE.forEach(function (c, i) {
+      styles += '<style:style style:name="C' + i + '" style:family="text"><style:text-properties fo:font-weight="bold" fo:color="' + hex(c) + '"/></style:style>'
+        + '<style:style style:name="BarC' + i + '" style:family="text"><style:text-properties fo:color="' + hex(c) + '"/></style:style>';
+    });
+    Object.keys(colWidths).forEach(function (id) { styles += '<style:style style:name="' + id + '" style:family="table-column"><style:table-column-properties style:column-width="' + colWidths[id] + 'cm"/></style:style>'; });
+
+    var NS = 'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0"';
+    var head = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    var content = head + "<office:document-content " + NS + ' office:version="1.2"><office:automatic-styles>' + styles + "</office:automatic-styles><office:body><office:text>" + body.join("") + "</office:text></office:body></office:document-content>";
+    var stylesXml = head + "<office:document-styles " + NS + ' office:version="1.2"><office:styles/></office:document-styles>';
+    var meta = head + "<office:document-meta " + NS + ' office:version="1.2"><office:meta><dc:title>' + xe("Transcription du chat vocal — salle " + (data.room || "")) + "</dc:title><meta:generator>Qui suis-je ?</meta:generator></office:meta></office:document-meta>";
+    var manifest = head + '<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2">'
+      + '<manifest:file-entry manifest:full-path="/" manifest:version="1.2" manifest:media-type="application/vnd.oasis.opendocument.text"/>'
+      + '<manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/><manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>'
+      + '<manifest:file-entry manifest:full-path="meta.xml" manifest:media-type="text/xml"/></manifest:manifest>';
+    return zipStore([
+      { name: "mimetype", data: utf8("application/vnd.oasis.opendocument.text") },      /* doit être le 1er fichier, non compressé */
+      { name: "META-INF/manifest.xml", data: utf8(manifest) }, { name: "content.xml", data: utf8(content) },
+      { name: "styles.xml", data: utf8(stylesXml) }, { name: "meta.xml", data: utf8(meta) }
+    ]);
+  }
+
+  var api = { tokenize: tokenize, significant: significant, analyze: analyze, makePdf: makePdf, makeOdt: makeOdt, zipStore: zipStore, crc32: crc32, utf8: utf8, wrapText: wrapText, widthOf: widthOf, pdfString: pdfString, fmtDuration: fmtDuration, clockText: clockText };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") window.V50Transcript = api;
   return api;
