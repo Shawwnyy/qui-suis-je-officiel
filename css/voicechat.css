@@ -60,3 +60,16 @@ html.qcm-open #vcNow{display:none!important}
 .vc-tr-interim{min-height:0;margin:0 0 8px;font-size:12px;font-style:italic;color:#a9abc0}
 .vc-tr-interim:empty{display:none}
 .vc-tr .vc-empty{padding:6px;font-size:12px}
+
+/* Graphiques de la transcription (panneau) */
+.vc-tr-stats{margin:8px 0}
+.vc-tr-stats[hidden]{display:none!important}
+.vc-tr-stats .vc-test-title{margin:6px 0 5px}
+.vc-bars-2{margin-top:10px!important}
+.vc-bar{display:flex;align-items:center;gap:6px;margin:3px 0;font-size:12px}
+.vc-bar-l{flex:0 0 74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e9e6ff}
+.vc-bar-t{flex:1;height:10px;border-radius:6px;background:rgba(255,255,255,.1);overflow:hidden}
+.vc-bar-t i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,#7c3aed,#a78bfa)}
+.vc-bar-t i.alt{background:linear-gradient(90deg,#16a34a,#4ade80)}
+.vc-bar-n{flex:0 0 auto;min-width:44px;text-align:right;color:#c4b5fd;font-variant-numeric:tabular-nums;font-size:11px}
+.vc-wide{grid-column:1/-1}

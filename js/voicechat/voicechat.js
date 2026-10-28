@@ -466,6 +466,7 @@ var V50Voice = (function () {
     var btn = $("vcTrBtn");
     if (btn) { btn.textContent = trWanted ? "⏹ Arrêter ma transcription" : "📝 Transcrire ma voix"; btn.disabled = !SR; }
     var sel = $("vcTrLang"); if (sel && sel.value !== trLang) sel.value = trLang;
+    paintTrStats();
     var log = $("vcTrLog"); if (!log) return;
     var stick = log.scrollTop + log.clientHeight >= log.scrollHeight - 30;
     var rows = trLog.slice(-60);
@@ -514,6 +515,35 @@ var V50Voice = (function () {
     if (trWanted) { trBlocked = false; trErrs = 0; trMsg(snap.muted ? "Ton micro est coupé : la transcription démarrera quand tu le réactiveras." : "", snap.muted); }
     else trMsg("");
     trSync(); paintTr();
+  }
+  /* petit graphique « mots les plus dits » + « qui parle le plus » dans le panneau */
+  function trLines() { return trLog.map(function (x) { return { id: x.id, name: x.mine ? "Toi" : x.name, text: x.text, at: x.at, ts: x.ts }; }); }
+  function paintTrStats() {
+    var box = $("vcTrStats"); if (!box) return;
+    var T = window.V50Transcript, st = T && trLog.length ? T.analyze(trLines(), { topWords: 6 }) : null;
+    if (!st || !st.top.length) { box.hidden = true; box.innerHTML = ""; return; }
+    var max = st.top[0][1] || 1, maxW = (st.speakers[0] && st.speakers[0].words) || 1;
+    var bar = function (label, n, of, cls, txt) { return '<div class="vc-bar"><span class="vc-bar-l">' + esc(label) + '</span><span class="vc-bar-t"><i class="' + cls + '" style="width:' + Math.max(4, Math.round(n / of * 100)) + '%"></i></span><span class="vc-bar-n">' + esc(txt) + '</span></div>'; };
+    box.hidden = false;
+    box.innerHTML = '<div class="vc-test-title">📊 Mots les plus dits</div>' + st.top.map(function (t) { return bar(t[0], t[1], max, "", "×" + t[1]); }).join("")
+      + (st.speakers.length > 1 ? '<div class="vc-test-title vc-bars-2">🗣️ Qui parle le plus</div>' + st.speakers.map(function (p) { return bar(p.name, p.words, maxW, "alt", p.words + " mots"); }).join("") : "");
+  }
+  /* PDF : statistiques + graphiques + transcription complète */
+  function trPdf() {
+    if (!trLog.length) { trMsg("Rien à exporter pour l'instant : active la transcription et parle un peu.", true); return; }
+    var T = window.V50Transcript; if (!T || !T.makePdf) { trMsg("Export PDF indisponible : recharge la page (Ctrl+F5).", true); return; }
+    try {
+      var me = typeof myId !== "undefined" ? myId : "";
+      var talk = Object.keys(talkMs).map(function (k) { return { name: k === "me" ? nameOf(me) : nameOf(k), ms: talkMs[k] }; });
+      var last = trLog[trLog.length - 1];
+      var bytes = T.makePdf({ room: typeof roomCode !== "undefined" ? roomCode : "", startedAt: joinedAt || trLog[0].ts, endedAt: joinedAt ? Date.now() : last.ts, talk: talk,
+        lines: trLog.map(function (x) { return { id: x.id, name: x.name, text: x.text, at: x.at, ts: x.ts }; }) });
+      var blob = new Blob([bytes], { type: "application/pdf" }), url = URL.createObjectURL(blob), a = document.createElement("a");
+      a.href = url; a.download = "transcription-vocal-" + (typeof roomCode !== "undefined" ? roomCode : "salle") + ".pdf";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 4000);
+      toast("📄 PDF enregistré (statistiques et transcription)");
+    } catch (e) { trMsg("Impossible de créer le PDF ici : utilise « Copier » ou « Texte (.txt) ».", true); }
   }
   function trText() {
     var head = "Transcription du chat vocal — salle " + (typeof roomCode !== "undefined" ? roomCode : "") + " — " + new Date().toLocaleString() + "\n\n";
@@ -628,7 +658,8 @@ var V50Voice = (function () {
       + '<div class="vc-test-btns"><button type="button" class="btn btn-secondary" data-vc="trtoggle" id="vcTrBtn">📝 Transcrire ma voix</button><select id="vcTrLang" class="vc-tr-lang" aria-label="Langue que tu parles">' + TR_LANGS.map(function (l) { return '<option value="' + l[0] + '">' + l[1] + '</option>'; }).join("") + '</select></div>'
       + '<div class="vc-test-msg" id="vcTrMsg" role="status" aria-live="polite"></div>'
       + '<div class="vc-tr-log" id="vcTrLog"></div><div class="vc-tr-interim" id="vcTrInterim"></div>'
-      + '<div class="vc-test-btns"><button type="button" class="btn btn-secondary" data-vc="trcopy">📋 Copier</button><button type="button" class="btn btn-secondary" data-vc="trsave">💾 Enregistrer (.txt)</button></div>'
+      + '<div class="vc-tr-stats" id="vcTrStats" hidden></div>'
+      + '<div class="vc-test-btns"><button type="button" class="btn btn-primary vc-wide" data-vc="trpdf" id="vcTrPdf">📄 PDF avec graphiques</button><button type="button" class="btn btn-secondary" data-vc="trcopy">📋 Copier</button><button type="button" class="btn btn-secondary" data-vc="trsave">💾 Texte (.txt)</button></div>'
       + '<div class="vc-hint" id="vcTrNote">Chacun ne transcrit que sa propre voix, et seulement s\'il l\'active. Le texte est produit par la reconnaissance vocale de ton navigateur (sur Chrome et Edge, un service en ligne du fabricant), puis envoyé aux autres personnes du vocal. Elle se met en pause quand ton micro est coupé.</div></div>'
       + '<div class="vc-test" id="vcTest"><div class="vc-test-title" id="vcTestTitle">🔧 Tester avant de rejoindre</div>'
       + '<div class="vc-test-btns"><button type="button" class="btn btn-secondary" data-vc="testmic" id="vcTestMic">🎤 Tester mon micro</button><button type="button" class="btn btn-secondary" data-vc="testsound" id="vcTestSound">🔔 Tester le son</button></div>'
@@ -654,6 +685,7 @@ var V50Voice = (function () {
       else if (a === "trtoggle") trToggle();
       else if (a === "trcopy") trCopy();
       else if (a === "trsave") trSave();
+      else if (a === "trpdf") trPdf();
       else if (a === "leave") ctl.leave(false);
       else if (a === "mute") ctl.setMuted(!snap.muted);
       else if (a === "deaf") ctl.setDeaf(!snap.deaf);

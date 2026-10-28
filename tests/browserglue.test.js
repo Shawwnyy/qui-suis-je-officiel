@@ -31,7 +31,7 @@ function makeWorld(opts) {
     dispatch(t, ev) { (this.listeners[t] || []).forEach(f => f(ev)); }
     scrollIntoView() {} focus() { this.focused = true; } pause() {} play() { return Promise.resolve(); }
   }
-  const world = { sr: [], downloads: [] };
+  const world = { sr: [], downloads: [], blobs: [] };
   const document = {
     readyState: "complete", body: new El("body"),
     createElement: t => new El(t), getElementById: id => byId[id] || null,
@@ -55,7 +55,7 @@ function makeWorld(opts) {
   const ctx = {
     console, document, AudioContext: FakeAC, Uint8Array, JSON, Object, Array, Promise, Date, Math, String, Number, Set, Error,
     SpeechRecognition: class { constructor() { world.sr.push(this); this.aborted = false; this.started = false; } start() { this.started = true; } abort() { this.aborted = true; } },
-    Blob: class { constructor(parts, o) { this.parts = parts; this.type = o && o.type; } }, URL: { createObjectURL: b => "blob:" + b.parts.join("").length, revokeObjectURL() {} },
+    Blob: class { constructor(parts, o) { this.parts = parts; this.type = o && o.type; } }, URL: { createObjectURL: b => { world.blobs.push(b); return "blob:" + world.blobs.length; }, revokeObjectURL() {} },
     navigator: { userAgent: "test", mediaDevices: { getUserMedia: async () => micStream }, clipboard: { writeText: async t => { copied.push(t); } } },
     location: { href: opts.href || "https://x.github.io/jeu/", search: opts.search || "", hash: opts.hash || "" },
     setInterval: f => { timers.push(f); return timers.length; }, clearInterval() {}, setTimeout: f => { timeouts.push(f); return timeouts.length; }, clearTimeout() {},
@@ -85,6 +85,7 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   /* ======================= CHAT VOCAL ======================= */
   const w = makeWorld({});
   const { ctx } = w;
+  vm.runInContext(read("js/voicechat/transcript.js"), ctx);
   vm.runInContext(read("js/voicechat/voicechat.js"), ctx);
   ok(typeof ctx.V50Voice === "object" && typeof ctx.V50Voice.controller === "object", "le module s'expose dans la page");
   const fab = w.byId.vcFab, panel = w.byId.vcPanel;
@@ -244,6 +245,15 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   ok(w.copied.some(c => /Transcription du chat vocal/.test(c) && /\[\d{1,2}[:h]\d{2}[:h]\d{2}[^\]]*\] Moi : bonjour tout le monde/.test(c) && /Cam : Salut <b>Léo<\/b>/.test(c)), "copier : le texte brut contient l'en-tête, l'heure réelle de chaque phrase et les noms réels");
   click("trsave");
   ok(w.downloads.length === 1 && /^transcription-vocal-123456\.txt$/.test(w.downloads[0].name), "enregistrer : un fichier .txt est proposé");
+  /* graphiques dans le panneau + export PDF */
+  ok(w.byId.vcTrStats.hidden === false && /Mots les plus dits/.test(w.byId.vcTrStats.innerHTML) && /bonjour/.test(w.byId.vcTrStats.innerHTML) && /monde/.test(w.byId.vcTrStats.innerHTML), "le panneau affiche le graphique des mots les plus dits");
+  ok(!/tout<|>tout</.test(w.byId.vcTrStats.innerHTML), "les mots-outils ne polluent pas le graphique");
+  click("trpdf");
+  const pdfBlob = w.blobs[w.blobs.length - 1];
+  ok(w.downloads.length === 2 && /^transcription-vocal-123456\.pdf$/.test(w.downloads[1].name), "bouton PDF : un fichier .pdf est proposé");
+  const pdfTxt = Buffer.from(pdfBlob.parts[0]).toString("latin1");
+  ok(pdfBlob.type === "application/pdf" && pdfTxt.startsWith("%PDF-1.4") && /Transcription du chat vocal/.test(pdfTxt) && /Salle 123456/.test(pdfTxt), "le PDF produit est un vrai PDF de la salle");
+  ok(/bonjour tout le monde/.test(pdfTxt.replace(/\\/g, "")), "le PDF contient la transcription");
   /* langue */
   click("trtoggle"); const nSr = w.sr.length;
   panel.dispatch("change", { target: { id: "vcTrLang", value: "en-US" } });
@@ -265,6 +275,8 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   click("testmic"); await flush();
   ok(/écoute seule/.test(w.byId.vcTestMsg.textContent) && w.byId.vcMeter.hidden === true, "tester en écoute seule : message explicatif, pas de barre");
   ok(/Rien pour l'instant/.test(w.byId.vcTrLog.innerHTML), "un nouvel appel repart d'une transcription vide");
+  const nDl = w.downloads.length; click("trpdf");
+  ok(w.downloads.length === nDl && /Rien à exporter/.test(w.byId.vcTrMsg.textContent) && w.byId.vcTrStats.hidden === true, "PDF sans rien dire : message clair, aucun fichier, pas de graphique vide");
   const nSr2 = w.sr.length; click("trtoggle");
   ok(w.sr.length === nSr2 && /écoute seule/.test(w.byId.vcTrMsg.textContent) && /Transcrire/.test(w.byId.vcTrBtn.textContent), "en écoute seule : pas de transcription de sa voix (message clair)");
   ctx.navigator.mediaDevices.getUserMedia = gum0;
