@@ -139,7 +139,7 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   ok(w.sent.some(d => d.type === "vc" && d.op === "join" && d.id === "bbb"), "rejoindre : l'invité prévient l'hôte (message vc/join avec son identifiant)");
   ok(/data-vc="leave"/.test(w.byId.vcActions.innerHTML) && /data-vc="mute"/.test(w.byId.vcActions.innerHTML), "après avoir rejoint : boutons micro et quitter");
   ok(w.byId.vcMeter.hidden === true && w.counters.stops > stops2, "rejoindre le vocal arrête le test et libère le micro du test");
-  ok(w.byId.vcTest.hidden === true, "le bloc de test disparaît une fois au vocal");
+  ok(w.byId.vcTest.hidden === false && /Tester mon micro et mon son/.test(w.byId.vcTestTitle.textContent), "le bloc de test reste visible une fois au vocal (titre adapté)");
   ok(fab.classList.contains("live"), "le bouton passe en vert quand on est au vocal");
 
   /* l'hôte renvoie l'annuaire : « bbb » appelle « ccc » (plus grand) ; « quiz-123456 » > « bbb » aussi */
@@ -157,11 +157,46 @@ const flush = async () => { for (let i = 0; i < 6; i++) await new Promise(r => s
   ok(ctx.__base.length === 1 && ctx.__base[0].type === "chat", "les autres messages du jeu continuent vers le gestionnaire d'origine");
   ok(!ctx.__base.some(d => d.type === "vcState" || d.type === "vc"), "les messages du vocal ne polluent pas le jeu");
 
+  /* ---- test PENDANT le vocal : on mesure le micro déjà ouvert, sans nouvelle autorisation ---- */
+  const gum0 = ctx.navigator.mediaDevices.getUserMedia; let gumCalls = 0;
+  ctx.navigator.mediaDevices.getUserMedia = async (...a) => { gumCalls++; return gum0(...a); };
+  ctx.__amp = 0; const stopsLive = w.counters.stops;
+  click("testmic"); await flush();
+  ok(gumCalls === 0, "test en direct : aucune nouvelle demande d'accès au micro");
+  ok(w.byId.vcMeter.hidden === false && /Arrêter/.test(w.byId.vcTestMic.textContent) && /Parle/.test(w.byId.vcTestMsg.textContent), "test en direct : barre de niveau et consigne affichées");
+  tickAll(w);
+  ok(w.byId.vcMeterFill.style.width === "0%" && !/fonctionne/.test(w.byId.vcTestMsg.textContent), "test en direct, en silence : rien n'est validé");
+  ok(!/vc-row talk/.test(w.byId.vcList.innerHTML), "en silence, ta ligne n'est pas marquée « parle »");
+  ctx.__amp = 60; tickAll(w);
+  ok(parseInt(w.byId.vcMeterFill.style.width, 10) > 50 && /fonctionne/.test(w.byId.vcTestMsg.textContent), "test en direct : la barre monte et le micro est validé");
+  ok(/vc-row talk"><span class="vc-av">😎/.test(w.byId.vcList.innerHTML), "quand tu parles, ta propre ligne s'allume (indicateur « parle » pour toi aussi)");
+  click("testmic");
+  ok(w.byId.vcMeter.hidden === true && w.counters.stops === stopsLive, "arrêter le test en direct ne coupe PAS le micro du vocal");
+  ctx.__amp = 0; tickAll(w);
+  click("testmic"); await flush();
+  ok(w.byId.vcMeter.hidden === false, "(test en direct relancé)");
+  panel.dispatch("click", { target: { closest: () => ({ dataset: { vc: "mute" } }) } });
+  ok(w.byId.vcMeter.hidden === true && w.counters.stops === stopsLive, "couper le micro arrête le test en direct sans fermer le micro");
+  click("testmic");
+  ok(/coupé/.test(w.byId.vcTestMsg.textContent) && w.byId.vcMeter.hidden === true, "tester pendant que le micro est coupé : message clair, pas de barre");
+  panel.dispatch("click", { target: { closest: () => ({ dataset: { vc: "mute" } }) } });
+  ok(/Couper mon micro/.test(w.byId.vcActions.innerHTML), "(micro réactivé)");
+  ctx.navigator.mediaDevices.getUserMedia = gum0;
+
   /* micro coupé / son coupé */
   panel.dispatch("click", { target: { closest: () => ({ dataset: { vc: "mute" } }) } });
   ok(/Réactiver mon micro/.test(w.byId.vcActions.innerHTML) && fab.classList.contains("muted"), "micro coupé : le panneau et le bouton le montrent");
   panel.dispatch("click", { target: { closest: () => ({ dataset: { vc: "deaf" } }) } });
   ok(/Remettre le son/.test(w.byId.vcActions.innerHTML), "son des autres coupé : le panneau le montre");
+
+  /* vocal rejoint SANS micro (refusé) : le test l'explique au lieu de mesurer du silence */
+  click("leave"); await flush();
+  ctx.navigator.mediaDevices.getUserMedia = async () => { throw Object.assign(new Error("x"), { name: "NotAllowedError" }); };
+  click("join"); await flush();
+  ok(/écoute/.test(w.byId.vcList.innerHTML) || /écoute/.test(w.byId.vcMsg.textContent), "rejoindre sans micro : mode écoute seule");
+  click("testmic"); await flush();
+  ok(/écoute seule/.test(w.byId.vcTestMsg.textContent) && w.byId.vcMeter.hidden === true, "tester en écoute seule : message explicatif, pas de barre");
+  ctx.navigator.mediaDevices.getUserMedia = gum0;
 
   /* quitter la salle (resetConnection) : le vocal se coupe tout seul, puis la fonction d'origine est appelée */
   ctx.resetConnection();

@@ -267,7 +267,7 @@ var V50Voice = (function () {
     try {
       var an = c.createAnalyser(); an.fftSize = 512;
       var src = c.createMediaStreamSource(stream); src.connect(an);
-      meters[id] = { an: an, src: src, buf: new Uint8Array(an.fftSize) };
+      meters[id] = { an: an, src: src, buf: new Uint8Array(an.fftSize), stream: stream };
     } catch (e) {}
   }
   function unwatch(id) {
@@ -307,15 +307,39 @@ var V50Voice = (function () {
     var t = test; test = null; testPending = false;
     if (t) {
       clearInterval(t.timer); clearTimeout(t.stop);
-      try { t.src.disconnect(); } catch (e) {}
       try { t.audio.pause(); t.audio.srcObject = null; t.audio.remove(); } catch (e) {}
-      try { t.stream.getTracks().forEach(function (x) { x.stop(); }); } catch (e) {}
+      if (!t.live) {          /* test « live » : le micro appartient au vocal, on n'y touche pas */
+        try { t.src.disconnect(); } catch (e) {}
+        try { t.stream.getTracks().forEach(function (x) { x.stop(); }); } catch (e) {}
+      }
     }
     if (!keepMsg) testMsg("");
     paintTest();
   }
+  /* démarre la boucle de mesure (barre de niveau, message de réussite, arrêt auto à 30 s) */
+  function beginTest(t) {
+    t.timer = setInterval(function () {
+      if (test !== t) return;
+      var pct = levelToPercent(level(t)), f = $("vcMeterFill");
+      if (f) f.style.width = pct + "%";
+      if (pct >= 15 && !t.ok) { t.ok = true; testMsg("✅ Ton micro fonctionne : il capte bien ta voix."); }
+      else if (!t.ok && !t.warned && Date.now() - t.since > 5000) { t.warned = true; testMsg("Aucun son détecté : parle plus fort ou vérifie le micro choisi dans les réglages du navigateur.", true); }
+    }, 100);
+    t.stop = setTimeout(function () { if (test === t) { stopTest(true); testMsg("Test terminé (30 s). Relance-le si besoin."); } }, 30000);
+    test = t; paintTest(); testMsg("Parle : la barre doit bouger.");
+  }
+  /* test pendant le vocal : on mesure le micro déjà ouvert (pas de nouvelle demande d'autorisation) */
+  function startLiveTest() {
+    var m = meters.me;
+    if (snap.listenOnly || !m || !m.stream) { testMsg("Tu es en écoute seule : il n'y a pas de micro à tester. Quitte le vocal, autorise le micro dans le navigateur, puis rejoins.", true); return; }
+    if (snap.muted) { testMsg("Ton micro est coupé : clique sur « Réactiver mon micro », puis relance le test.", true); return; }
+    var audio = document.createElement("audio");
+    audio.autoplay = true; audio.muted = true; audio.setAttribute("playsinline", ""); audio.srcObject = m.stream; box().appendChild(audio);
+    beginTest({ live: true, stream: m.stream, src: null, an: m.an, buf: m.buf, audio: audio, since: Date.now(), ok: false, warned: false, timer: 0, stop: 0 });
+  }
   function startTest() {
-    if (test || testPending || snap.joined) return;
+    if (test || testPending) return;
+    if (snap.joined) { startLiveTest(); return; }
     var md = navigator.mediaDevices;
     if (!md || !md.getUserMedia) { testMsg("Ce navigateur ou cette page ne permet pas d'utiliser le micro (il faut une page HTTPS).", true); return; }
     testPending = true; testMsg("Autorise le micro dans la fenêtre du navigateur…");
@@ -326,16 +350,7 @@ var V50Voice = (function () {
       try { an = c.createAnalyser(); an.fftSize = 512; src = c.createMediaStreamSource(stream); src.connect(an); } catch (e) { stream.getTracks().forEach(function (x) { x.stop(); }); testMsg("Impossible d'analyser le son sur ce navigateur.", true); return; }
       var audio = document.createElement("audio");
       audio.autoplay = true; audio.muted = true; audio.setAttribute("playsinline", ""); audio.srcObject = stream; box().appendChild(audio);
-      var t = { stream: stream, src: src, an: an, buf: new Uint8Array(an.fftSize), audio: audio, since: Date.now(), ok: false, warned: false, timer: 0, stop: 0 };
-      t.timer = setInterval(function () {
-        if (test !== t) return;
-        var pct = levelToPercent(level(t)), f = $("vcMeterFill");
-        if (f) f.style.width = pct + "%";
-        if (pct >= 15 && !t.ok) { t.ok = true; testMsg("✅ Ton micro fonctionne : il capte bien ta voix."); }
-        else if (!t.ok && !t.warned && Date.now() - t.since > 5000) { t.warned = true; testMsg("Aucun son détecté : parle plus fort ou vérifie le micro choisi dans les réglages du navigateur.", true); }
-      }, 100);
-      t.stop = setTimeout(function () { if (test === t) { stopTest(true); testMsg("Test terminé (30 s). Relance-le si besoin."); } }, 30000);
-      test = t; paintTest(); testMsg("Parle : la barre doit bouger.");
+      beginTest({ live: false, stream: stream, src: src, an: an, buf: new Uint8Array(an.fftSize), audio: audio, since: Date.now(), ok: false, warned: false, timer: 0, stop: 0 });
     }, function (err) {
       testPending = false;
       var denied = err && (err.name === "NotAllowedError" || err.name === "SecurityError");
@@ -375,7 +390,7 @@ var V50Voice = (function () {
     },
     sendTo: function (id, d) { if (typeof sendTo === "function") sendTo(id, d); },
     broadcast: function (d) { if (typeof broadcast === "function") broadcast(d); },
-    getMicrophone: function () { audioCtx(); return getMicrophone(); },
+    getMicrophone: function () { audioCtx(); return getMicrophone().then(function (r) { if (r && r.mic) watch("me", r.stream); return r; }); },   /* le voyant « tu parles » écoute ton micro */
     playRemote: playRemote, stopRemote: stopRemote, stopAll: stopAll, setDeaf: setDeafEnv,
     onChange: function (s) {
       var me = typeof myId !== "undefined" ? myId : "";
@@ -429,7 +444,7 @@ var V50Voice = (function () {
     panel.id = "vcPanel"; panel.setAttribute("role", "dialog"); panel.setAttribute("aria-label", "Chat vocal");
     panel.innerHTML = '<div class="vc-head"><strong>🎙️ Chat vocal</strong><button type="button" class="vc-x" data-vc="close" aria-label="Fermer">✕</button></div>'
       + '<div class="vc-msg" id="vcMsg" role="status" aria-live="polite"></div><div class="vc-list" id="vcList"></div><div class="vc-actions" id="vcActions"></div>'
-      + '<div class="vc-test" id="vcTest"><div class="vc-test-title">🔧 Tester avant de rejoindre</div>'
+      + '<div class="vc-test" id="vcTest"><div class="vc-test-title" id="vcTestTitle">🔧 Tester avant de rejoindre</div>'
       + '<div class="vc-test-btns"><button type="button" class="btn btn-secondary" data-vc="testmic" id="vcTestMic">🎤 Tester mon micro</button><button type="button" class="btn btn-secondary" data-vc="testsound" id="vcTestSound">🔔 Tester le son</button></div>'
       + '<div class="vc-meter" id="vcMeter" hidden><i id="vcMeterFill"></i></div>'
       + '<label class="vc-loop" id="vcLoop" hidden><input type="checkbox" id="vcLoopBox"> M\'entendre (mets un casque pour éviter l\'écho)</label>'
@@ -468,8 +483,11 @@ var V50Voice = (function () {
     var inRoom = ctlEnvInRoom();
     fab.classList.toggle("show", inRoom);
     if (!inRoom && panel.classList.contains("open")) panel.classList.remove("open");
-    if ((!inRoom || snap.joined) && (test || testPending)) stopTest();
-    var tb = $("vcTest"); if (tb) tb.hidden = !!snap.joined;
+    if (!inRoom && (test || testPending)) stopTest();
+    else if (snap.joined && (testPending || (test && !test.live))) stopTest();                  /* on vient de rejoindre : le test d'avant libère son micro */
+    else if (test && test.live && (!snap.joined || snap.muted || snap.listenOnly)) stopTest();   /* micro coupé ou vocal quitté : fin du test en direct */
+    var tb = $("vcTest"); if (tb) tb.hidden = false;                                             /* le test reste disponible, avant comme pendant le vocal */
+    var tt = $("vcTestTitle"); if (tt) tt.textContent = snap.joined ? "🔧 Tester mon micro et mon son" : "🔧 Tester avant de rejoindre";
     fab.classList.toggle("live", snap.joined);
     fab.classList.toggle("muted", snap.joined && (snap.muted || snap.listenOnly));
     var others = snap.members.filter(function (id) { return id !== (typeof myId !== "undefined" ? myId : ""); }).length;
