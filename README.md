@@ -4,6 +4,9 @@ Un jeu de quiz **multijoueur en ligne** (FR / EN) qui tourne entièrement dans l
 partie, les autres rejoignent avec un code, et les questions s'enchaînent avec scores, pouvoirs, bonus, chat et podium.
 Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **aucun serveur n'est nécessaire** pour jouer.
 
+- **🎙️ Chat vocal à plusieurs** dans la salle (bouton en bas à gauche) : rien à installer, aucun serveur à toi — voir « Chat vocal » plus bas
+- **🔗 Lien d'invitation** : l'hôte copie un lien `…/?room=123456`, le camarade l'ouvre et n'a plus qu'à entrer son prénom
+
 - **157 thèmes**, environ **15 800 questions** de texte, plus **≈ 700 questions avec image ajoutées à tous les thèmes** (tirées à chaque partie) (4 niveaux : facile, moyen, difficile, impossible)
 - Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, Word, PowerPoint, ODP, Excel, EPUB, page web, audio, vidéo…), **avec les images du cours** pour les PDF
 - **Modération stricte** du chat (voir plus bas)
@@ -34,6 +37,7 @@ css/
   qcm.css               styles de la fenêtre « QCM depuis un cours »
   v40.css               anti-triche, questions avec média, statistiques
   v43.css               voix off (réglages), justification de la réponse, horloge permanente et roue des bonus / malus
+  voicechat.css         bouton et panneau du chat vocal
 js/
   core/                 moteur du jeu (réseau, joueurs, questions, scores…)
   patches/              évolutions successives, chargées dans l'ordre des numéros
@@ -53,12 +57,27 @@ js/
   clock/                clock.js : horloge permanente HH:MM:SS en bas à gauche
   wheel/                wheel.js : roue des bonus et malus (entre deux manches)
   fix/                  scroll-top.js : chaque nouvelle question s'affiche en haut de la page
+  invite/               invite.js : lien d'invitation (?room=123456) — bouton dans le salon, code pré-rempli à l'ouverture
+  voicechat/            voicechat.js : chat vocal WebRTC en maillage via PeerJS (logique testable + interface)
 php/
   qcm.php               OPTIONNEL — extraction, lecture de liens, transcription et mode IA côté serveur (voir plus bas)
 tests/                  tests Node (modération, QCM, formats, banque, médias, questions en images, code de la route / drapeaux / horloges en images, statistiques, PDF, justifications / voix off)
 ```
 
 Ce sont des scripts classiques (pas de bundler, pas de build) : **l'ordre des balises `<script>` de `index.html` compte**.
+
+## 🎙️ Chat vocal (sans serveur, rien à installer)
+
+Dans une salle (salon d'attente, partie, résultats), le bouton **🎙️** apparaît en bas à gauche. **« Rejoindre le vocal »** demande l'accès au micro (si tu refuses ou si tu n'as pas de micro, tu rejoins en **écoute seule**). Chacun peut **couper son micro**, **couper le son des autres** ou **quitter le vocal**, et voit qui parle (liseré vert). Un badge indique combien de personnes sont déjà au vocal.
+
+**Comment ça marche.** Les participants se relient **directement** entre eux en WebRTC (`peer.call` de PeerJS) : chaque joueur appelle chaque autre, l'audio ne passe par aucun serveur. L'hôte tient la liste des participants au vocal et la diffuse sur le réseau du jeu ; pour une paire de joueurs, celui dont l'identifiant est le plus petit appelle (jamais deux appels pour la même paire). Les appels coupés sont relancés automatiquement. PeerJS ne sert qu'à la mise en relation (son serveur public gratuit, déjà utilisé par le jeu) : **aucun serveur n'est à installer ni à payer**.
+
+**Limites à connaître.**
+- Il faut une page en **HTTPS** pour que le navigateur accorde le micro (GitHub Pages l'est ; `http://localhost` aussi).
+- Jusqu'à **8 joueurs** par salle (limite du jeu) : chacun maintient jusqu'à 7 liaisons audio, ce qui reste léger pour de la voix.
+- Sur des réseaux très restrictifs (certains réseaux d'entreprise ou d'école), la liaison directe peut échouer ; PeerJS fournit des relais publics gratuits mais leur disponibilité n'est pas garantie.
+- Utilise un **casque** pour éviter l'écho. Sur iPhone, touche l'écran si le navigateur demande d'activer le son.
+- La logique est testée avec un faux réseau (`tests/voicechat.test.js`) et l'interface dans un mini-DOM (`tests/browserglue.test.js`) ; un essai avec de vrais micros sur deux appareils reste à faire après chaque mise en ligne.
 
 ## 🛡️ Modération du chat
 
@@ -83,7 +102,11 @@ Aucun filtre n'est parfait : le lexique est dans `js/moderation/lexicon.js`, fac
 
 Bouton **« QCM depuis un cours »** sur l'accueil et dans le gestionnaire de questions :
 
-**Jeu direct** : sur la fenêtre d'options, **« ▶️ Générer et jouer »** (bouton principal) tire les questions du cours, les ajoute **toutes**, crée ta salle solo, ne garde que le thème du cours et lance la partie — **sans passer par la liste de relecture**. **« ✨ Générer et relire »** garde l'ancien parcours (décocher des questions avant d'ajouter) ; dans la relecture, la barre **« ▶️ Ajouter et jouer maintenant · 👥 Ajouter et réviser à plusieurs · ➕ Ajouter »** reste collée en bas de la fenêtre (plus besoin de défiler jusqu'au bout des 20 questions). Si la salle ne peut pas s'ouvrir (connexion), un bandeau rouge reste affiché jusqu'au clic sur OK.
+**Une bonne réponse différente par question.** Le générateur n'utilise jamais deux fois la même bonne réponse dans un QCM (« Cellule » et « cellules » comptent pour une seule, accents et majuscules ignorés) et répartit les bonnes réponses sur les quatre positions (jamais trois fois de suite la même). Si le cours est trop court pour le nombre demandé, le jeu produit moins de questions et l'explique plutôt que de répéter les mêmes réponses — ajoute du texte pour en obtenir davantage. La même règle s'applique au mode IA.
+
+**Jouer à plusieurs** : le bouton principal de la fenêtre d'options est **« 👥 Générer et jouer à plusieurs »** : il génère les questions, crée la salle avec le thème du cours seul (mode révision) et s'arrête dans le salon d'attente. Tu partages le **code** ou le **lien d'invitation** (« 🔗 Copier le lien d'invitation »), tes camarades rejoignent depuis n'importe quel appareil, puis tu lances la partie ; le **chat vocal** 🎙️ est disponible dans la salle.
+
+**Jeu direct (seul)** : sur la fenêtre d'options, **« ▶️ Générer et jouer seul »** tire les questions du cours, les ajoute **toutes**, crée ta salle solo, ne garde que le thème du cours et lance la partie — **sans passer par la liste de relecture**. **« ✨ Générer et relire »** garde l'ancien parcours (décocher des questions avant d'ajouter) ; dans la relecture, la barre **« ▶️ Ajouter et jouer maintenant · 👥 Ajouter et réviser à plusieurs · ➕ Ajouter »** reste collée en bas de la fenêtre (plus besoin de défiler jusqu'au bout des 20 questions). Si la salle ne peut pas s'ouvrir (connexion), un bandeau rouge reste affiché jusqu'au clic sur OK.
 
 1. choisis un **fichier** (voir le tableau), colle un **lien** ou colle le texte ;
 2. donne un nom de thème et choisis le nombre de questions, **de 5 à 100** ;
@@ -319,6 +342,9 @@ node tests/stats.test.js                 # calculs de statistiques, historique, 
 node tests/pdf.test.js                   # export PDF clair / sombre : structure du fichier, métriques, caractères, pagination, un équivalent PDF pour chaque graphique d'écran
 node tests/qcmimages.test.js             # images du cours : rattachement aux questions, doublons, plafonds, tri des figures
 node tests/wheel.test.js                 # roue : moments de déclenchement, effet exact de chaque case, bouclier, plafonds, équiprobabilité, messages réseau
+node tests/voicechat.test.js             # chat vocal : qui appelle qui, annuaire de l'hôte, départs, arrivées tardives, coupures, messages invalides (faux réseau)
+node tests/browserglue.test.js           # chat vocal + lien d'invitation exécutés dans un mini-DOM (bouton, panneau, handleData, resetConnection, XSS)
+node tests/invite.test.js                # lien d'invitation : lecture et construction de ?room=123456
 node tests/review.test.js                # mode révision : décision automatique, bonus imposé, passage du cours, justification détaillée, leçons piégées
 node tests/reaction.test.js              # temps de réaction : médiane, quartiles, régularité, tendance, premier à répondre juste, courbe de rapidité, groupes, robustesse
 node tests/text.test.js                  # lettres et mots les plus écrits : découpage, comptages du chat (bornés, sans message en clair), sources, mots, rapport (phrases, .txt) courants, PDF clair / sombre

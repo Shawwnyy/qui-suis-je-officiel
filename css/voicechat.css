@@ -1,0 +1,25 @@
+/* V50 — Chat vocal : bouton flottant à gauche (au-dessus de l'horloge) et petit panneau */
+#vcFab{position:fixed;left:16px;bottom:96px;z-index:21800;width:48px;height:48px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(15,15,30,.94);color:#fff;font-size:22px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.4);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#vcFab.show{display:flex}
+#vcFab.live{background:linear-gradient(135deg,#16a34a,#15803d);border-color:rgba(255,255,255,.5)}
+#vcFab.live.muted{background:linear-gradient(135deg,#b45309,#92400e)}
+#vcFab.call{animation:vcPulse 1.6s ease-in-out infinite;border-color:#facc15}
+@keyframes vcPulse{0%,100%{box-shadow:0 0 0 0 rgba(250,204,21,.55),0 8px 24px rgba(0,0,0,.4)}50%{box-shadow:0 0 0 10px rgba(250,204,21,0),0 8px 24px rgba(0,0,0,.4)}}
+.vc-badge{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#7c3aed;border:2px solid #0f0f1e;color:#fff;font-size:11px;font-weight:900;line-height:16px;text-align:center;box-sizing:border-box}
+#vcPanel{position:fixed;left:12px;bottom:152px;z-index:21850;width:min(330px,calc(100vw - 24px));max-height:calc(100vh - 190px);overflow:auto;padding:14px;border-radius:16px;background:#17182d;border:1px solid rgba(255,255,255,.2);color:#f4f2ff;box-shadow:0 14px 44px rgba(0,0,0,.55);display:none}
+#vcPanel.open{display:block}
+.vc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:15px}
+.vc-x{border:0;background:rgba(255,255,255,.1);color:#fff;width:32px;height:32px;border-radius:9px;font-size:15px;cursor:pointer}
+.vc-msg{display:none;margin:6px 0 8px;padding:8px 10px;border-radius:10px;background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.3);color:#fde68a;font-size:12px;line-height:1.5}
+.vc-msg.show{display:block}
+.vc-list{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.vc-empty{padding:10px;border-radius:10px;background:rgba(255,255,255,.05);color:#a9abc0;font-size:13px;text-align:center}
+.vc-row{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:11px;background:rgba(255,255,255,.06);border:2px solid transparent;transition:border-color .12s,background .12s}
+.vc-row.talk{border-color:#22c55e;background:rgba(34,197,94,.14)}
+.vc-av{font-size:20px}
+.vc-name{flex:1;min-width:0;font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vc-state{font-size:12px;color:#c4b5fd;white-space:nowrap}
+.vc-actions{display:grid;gap:7px;margin-top:8px}
+.vc-actions .btn{margin:0!important;min-height:44px;font-size:14px;padding:9px 10px}
+.vc-hint{margin-top:10px;font-size:11px;line-height:1.5;color:#a9abc0}
+@media(max-width:520px){#vcFab{left:10px;bottom:92px;width:46px;height:46px}#vcPanel{left:8px;bottom:146px}}

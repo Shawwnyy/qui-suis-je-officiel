@@ -58,6 +58,41 @@ ok(dt < 4000, "document volumineux trop lent : " + dt + " ms");
 ok(bigR.questions.length >= 20, "gros document : trop peu de questions (" + bigR.questions.length + ")");
 console.log("gros document (" + Math.round(big.length / 1000) + " ko) : " + bigR.questions.length + " questions en " + dt + " ms");
 
+/* ---- Une seule question par bonne réponse (« Cellule » ≠ « cellules » ne compte pas deux fois) ---- */
+for (const [label, src] of [["biologie", text], ["anglais", EN], ["gros document", big]]) {
+  for (let seed = 1; seed <= 25; seed++) {
+    const r = G.generate(src, { count: 30, seed });
+    const keys = r.questions.map(q => G.answerKey(q.answers[q.correct]));
+    ok(new Set(keys).size === keys.length, label + " seed=" + seed + " : deux questions ont la même bonne réponse : " + keys.filter((k, i) => keys.indexOf(k) !== i).join(", "));
+    /* positions : jamais 3 fois de suite la même, répartition quasi égale */
+    let run = 1, maxRun = 1;
+    r.questions.forEach((q, i) => { if (i && q.correct === r.questions[i - 1].correct) { run++; maxRun = Math.max(maxRun, run); } else run = 1; });
+    ok(maxRun <= 2, label + " seed=" + seed + " : la bonne réponse est " + maxRun + " fois de suite à la même position");
+    if (r.questions.length >= 8) {
+      const cnt = [0, 0, 0, 0]; r.questions.forEach(q => cnt[q.correct]++);
+      ok(Math.max(...cnt) - Math.min(...cnt) <= 2, label + " seed=" + seed + " : bonnes réponses mal réparties " + cnt.join("/"));
+    }
+    ok(r.questions.every(q => q.answers.length === 4 && new Set(q.answers.map(norm)).size === 4), label + " seed=" + seed + " : réponses abîmées par le rééquilibrage");
+  }
+}
+{
+  const r = G.generate(text, { count: 100, seed: 5 });
+  ok(r.questions.length < 100 && /bonne réponse différente/.test(r.warning || ""), "cours trop court pour 100 questions : l'avertissement doit expliquer le nombre réduit");
+}
+ok(G.answerKey("Cellules") === G.answerKey("cellule") && G.answerKey("Mitochondries") === G.answerKey("Mitochondrie"), "answerKey : singulier et pluriel identiques");
+ok(G.answerKey("1789") !== G.answerKey("1798"), "answerKey : deux dates différentes restent différentes");
+{
+  const mk = (a, k) => ({ question: "q" + a, answers: ["x1", "x2", "x3", "x4"].map((v, i) => i === k ? a : v + a), correct: k });
+  const list = [mk("Cellule", 0), mk("cellules", 2), mk("ADN", 1), mk("ADN", 3), { question: "vide", answers: ["a", "b", "c", "d"], correct: 9 }];
+  const out = G.dedupeByAnswer(list);
+  ok(out.length === 2 && out[0].answers[out[0].correct] === "Cellule" && out[1].answers[out[1].correct] === "ADN", "dedupeByAnswer : garde la première question de chaque réponse et écarte les entrées invalides (" + out.length + ")");
+  const sameQs = Array.from({ length: 12 }, (_, i) => mk("Rep" + i, 1));
+  const before = sameQs.map(q => q.answers[q.correct]);
+  G.balancePositions(sameQs, G.rngFrom(3));
+  ok(sameQs.every((q, i) => q.answers[q.correct] === before[i]), "balancePositions : la bonne réponse doit rester la même, seul son emplacement change");
+  ok(new Set(sameQs.map(q => q.correct)).size === 4, "balancePositions : 12 questions toutes en B doivent se répartir sur A, B, C et D");
+}
+
 if (process.argv.includes("--show")) {
   const r = G.generate(text, { count: 15, seed: 11, title: "Biologie" });
   console.log("STATS", JSON.stringify(r.stats), r.warning || "");

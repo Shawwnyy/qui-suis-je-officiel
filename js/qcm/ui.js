@@ -160,8 +160,8 @@
       + '<label class="qcm-step" for="qcmLang">4 · Langue du cours</label>'
       + '<select id="qcmLang"><option value="auto">🔎 Détection automatique</option><option value="fr">🇫🇷 Français</option><option value="en">🇬🇧 English</option><option value="es">🇪🇸 Español</option></select>'
       + '<label class="qcm-step">5 · Méthode</label><div id="qcmModeBox"></div>'
-      + '<div class="v35q-actions qcm-gobar qcm-sticky"><button type="button" class="btn btn-primary" data-qcm="generateplay" id="qcmGoPlay">▶️ Générer et jouer</button><button type="button" class="btn btn-secondary" data-qcm="generate" id="qcmGo">✨ Générer et relire</button></div>'
-      + '<div class="v35q-hint">« Générer et jouer » ajoute toutes les questions et lance la partie tout de suite (une question à la fois, comme d\'habitude). « Générer et relire » te laisse d\'abord décocher les questions que tu ne veux pas.</div>';
+      + '<div class="v35q-actions qcm-gobar qcm-sticky"><button type="button" class="btn btn-primary" data-qcm="generatemulti" id="qcmGoMulti">👥 Générer et jouer à plusieurs</button><button type="button" class="btn btn-secondary" data-qcm="generateplay" id="qcmGoPlay">▶️ Générer et jouer seul</button><button type="button" class="btn btn-secondary" data-qcm="generate" id="qcmGo">✨ Générer et relire</button></div>'
+      + '<div class="v35q-hint">« 👥 Jouer à plusieurs » crée la salle avec les questions du cours : tu partages le code (ou le lien d\'invitation), tes camarades rejoignent depuis leur téléphone ou leur ordinateur — <b>rien à installer</b>, et un chat vocal est disponible dans la salle. Chaque question a une bonne réponse différente. « Jouer seul » lance tout de suite. « Générer et relire » te laisse d\'abord décocher des questions.</div>';
   }
   function fillSource() {
     var set = function (id, v) { var e = $(id); if (e) e.value = v; };
@@ -244,7 +244,7 @@
   }
   function paintBusy() {
     var go = $("qcmGo");
-    var ids = ["qcmGo", "qcmFile", "qcmUrlGo", "qcmUrl"];
+    var ids = ["qcmGo", "qcmGoPlay", "qcmGoMulti", "qcmFile", "qcmUrlGo", "qcmUrl"];
     ids.forEach(function (id) { var e = $(id); if (e) e.disabled = !!S.busy; });
     var old = $("qcmBusy"); if (old) old.remove();
     if (S.busy) {
@@ -369,9 +369,10 @@
     S.checked = res.questions.map(function () { return true; });
     S.step = "preview";
     if (S.autoPlay) {                                    /* « Générer et jouer » : on saute la relecture */
-      S.autoPlay = false; S.onlyThis = true;
+      var multi = !!S.autoMulti;
+      S.autoPlay = false; S.autoMulti = false; S.onlyThis = true;
       addToGame();
-      if (S.step === "done") { playNow(); return; }
+      if (S.step === "done") { playNow(multi); return; }
     }
     render();
   }
@@ -432,8 +433,12 @@
     }
     return step().then(function () {
       if (!all.length) throw lastErr || new Error("L'IA n'a renvoyé aucune question.");
+      var G = root.QcmGenerator, before = all.length;
+      if (G && G.dedupeByAnswer) all = G.dedupeByAnswer(all);                  /* jamais deux questions avec la même bonne réponse */
+      if (G && G.balancePositions && G.rngFrom) G.balancePositions(all, G.rngFrom(S.seed));
+      var dropped = before - all.length;
       if (errors) warning = errors + " lot(s) sur " + batches + " ont échoué (" + (lastErr && lastErr.message ? lastErr.message : "erreur") + ") : le QCM est incomplet.";
-      else if (all.length < count) warning = "L'IA a produit " + all.length + " question(s) sur les " + count + " demandées.";
+      else if (all.length < count) warning = "L'IA a produit " + all.length + " question(s) sur les " + count + " demandées" + (dropped ? " (" + dropped + " écartée(s) : même bonne réponse qu'une autre question)" : "") + ".";
       return { questions: all.slice(0, count), warning: warning, stats: { lang: S.lang, produced: all.length, requested: count } };
     });
   }
@@ -496,7 +501,7 @@
       if (stable >= 3 && multi) {
         clearInterval(iv);
         var code = typeof roomCode !== "undefined" ? roomCode : "";
-        toast("👥 Salle prête : donne le code " + code + " à tes camarades. Ils rejoignent depuis l'accueil, puis tu lances la partie (thème du cours seul, mode révision).");
+        toast("👥 Salle prête : donne le code " + code + " (ou copie le lien d'invitation) à tes camarades, puis lance la partie. Le chat vocal 🎙️ est en bas de l'écran.");
         try { var ls = $("lobbyScreen"); if (ls && ls.scrollIntoView) ls.scrollIntoView(); window.scrollTo(0, 0); } catch (e) {}
       } else if (stable >= 3) {
         clearInterval(iv);
@@ -539,11 +544,12 @@
     var a = t.dataset.qcm;
     if (a === "close") close();
     else if (a === "preset") { setCount(Number(t.dataset.n)); }
-    else if (a === "generate") { S.autoPlay = false; generate(false); }
-    else if (a === "generateplay") { S.autoPlay = true; generate(false); }
+    else if (a === "generate") { S.autoPlay = false; S.autoMulti = false; generate(false); }
+    else if (a === "generateplay") { S.autoPlay = true; S.autoMulti = false; generate(false); }
+    else if (a === "generatemulti") { S.autoPlay = true; S.autoMulti = true; generate(false); }
     else if (a === "url") loadUrl();
     else if (a === "cancel") { if (S.abort) S.abort.cancelled = true; job++; S.abort = null; setBusy(""); setMsg("", "Lecture annulée."); S.docText = ""; S.docInfo = ""; var dd = $("qcmDoc"); if (dd) dd.textContent = ""; var ff = $("qcmFile"); if (ff) ff.value = ""; }
-    else if (a === "regen") { S.autoPlay = false; generate(true); }
+    else if (a === "regen") { S.autoPlay = false; S.autoMulti = false; generate(true); }
     else if (a === "back") { S.step = "source"; render(); }
     else if (a === "all" || a === "none") { S.checked = S.checked.map(function () { return a === "all"; }); document.querySelectorAll("#qcmBody .qcm-q input").forEach(function (c) { c.checked = a === "all"; }); updatePreviewCounts(); }
     else if (a === "add") addToGame();

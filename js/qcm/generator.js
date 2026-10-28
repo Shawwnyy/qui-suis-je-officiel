@@ -56,6 +56,44 @@
   function clip(s, n) { s = String(s).replace(/\s+/g, " ").trim(); if (s.length <= n) return s; var c = s.slice(0, n - 1); var k = c.lastIndexOf(" "); return (k > n * 0.6 ? c.slice(0, k) : c).replace(/[,;:\s]+$/, "") + "…"; }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
+  /* Clé d'une bonne réponse : sans accents ni majuscules, et sans « s » / « x » final de chaque mot,
+     pour que « Cellule » et « cellules » (ou « Mitochondrie » / « mitochondries ») comptent comme la MÊME réponse. */
+  function answerKey(s) {
+    return norm(s).split(" ").map(function (w) { return w.length > 3 ? w.replace(/(s|x)$/, "") : w; }).join(" ");
+  }
+  /* Garde une seule question par bonne réponse (la première rencontrée). Sert aussi au mode IA (ui.js). */
+  function dedupeByAnswer(questions) {
+    var seen = {};
+    return (questions || []).filter(function (q) {
+      var k = answerKey(q && q.answers && q.answers[q.correct]);
+      if (!k || seen[k]) return false;
+      seen[k] = 1;
+      return true;
+    });
+  }
+  /* Répartit les bonnes réponses sur les 4 positions (A B C D) : jamais 3 fois de suite la même, comptes quasi égaux. */
+  function balancePositions(questions, rand) {
+    var deck = [], last = -1, run = 0;
+    (questions || []).forEach(function (q) {
+      if (!q || !q.answers || q.answers.length !== 4) return;
+      if (!deck.length) deck = shuffle([0, 1, 2, 3], rand);
+      var idx = 0;
+      if (run >= 2 && deck[0] === last) {
+        idx = -1;
+        for (var i = 1; i < deck.length; i++) if (deck[i] !== last) { idx = i; break; }
+      }
+      var target;
+      if (idx < 0) { var others = [0, 1, 2, 3].filter(function (v) { return v !== last; }); target = others[Math.floor(rand() * others.length)]; }
+      else target = deck.splice(idx, 1)[0];
+      var good = q.answers.splice(q.correct, 1)[0];
+      q.answers.splice(target, 0, good);
+      q.correct = target;
+      run = target === last ? run + 1 : 1;
+      last = target;
+    });
+    return questions;
+  }
+
   function detectLang(text) {
     var counts = { fr: 0, en: 0, es: 0 };
     (text.toLowerCase().match(/[\p{L}']+/gu) || []).slice(0, 3000).forEach(function (w) {
@@ -298,7 +336,7 @@
       });
     });
     sents.forEach(function (s, i) { s.idx = i; s.pos = sents.length > 1 ? i / (sents.length - 1) : 0; });
-    var stats = { characters: String(text || "").length, sentences: sents.length, lang: lang, requested: count, produced: 0, definitions: 0, numbers: 0, terms: 0 };
+    var stats = { characters: String(text || "").length, sentences: sents.length, lang: lang, requested: count, produced: 0, definitions: 0, numbers: 0, terms: 0, sameAnswer: 0 };
     if (sents.length < 3) { return { questions: [], stats: stats, warning: "Le texte est trop court ou illisible : aucune phrase exploitable trouvée." }; }
 
     var terms = buildTerms(sents, lang);
@@ -363,7 +401,7 @@
     var reserve = cands.filter(function (c) { return picked.indexOf(c) < 0; });
 
     var tierA = terms.filter(function (t) { return t.tier === "A"; }), tierB = terms.filter(function (t) { return t.tier === "B"; });
-    var seenQ = {}, questions = [];
+    var seenQ = {}, usedAns = {}, questions = [];
 
     /* Passage du cours qui justifie la question : la phrase source + sa voisine précédente / suivante si elles sont dans le même paragraphe. */
     function contextOf(s) {
@@ -397,8 +435,10 @@
       if (c.type !== "def" && words(q.question.replace(BLANK, " ")).length < 8) return false;
       var all = [q.answer].concat(q.wrong), seen = {};
       for (var i = 0; i < all.length; i++) { var kk = norm(all[i]) || all[i]; if (seen[kk]) return false; seen[kk] = 1; }
+      var ak = answerKey(q.answer);
+      if (usedAns[ak]) { stats.sameAnswer++; return false; }                        /* une autre question a déjà cette bonne réponse */
       var nq = norm(q.question);
-      if (seenQ[nq]) return false; seenQ[nq] = 1;
+      if (seenQ[nq]) return false; seenQ[nq] = 1; usedAns[ak] = 1;
       var correctIndex = Math.floor(rand() * 4), answers = q.wrong.slice();
       answers.splice(correctIndex, 0, q.answer);
       questions.push({
@@ -413,13 +453,14 @@
     for (var r = 0; r < reserve.length && questions.length < count; r++) if (!used[reserve[r].s.idx]) { used[reserve[r].s.idx] = 1; build(reserve[r]); }
     questions.sort(function (a, b) { return a._pos - b._pos; });
     questions.forEach(function (q) { delete q._pos; });
+    balancePositions(questions, rand);
     stats.produced = questions.length;
     var res = { questions: questions, stats: stats };
-    if (questions.length < count) res.warning = questions.length ? "Le document ne permet de générer que " + questions.length + " question(s) de qualité sur les " + count + " demandées." : "Aucune question exploitable : le texte est peut-être un scan (image) ou trop pauvre en phrases complètes.";
+    if (questions.length < count) res.warning = questions.length ? "Le document ne permet de générer que " + questions.length + " question(s) de qualité sur les " + count + " demandées" + (stats.sameAnswer ? " (" + stats.sameAnswer + " écartée(s) pour ne pas répéter une même bonne réponse)" : "") + ". Chaque question a une bonne réponse différente : ajoute du texte au cours pour en obtenir davantage." : "Aucune question exploitable : le texte est peut-être un scan (image) ou trop pauvre en phrases complètes.";
     return res;
   }
 
-  var QcmGenerator = { generate: generate, detectLang: detectLang, cleanBlocks: cleanBlocks, splitSentences: splitSentences, LIMITS: LIMITS };
+  var QcmGenerator = { generate: generate, detectLang: detectLang, cleanBlocks: cleanBlocks, splitSentences: splitSentences, LIMITS: LIMITS, answerKey: answerKey, dedupeByAnswer: dedupeByAnswer, balancePositions: balancePositions, rngFrom: rngFrom };
   root.QcmGenerator = QcmGenerator;
   if (typeof module !== "undefined" && module.exports) module.exports = QcmGenerator;
 })(typeof globalThis !== "undefined" ? globalThis : (typeof window !== "undefined" ? window : this));
