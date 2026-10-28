@@ -73,3 +73,8 @@ html.qcm-open #dock,html.qcm-open #v231QuickNav,html.qcm-open #soundToggle,html.
 .qcm-paste .qcm-only{margin:6px 0}
 .qcm-busy .qcm-cancel{margin-left:auto;min-height:36px;padding:6px 12px;flex:none}
 .qcm-busy #qcmBusyTxt{min-width:0;overflow-wrap:anywhere}
+
+/* Images du cours dans l'aperçu du QCM */
+.v35q-body .qcm-qbody{min-width:0;flex:1}
+.v35q-body img.qcm-thumb{display:block;max-width:100%;max-height:170px;object-fit:contain;margin:0 0 8px;border-radius:10px;background:#fff;border:1px solid rgba(255,255,255,.2)}
+.v35q-body label.qcm-only.qcm-imgs{margin:10px 0 6px;border-color:rgba(56,189,248,.35);background:rgba(56,189,248,.08);color:#bae6fd}

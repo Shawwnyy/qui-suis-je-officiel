@@ -28,7 +28,7 @@
       step: "source", source: "", docText: "", pasteText: "", fileName: "", docInfo: "",
       title: "", titleTouched: false, count: 20, lang: "auto", mode: "fast", stt: "fast", reader: false, url: "", abort: null,
       ai: undefined, code: read(CODE_KEY), result: null, checked: [], seed: 0,
-      onlyThis: true, busy: "", msg: null, done: null
+      onlyThis: true, busy: "", msg: null, done: null, images: [], pageTexts: null, useImages: true
     };
   }
 
@@ -183,12 +183,17 @@
       + (qs.length !== r.requested ? ' (' + r.requested + ' demandées)' : '') + '</div>';
     if (r.warning) h += '<div class="v35q-msg warn show">ℹ️ ' + esc(r.warning) + '</div>';
     if (exist) h += '<div class="v35q-msg warn show">♻️ Ce thème existe déjà : ses anciennes questions générées seront remplacées (tes questions écrites à la main sont conservées).</div>';
+    if (S.images && S.images.length) {
+      var ii = r.imgInfo || { assigned: 0 };
+      h += '<label class="qcm-only qcm-imgs"><input type="checkbox" id="qcmImgs"' + (S.useImages !== false ? " checked" : "") + '> 🖼️ Joindre les images du cours (' + plural(S.images.length, "repérée", "repérées") + (S.useImages !== false ? ', ' + plural(ii.assigned, "jointe", "jointes") + ' aux questions' : '') + ')</label>';
+      if (S.useImages !== false && !ii.assigned) h += '<div class="v35q-msg warn show">ℹ️ Aucune image n\'a pu être rattachée à une question (les phrases source ne sont pas sur les pages qui contiennent des images).</div>';
+    }
     h += '<div class="v35q-hint">Relis les questions et décoche celles que tu ne veux pas. Un QCM automatique peut contenir des erreurs : tu pourras corriger chaque question ensuite dans « 📝 Mes questions ».</div>';
     h += '<div class="qcm-bar"><button type="button" data-qcm="all">Tout cocher</button><button type="button" data-qcm="none">Tout décocher</button><span id="qcmSel">' + nChecked + ' / ' + qs.length + ' sélectionnée' + (nChecked > 1 ? "s" : "") + '</span></div>';
     qs.forEach(function (q, i) {
-      h += '<label class="qcm-q"><input type="checkbox" data-i="' + i + '"' + (S.checked[i] ? " checked" : "") + '><span class="qcm-qbody"><span class="t">' + (i + 1) + '. ' + esc(q.question) + '</span><ul>'
+      h += '<label class="qcm-q"><input type="checkbox" data-i="' + i + '"' + (S.checked[i] ? " checked" : "") + '><span class="qcm-qbody">' + (q.media && q.media.url ? '<img class="qcm-thumb" alt="Figure du cours (page ' + (q.figurePage || '?') + ')" src="' + q.media.url + '">' : '') + '<span class="t">' + (i + 1) + '. ' + esc(q.question) + '</span><ul>'
         + q.answers.map(function (a, k) { return '<li' + (k === q.correct ? ' class="ok"' : '') + '>' + esc(a) + (k === q.correct ? ' ✓' : '') + '</li>'; }).join("")
-        + '</ul><span class="m">' + esc(({ facile: "🟢 Facile", moyen: "🔵 Moyen", difficile: "🟠 Difficile" })[q.difficulty] || "🔵 Moyen") + '</span></span></label>';
+        + '</ul><span class="m">' + (q.media ? '🖼️ Figure du cours (page ' + esc(q.figurePage || '?') + ') · ' : '') + esc(({ facile: "🟢 Facile", moyen: "🔵 Moyen", difficile: "🟠 Difficile" })[q.difficulty] || "🔵 Moyen") + '</span></span></label>';
     });
     h += '<label class="qcm-only"><input type="checkbox" id="qcmOnly"' + (S.onlyThis ? " checked" : "") + '> 🎯 Jouer uniquement ce thème à la prochaine partie</label>';
     h += '<div class="v35q-actions"><button type="button" class="btn btn-secondary" data-qcm="back">← Modifier</button><button type="button" class="btn btn-secondary" data-qcm="regen">🔄 Régénérer</button>'
@@ -206,6 +211,7 @@
     var d = S.done;
     return '<div class="v35q-msg ok show" role="status">✅ ' + plural(d.added, "question ajoutée", "questions ajoutées") + ' au thème « ' + esc(d.category) + ' ».'
       + (d.removed ? ' ' + plural(d.removed, "ancienne question remplacée", "anciennes questions remplacées") + '.' : '') + '</div>'
+      + (d.images ? '<div class="v35q-msg ok show">🖼️ ' + plural(d.images, "question avec une figure du cours", "questions avec une figure du cours") + ' (images sur cet appareil).</div>' : '')
       + (d.duplicates ? '<div class="v35q-msg warn show">ℹ️ ' + plural(d.duplicates, "question ignorée (déjà existante)", "questions ignorées (déjà existantes)") + '.</div>' : '')
       + (d.full ? '<div class="v35q-msg warn show">⚠️ ' + plural(d.full, "question refusée", "questions refusées") + ' : limite de ' + esc(window.v35Q ? window.v35Q.max : "") + ' questions perso atteinte.</div>' : '')
       + (d.persisted ? '' : '<div class="v35q-msg warn show">⚠️ Le stockage du navigateur est indisponible : ces questions seront perdues à la fermeture de la page (exporte-les depuis « 📝 Mes questions »).</div>')
@@ -247,9 +253,10 @@
     if (S !== mine || my !== job) return;
     S.abort = null;
     S.docText = r.text; S.source = "file"; S.fileName = label;
+    S.images = Array.isArray(r.images) ? r.images : []; S.pageTexts = Array.isArray(r.pageTexts) ? r.pageTexts : null;
     var words = (r.text.match(/\S+/g) || []).length;
     var how = r.via === "php" || r.via === "serveur" ? " (par le serveur)" : (r.via && /^(whisper|wikip|page|service)/i.test(r.via) ? " (" + r.via + ")" : "");
-    S.docInfo = "✅ " + label + " — " + (r.pages ? r.pages + " page" + (r.pages > 1 ? "s" : "") + ", " : "") + (r.seconds ? Math.max(1, Math.round(r.seconds / 60)) + " min de son, " : "") + words.toLocaleString("fr-FR") + " mots lus" + how + "." + (r.truncated ? " (Seules les 90 premières minutes sont lues.)" : "");
+    S.docInfo = "✅ " + label + " — " + (r.pages ? r.pages + " page" + (r.pages > 1 ? "s" : "") + ", " : "") + (r.seconds ? Math.max(1, Math.round(r.seconds / 60)) + " min de son, " : "") + words.toLocaleString("fr-FR") + " mots lus" + how + "." + (r.truncated ? " (Seules les 90 premières minutes sont lues.)" : "") + (S.images.length ? " 🖼️ " + plural(S.images.length, "image du cours repérée", "images du cours repérées") + "." : "");
     S.pasteText = ""; var t = $("qcmText"); if (t) t.value = "";
     if (!S.titleTouched) { S.title = titleFromName(r.title || label); var ti = $("qcmTitle"); if (ti) ti.value = S.title; }
     var d = $("qcmDoc"); if (d) d.textContent = S.docInfo;
@@ -324,6 +331,14 @@
     }, 40);
   }
 
+  /* Joint les images du cours aux questions de la même page (mode rapide uniquement : les questions de l'IA n'indiquent pas leur phrase source). */
+  function attachImages() {
+    var qs = S.result && S.result.questions || [];
+    S.result.imgInfo = null;
+    if (!root.QcmImages) return;
+    if (S.useImages === false || !S.images || !S.images.length) { qs.forEach(function (q) { delete q.media; delete q.figurePage; }); return; }
+    S.result.imgInfo = root.QcmImages.assign(qs, S.pageTexts, S.images);
+  }
   function showPreview(res, count) {
     setBusy("");
     if (!res.questions.length) {
@@ -332,6 +347,7 @@
       return;
     }
     S.result = { questions: res.questions, requested: count, warning: res.warning || "", stats: res.stats };
+    attachImages();
     S.checked = res.questions.map(function () { return true; });
     S.step = "preview";
     render();
@@ -405,7 +421,8 @@
     var chosen = S.result.questions.filter(function (q, i) { return S.checked[i]; });
     if (!chosen.length) { setMsg("err", "❌ Coche au moins une question."); return; }
     var cat = withEmoji(S.title.trim() || "Cours");
-    var recs = chosen.map(function (q) { return { category: cat, difficulty: q.difficulty, question: q.question, answers: q.answers, correct: q.correct, correction: q.correction }; });
+    var recs = chosen.map(function (q) { var r = { category: cat, difficulty: q.difficulty, question: q.question, answers: q.answers, correct: q.correct, correction: q.correction }; if (q.media && S.useImages !== false) r.media = q.media; return r; });
+    var withImg = recs.filter(function (r) { return r.media; }).length;
     var res = window.v35Q.addRecords(recs, { replaceCategory: cat });
     if (!res.added) {
       setMsg("err", "❌ Aucune question ajoutée" + (res.duplicates ? " (" + res.duplicates + " déjà existante" + (res.duplicates > 1 ? "s" : "") + ")" : "") + (res.full ? " — limite de " + window.v35Q.max + " questions perso atteinte" : "") + ".");
@@ -415,7 +432,7 @@
     S.onlyThis = !!($("qcmOnly") && $("qcmOnly").checked);
     var selected = selectTheme(cat, S.onlyThis);
     var rounds = setRounds(res.added);
-    S.done = { added: res.added, removed: res.removed, duplicates: res.duplicates, full: res.full, persisted: res.persisted, category: cat, selected: selected, rounds: rounds };
+    S.done = { images: withImg, added: res.added, removed: res.removed, duplicates: res.duplicates, full: res.full, persisted: res.persisted, category: cat, selected: selected, rounds: rounds };
     S.step = "done"; render();
     toast("✅ " + res.added + " questions ajoutées");
   }
@@ -474,7 +491,7 @@
     if (t.id === "qcmRange") setCount(Number(t.value));
     else if (t.id === "qcmNum") { var n = Number(t.value); if (n >= MIN_COUNT && n <= MAX_COUNT) { S.count = Math.floor(n); var r = $("qcmRange"), c = $("qcmCountVal"); if (r) r.value = S.count; if (c) c.textContent = S.count; } }
     else if (t.id === "qcmTitle") { S.title = t.value; S.titleTouched = true; }
-    else if (t.id === "qcmText") { S.pasteText = t.value; S.source = "paste"; S.docInfo = ""; var d = $("qcmDoc"); if (d) d.textContent = ""; }
+    else if (t.id === "qcmText") { S.pasteText = t.value; S.source = "paste"; S.images = []; S.pageTexts = null; S.docInfo = ""; var d = $("qcmDoc"); if (d) d.textContent = ""; }
     else if (t.id === "qcmCode") { S.code = t.value; }
     else if (t.id === "qcmUrl") { S.url = t.value; }
   }
@@ -488,6 +505,7 @@
     else if (t.id === "qcmReader") S.reader = t.checked;
     else if (t.name === "qcmMode") { S.mode = t.value; renderMode(); }
     else if (t.id === "qcmOnly") S.onlyThis = t.checked;
+    else if (t.id === "qcmImgs") { S.useImages = t.checked; attachImages(); render(); }
     else if (t.closest && t.closest(".qcm-q") && t.dataset.i != null) { S.checked[Number(t.dataset.i)] = t.checked; updatePreviewCounts(); }
   }
 

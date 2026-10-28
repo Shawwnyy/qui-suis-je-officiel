@@ -37,7 +37,7 @@
   function ext(name) { var m = /\.([a-z0-9]+)$/i.exec(name || ""); return m ? m[1].toLowerCase() : ""; }
 
   /* ---------- PDF ---------- */
-  function fromPdf(file) {
+  function fromPdf(file, options) {
     return loadScript(CDN.pdfjs).then(function () {
       var lib = root.pdfjsLib;
       if (!lib) throw err("CDN", "pdf.js introuvable.");
@@ -46,7 +46,7 @@
     }).then(function (buf) {
       return root.pdfjsLib.getDocument({ data: buf }).promise;
     }).then(function (doc) {
-      var pages = [], chain = Promise.resolve();
+      var pages = [], chain = Promise.resolve(), pdfDoc = doc;
       var total = Math.min(doc.numPages, 400);
       for (var n = 1; n <= total; n++) (function (num) {
         chain = chain.then(function () { return doc.getPage(num); }).then(function (page) { return page.getTextContent(); }).then(function (content) {
@@ -63,7 +63,14 @@
           pages.push(out);
         });
       })(n);
-      return chain.then(function () { return { text: pages.join("\n\n"), pages: total, via: "pdf.js" }; });
+      return chain.then(function () {
+        var r = { text: pages.join("\n\n"), pages: total, via: "pdf.js", pageTexts: pages };
+        /* images du cours (facultatif, jamais bloquant) */
+        if (!(options && options.images === false) && root.QcmImages && root.QcmImages.fromPdfDoc) {
+          return root.QcmImages.fromPdfDoc(pdfDoc, { onStatus: options && options.onStatus }).then(function (imgs) { r.images = imgs || []; return r; }, function () { r.images = []; return r; });
+        }
+        return r;
+      });
     });
   }
 
@@ -180,7 +187,7 @@
       if (!T) return Promise.reject(err("FORMAT", "Le module de transcription n'est pas chargé."));
     } else if (file.size > MAX_BYTES) return Promise.reject(err("SIZE", "Fichier trop volumineux (25 Mo maximum)."));
     var job;
-    if (kind === "pdf") job = fromPdf(file);
+    if (kind === "pdf") job = fromPdf(file, options);
     else if (kind === "odt") job = fromOdt(file);
     else if (kind === "docx") job = fromDocx(file);
     else if (kind === "pptx") job = fromPptx(file);
