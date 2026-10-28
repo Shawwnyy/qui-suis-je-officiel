@@ -62,6 +62,16 @@
     return norm(s).split(" ").map(function (w) { return w.length > 3 ? w.replace(/(s|x)$/, "") : w; }).join(" ");
   }
   /* Garde une seule question par bonne réponse (la première rencontrée). Sert aussi au mode IA (ui.js). */
+  /* Titre court pour un nom de thème : coupé sur un mot entier (jamais « plaque a ind »), sans petit mot orphelin (a, de, du…), « … » si raccourci. */
+  function shortTitle(name, max) {
+    var m = max || 40, t = String(name == null ? "" : name).replace(/\s+/g, " ").trim();
+    if (t.length <= m) return t;
+    var cut = t.slice(0, m - 1), sp = cut.lastIndexOf(" ");
+    if (t.charAt(m - 1) === " ") sp = m - 1;                 /* la coupe tombe pile entre deux mots */
+    if (sp >= 10) cut = cut.slice(0, sp);
+    cut = cut.replace(/(\s+\p{L}{1,2})+$/u, "").replace(/[\s,;:.\-–—]+$/, "");
+    return (cut || t.slice(0, m - 1)) + "…";
+  }
   function dedupeByAnswer(questions) {
     var seen = {};
     return (questions || []).filter(function (q) {
@@ -460,7 +470,7 @@
     return res;
   }
 
-  var QcmGenerator = { generate: generate, detectLang: detectLang, cleanBlocks: cleanBlocks, splitSentences: splitSentences, LIMITS: LIMITS, answerKey: answerKey, dedupeByAnswer: dedupeByAnswer, balancePositions: balancePositions, rngFrom: rngFrom };
+  var QcmGenerator = { generate: generate, detectLang: detectLang, cleanBlocks: cleanBlocks, splitSentences: splitSentences, LIMITS: LIMITS, answerKey: answerKey, shortTitle: shortTitle, dedupeByAnswer: dedupeByAnswer, balancePositions: balancePositions, rngFrom: rngFrom };
   root.QcmGenerator = QcmGenerator;
   if (typeof module !== "undefined" && module.exports) module.exports = QcmGenerator;
 })(typeof globalThis !== "undefined" ? globalThis : (typeof window !== "undefined" ? window : this));

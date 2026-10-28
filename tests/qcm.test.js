@@ -98,5 +98,18 @@ if (process.argv.includes("--show")) {
   console.log("STATS", JSON.stringify(r.stats), r.warning || "");
   r.questions.forEach((q, i) => console.log("\n" + (i + 1) + ". [" + q.kind + " / " + q.difficulty + "] " + q.question + "\n   " + q.answers.map((x, j) => (j === q.correct ? "✔ " : "• ") + x).join("\n   ")));
 }
+/* titre du thème créé depuis un fichier : coupé sur un mot entier */
+const st = G.shortTitle, LONG1 = "Dossier technique plaque a induction chauffante professionnelle", LONG2 = "Introduction a la thermodynamique de la chaleur et du froid industriel";
+ok(st("Dossier technique plaque a induction") === "Dossier technique plaque a induction", "titre de 36 caractères : gardé en entier (limite 40)");
+ok(st(LONG1) === "Dossier technique plaque a induction…", "titre trop long : coupé sur un mot entier avec « … » (" + st(LONG1) + ")");
+ok(!/ ind…?$/.test(st(LONG1)), "plus de coupe en plein mot (« … ind »)");
+ok(!/\s(a|de|du|la|le|et|en|un|au)…$/i.test(st(LONG2)) && st(LONG2).length <= 40, "pas de petit mot orphelin avant « … » (" + st(LONG2) + ")");
+ok(st("x".repeat(100)).length === 40 && st("x".repeat(100)).endsWith("…"), "un mot géant est coupé à 40 caractères au plus");
+ok(st("") === "" && st(null) === "" && st(undefined) === "" && st("   ") === "", "titre vide ou invalide");
+ok([LONG1, LONG2, "a ".repeat(40), "é".repeat(60) + " fin", "Cours de biologie cellulaire et moleculaire appliquee"].every(x => st(x).length <= 40), "jamais plus de 40 caractères");
+/* carte de thème : les compteurs ne doivent pas être écrasés (régression « (2 0) / 2 0 q. » coupés lettre par lettre) */
+const css = fs.readFileSync(path.join(__dirname, "..", "css", "qcm.css"), "utf8");
+ok(/#themeGrid \.v163-theme label\{[^}]*flex-wrap:wrap/.test(css), "CSS : la carte de thème peut passer les compteurs à la ligne");
+ok(/label>\.v35-count,#themeGrid \.v163-theme label>\.v231-theme-count\{[^}]*flex:0 0 auto;[^}]*white-space:nowrap/.test(css), "CSS : les compteurs de la carte ne rétrécissent plus et ne se cassent plus");
 console.log(fails ? "\n" + fails + " échec(s)." : "Tous les tests du générateur passent.");
 process.exit(fails ? 1 : 0);

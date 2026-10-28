@@ -48,7 +48,7 @@
     var t = String(name || "").replace(/\.[a-z0-9]+$/i, "").replace(/[_\-.]+/g, " ").replace(/\s+/g, " ").trim();
     if (!t) return "";
     t = t.charAt(0).toUpperCase() + t.slice(1);
-    return t.slice(0, 30);
+    return root.QcmGenerator && root.QcmGenerator.shortTitle ? root.QcmGenerator.shortTitle(t, 40) : t.slice(0, 40);
   }
   function withEmoji(name) {
     return /^\s*(\p{Extended_Pictographic}|\p{Regional_Indicator})/u.test(name) ? name : "📄 " + name;
@@ -153,7 +153,7 @@
       + '<select id="qcmStt"><option value="fast">⚡ Rapide (modèle léger ≈ 40 Mo) — suffisant pour une voix claire</option><option value="precise">🎯 Précise (modèle ≈ 80 Mo) — 2 à 3 fois plus lente</option></select>'
       + '<div class="v35q-hint">La première fois, le modèle de reconnaissance vocale est téléchargé puis gardé en cache. Compte plusieurs minutes pour un cours d\'une heure ; choisis la langue à l\'étape 4 pour de meilleurs résultats.</div></details>'
       + '<label class="qcm-step" for="qcmTitle">2 · Nom du thème</label>'
-      + '<input type="text" id="qcmTitle" maxlength="30" autocomplete="off" placeholder="Ex. Biologie cellulaire">'
+      + '<input type="text" id="qcmTitle" maxlength="40" autocomplete="off" placeholder="Ex. Biologie cellulaire">'
       + '<label class="qcm-step" for="qcmRange">3 · Nombre de questions : <b id="qcmCountVal"></b></label>'
       + '<div class="qcm-count"><input type="range" id="qcmRange" min="' + MIN_COUNT + '" max="' + MAX_COUNT + '" step="1" aria-label="Nombre de questions"><input type="number" id="qcmNum" min="' + MIN_COUNT + '" max="' + MAX_COUNT + '" inputmode="numeric" aria-label="Nombre de questions (valeur exacte)"></div>'
       + '<div class="qcm-presets" role="group" aria-label="Nombres courants">' + [5, 10, 20, 30, 50, 100].map(function (n) { return '<button type="button" data-qcm="preset" data-n="' + n + '">' + n + '</button>'; }).join("") + '</div>'

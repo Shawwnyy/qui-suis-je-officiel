@@ -88,3 +88,9 @@ html.qcm-open #dock,html.qcm-open #v231QuickNav,html.qcm-open #soundToggle,html.
 
 /* L'horloge permanente (z-index très élevé) recouvrait le début du bouton principal collé en bas de la fenêtre : on la masque pendant que la fenêtre est ouverte. */
 html.qcm-open #v44Clock{visibility:hidden}
+
+/* Carte de thème (dont les thèmes créés à partir d'un cours) : le titre prend la place qui reste et les compteurs « (20) ⭐20 » / « 20 q. »
+   ne sont plus écrasés ni coupés lettre par lettre ; ils passent sous le titre, alignés à droite, quand la carte est étroite. */
+#themeGrid .v163-theme label{flex-wrap:wrap;row-gap:4px;overflow-wrap:anywhere}
+#themeGrid .v163-theme label>.v35-count,#themeGrid .v163-theme label>.v231-theme-count{flex:0 0 auto;white-space:nowrap}
+#themeGrid .v163-theme label>.v35-count{margin-left:auto}
