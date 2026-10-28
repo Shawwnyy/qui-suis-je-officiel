@@ -347,6 +347,19 @@ var V40Pdf = (function () {
         note("Questions après lesquelles le joueur était en tête (les ex æquo comptent pour chacun) et plus longue période en tête. " + L.changes + " changement" + (L.changes > 1 ? "s" : "") + " de leader" + (L.soleRounds ? " sur " + L.soleRounds + " question" + (L.soleRounds > 1 ? "s" : "") + " avec un seul leader." : "."));
       }
     }
+    /* ----- Lettres et mots les plus écrits (chat + textes des questions) ----- */
+    var TX = A.textStats(log, "all", false, 15);
+    if (TX.totalLetters) {
+      var lmax = TX.letters[0].n;
+      valueBars("Lettres les plus écrites", TX.letters.slice(0, 26).map(function (x) {
+        return { label: x.ch, value: x.n, color: C.accent, text: x.n + " · " + (Math.round(x.share * 1000) / 10).toString().replace(".", ",") + " %" };
+      }), C.accent, lmax);
+      note("Calculé sur le chat (" + TX.messages + " message" + (TX.messages > 1 ? "s" : "") + ") et le texte des " + TX.questions + " question" + (TX.questions > 1 ? "s" : "") + " posée" + (TX.questions > 1 ? "s" : "") + " ; accents ramenés à la lettre de base. Seuls des comptages sont conservés.");
+      if (TX.words.length) {
+        valueBars("Mots les plus écrits", TX.words.map(function (x) { return { label: x.w, value: x.n, color: C.accent, text: x.n + " fois" }; }), C.accent, TX.words[0].n);
+        note("Hors mots courants (le, de, est…).");
+      }
+    }
     stackBars("Bonnes et mauvaises réponses par joueur", ranked.slice(0, 24).map(function (r) {
       return { label: r.name, vals: [r.correct, r.wrong, r.none], text: r.correct + " justes · " + r.wrong + " fausses · " + r.none + " sans rép." };
     }), [{ name: "Bonnes réponses", color: C.good }, { name: "Mauvaises réponses", color: C.bad }, { name: "Sans réponse", color: C.none }]);

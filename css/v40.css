@@ -160,3 +160,6 @@ html.v40s-lock,html.v40s-lock body{overflow:hidden!important}
 
 .v40x-statsbtn{margin-top:18px;min-height:46px;padding:11px 20px;border-radius:14px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;font:900 15px/1.2 inherit;font-family:inherit;cursor:pointer}
 .v40x-statsbtn:hover{background:rgba(255,255,255,.18)}
+.v40s-h{margin:18px 0 6px;font-size:17px;font-weight:900}
+.v40s-textbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}
+.v40s-textbar .v40s-btn.on{background:#f0efec;color:#0d0d0d;border-color:#f0efec}
