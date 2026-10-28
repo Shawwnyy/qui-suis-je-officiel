@@ -397,7 +397,7 @@
       questions.push({
         question: q.question, answers: answers, correct: correctIndex, difficulty: q.difficulty,
         correction: clip(P.from + c.s.text + (lang === "en" ? "”" : lang === "es" ? "»" : " »"), LIMITS.correction),
-        kind: q.kind, category: title, _pos: c.pos
+        kind: q.kind, category: title, _pos: c.pos, src: c.s.text
       });
       stats[q.kind]++;
       return true;
