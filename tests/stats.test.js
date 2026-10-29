@@ -90,7 +90,7 @@ t("CSV : guillemets échappés", A.csvCell('dit "oui"') === '"dit ""oui"""' && A
 t("null refusé", A.normalize(null) === null && A.normalize("x") === null && A.normalize({}) === null);
 t("sans joueur refusé", A.normalize({ P: [], R: [] }) === null);
 t("trop de manches refusé", A.normalize({ P: [{ i: "a", n: "A" }], R: new Array(301).fill({ r: [[1, 1, 1]] }) }) === null);
-t("trop de joueurs refusé", A.normalize({ P: new Array(61).fill({ i: "a", n: "A" }), R: [] }) === null);
+t("trop de joueurs refusé", A.normalize({ P: new Array(101).fill({ i: "a", n: "A" }), R: [] }) === null);
 const evil = A.normalize({ id: "<img src=x onerror=alert(1)>", P: [{ i: 5, n: "<b>x</b>\u0000\u001f" + "y".repeat(100), a: "🦊".repeat(30) }], R: [{ q: "q".repeat(500), c: 3, d: "<script>", m: "oui", r: [[99, 1e9, 1e12]] }], C: [[7, 1, 1, 1], [0, 1e9, -3, 0], "x"] });
 t("nom nettoyé et borné", evil.P[0].n.length <= 40 && !/[\u0000-\u001f]/.test(evil.P[0].n));
 t("avatar borné", evil.P[0].a.length <= 12);

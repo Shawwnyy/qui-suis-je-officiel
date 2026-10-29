@@ -19,7 +19,7 @@ message:"La partie a déjà commencé."
 return;
 }
 if(
-Object.keys(players).length>=8
+Object.keys(players).length>=(typeof window.v54PlayerCap==="function"?window.v54PlayerCap():8)
 ){
 sendTo(
 data.player.id,

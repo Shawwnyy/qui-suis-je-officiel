@@ -363,6 +363,15 @@ Touches **1 2 3 4** (rangée du haut, pavé numérique, y compris clavier AZERTY
 - **Règles** : les invités voient « (2/3 ont accepté) » et, si l'hôte a perdu l'acceptation d'un joueur (reconnexion, fiche recréée), elle est renvoyée automatiquement.
 - Tests : `node tests/rooms.test.js` (décisions d'entrée, mot de passe, essais limités, données reçues, branchement du code) et, avec Playwright, `node tests/e2e/rooms.e2e.js` (deux navigateurs, réseau simulé : salle privée, verrouillage, salle pleine, joueur refusé, usurpation, fiche truquée, fermeture, réouverture, hôte qui disparaît).
 
+## 🏠 Places de 1 à ∞ et nouveaux menus (`js/patches/047-v54-salles.js`, `048-v55-menus.js`, `049-v56-prereglages.js`, `css/v55.css`, `css/v56.css`)
+- **Places au choix, de 1 à ∞** (carte « Ma salle ») : boutons **−** / **+**, saisie directe et bouton **∞** (illimité). 1 place = partie solo (personne ne peut rejoindre). Le nombre de places ne tombe jamais sous le nombre de joueurs présents. La valeur par défaut reste 8. **Limite honnête :** « illimité » s'arrête à **100 joueurs** (plafond technique, la partie tourne dans le navigateur de l'hôte, et le site n'a pas de serveur) ; un avertissement apparaît au-delà d'une trentaine. La limite de 8 joueurs qui existait dans le cœur du jeu est levée (`js/core/14-handle-data.js`), les statistiques acceptent jusqu'à 100 joueurs. Le chat vocal en maillage reste prévu pour de petits groupes.
+- **🏠 Ma salle** (colonne de boutons à droite, aussi pendant la partie) : nom, code à copier, joueurs (rang, score, équipe, 👑), **expulsion** (hôte), verrou, nombre de places en direct, invitation, fermer la salle ou quitter.
+- **⚙️ Réglages & aide** : taille du texte (80 à 160 %), moins d'animations et de flashs (les écrans vert / rouge deviennent un fondu doux, activé d'office si ton système demande moins de mouvement), pastilles de touches, annonces d'arrivée et de départ, aide qui décrit chaque bouton. Tout est mémorisé sur l'appareil ; « Échap » ferme un panneau.
+- **➕ / ➖ Annonces** : « Bob a rejoint la salle » / « Bob est parti » pour tout le monde (désactivables).
+- **🎮 Préréglages** (paramètres de l'hôte) : ⚡ Éclair (10 questions, 10 s), 🎯 Classique (15, 20 s), 🏃 Marathon (50, 20 s), 🧠 Réflexion (20, 30 s) en un clic ; **💾 Mémoriser ma config** puis **↩️ Reprendre ma config** (questions, temps, langue, thèmes cochés) d'une partie à l'autre.
+- **Correctif :** les fenêtres de confirmation (expulser, fermer la salle, quitter) passent au-dessus des panneaux, du chat et du dock ; avant, leur bouton « Confirmer » pouvait être inclicable.
+- Tests : `node tests/rooms.test.js`, `node tests/menus.test.js`, `node tests/presets.test.js` ; avec Playwright : `node tests/e2e/rooms.e2e.js` et `node tests/e2e/menus.e2e.js` (12 joueurs, expulsion, réglages après rechargement, préréglages, thèmes réellement joués).
+
 ## 🔒 Corrections de sécurité de cette version
 - Un joueur dont l'identifiant réseau est un mot réservé du langage (`__proto__`, `constructor`…) pouvait corrompre la liste des joueurs de tout le jeu : son arrivée est désormais ignorée, et le sondage comme les équipes ne reconnaissent un joueur que s'il existe vraiment dans la liste.
 - **Usurpation d'identité** : l'hôte croyait l'identité écrite dans chaque message, donc n'importe quel invité pouvait répondre, écrire dans le chat, choisir un pouvoir ou accepter les règles **au nom d'un autre joueur**, ou envoyer une fiche truquée (`host: true`, « règles acceptées », score). Désormais l'identité vient **de la connexion réseau** pour tous les messages d'un invité, et la fiche du joueur est **reconstruite par l'hôte**.
@@ -440,6 +449,9 @@ node tests/text.test.js                  # lettres et mots les plus écrits : d�
 node tests/clock.test.js                 # horloge : format HH:MM:SS recalculé autrement (20 000 dates, changements d'heure), recalage sur la seconde
 node tests/justif.test.js                # justifications (bonne / mauvaise / temps écoulé, écarts, confusions, HTML échappé) et texte lu par la voix off
 node tests/rooms.test.js                 # salles : décisions d'entrée, mot de passe et essais limités, places, données reçues, identité des invités, refus propres
+node tests/menus.test.js                 # menus : réglages bornés, annonces d'arrivée / départ, classement des joueurs du panneau
+node tests/presets.test.js               # préréglages : valeur la plus proche, tirage sans remise, configuration mémorisée nettoyée
+node tests/e2e/menus.e2e.js              # (facultatif, Playwright) menus et préréglages de bout en bout
 node tests/e2e/rooms.e2e.js              # (facultatif, Playwright) salles de bout en bout dans deux navigateurs avec réseau simulé
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)
 ```

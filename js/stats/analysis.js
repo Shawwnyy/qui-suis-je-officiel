@@ -15,7 +15,7 @@
    ============================================================================= */
 var V40Analysis = (function () {
   "use strict";
-  var MAX_PLAYERS = 60, MAX_ROUNDS = 300, MAX_CHEATS = 400, MAX_POWERS = 600, SCORE_LIMIT = 9999999;
+  var MAX_PLAYERS = 100, MAX_ROUNDS = 300, MAX_CHEATS = 400, MAX_POWERS = 600, SCORE_LIMIT = 9999999;
   var DIFFS = ["facile", "moyen", "difficile", "impossible"];
 
   function str(x, n) { return typeof x === "string" ? x.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, n) : ""; }

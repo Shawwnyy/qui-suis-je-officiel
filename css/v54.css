@@ -24,3 +24,6 @@
 .v54-gone-box { max-width: 420px; width: 100%; text-align: center; padding: 22px; border-radius: 20px; background: rgba(30, 24, 60, .98); border: 1px solid rgba(255, 255, 255, .2); }
 .v54-gone-t { font-size: 1.25rem; font-weight: 900; margin-bottom: 6px; }
 .v54-gone-s { opacity: .8; margin-bottom: 14px; }
+.v54-max .input { text-align: center; padding-left: 4px; padding-right: 4px; min-width: 0; }
+.v54-eye.on { background: linear-gradient(135deg, #7c3aed, #db2777); border-color: rgba(255, 255, 255, .45); color: #fff; }
+.v54-max .v54-eye { min-width: 38px; padding: 0 8px; font-weight: 900; }

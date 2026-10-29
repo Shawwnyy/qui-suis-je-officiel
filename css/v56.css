@@ -1,0 +1,6 @@
+/* 🎮 Préréglages de l'hôte (js/patches/049-v56-prereglages.js) */
+.v56-card { margin: 0 0 14px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .14); }
+.v56-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.v56-row .v56-b { width: auto; flex: 0 1 auto; margin: 0; padding: 8px 14px; font-size: .9rem; }
+.v56-row .v56-b:disabled { opacity: .5; cursor: not-allowed; }
+.v56-msg { min-height: 18px; margin-top: 8px; font-size: .85rem; color: #86efac; }

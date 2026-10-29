@@ -23,7 +23,7 @@ function t(label, cond) { if (cond) ok++; else { bad++; console.log("ÉCHEC :", 
     t("l'hôte arrive dans la salle d'attente avec sa carte « Ma salle »", (await scr(H)) === "lobbyScreen" && (await H.locator("#v54Room").count()) === 1);
     await H.fill("#v54Name", "Les Quizzeurs"); await H.locator("#v54Name").dispatchEvent("change");
     await H.fill("#v54Pass", "secret1"); await H.locator("#v54Pass").dispatchEvent("change");
-    await H.selectOption("#v54Max", "3"); await H.waitForTimeout(900);
+    await H.fill("#v54Max", "5"); await H.locator("#v54Max").dispatchEvent("change"); await H.locator("#v54Less").click(); await H.locator("#v54Less").click(); await H.waitForTimeout(900);
     t("réglages pris en compte (3 places, privée)", /1\/3/.test(await H.textContent("#v54Badges")) && /privée/.test(await H.textContent("#v54Badges")));
     /* mot de passe */
     await join(G, "Bob", code, "");
@@ -61,7 +61,7 @@ function t(label, cond) { if (cond) ok++; else { bad++; console.log("ÉCHEC :", 
     t("Carl ne peut pas accepter les règles à la place de Bob", (await N.ev(H, `!!players['${bobId}'].rulesOk`)) === false && (await N.ev(H, `!!players['${carlId}'].rulesOk`)) === true);
     t("Carl ne peut pas écrire au nom de Bob", (await N.ev(G, `JSON.stringify(window.__log.filter(m=>m.d.type==='chat').map(m=>m.d.playerId))`)) === JSON.stringify([carlId]));
     /* fiche truquée */
-    await H.fill("#v54Max", "").catch(() => {}); await H.selectOption("#v54Max", "8"); await H.waitForTimeout(500);
+    await H.fill("#v54Max", "8"); await H.locator("#v54Max").dispatchEvent("change"); await H.waitForTimeout(500);
     await H.locator("#v54Pass").fill(""); await H.locator("#v54Pass").dispatchEvent("change"); await H.waitForTimeout(500);
     const Z = await N.newPage("Z");
     await Z.fill("#joinName", "Zed"); await Z.fill("#roomInput", code);
@@ -96,6 +96,28 @@ function t(label, cond) { if (cond) ok++; else { bad++; console.log("ÉCHEC :", 
     t("hôte disparu en pleine partie : message + bouton (plus de blocage silencieux)", await G.locator("#v54Gone").isVisible());
     await G.locator("#v54Gone button").click(); await G.waitForTimeout(300);
     t("retour à l'accueil depuis ce message", (await scr(G)) === "homeScreen" && !(await G.locator("#v54Gone").isVisible()));
+    /* places illimitées : plus de limite de 8, et une salle à 1 place refuse tout le monde */
+    const U = await N.newPage("U");
+    await U.fill("#hostName", "Uma"); await U.evaluate(() => createRoom()); await U.waitForSelector("#v54Room", { timeout: 10000 }).catch(() => {});
+    const ucode = await U.textContent("#roomCodeDisplay");
+    await U.locator("#v54Inf").click(); await U.waitForTimeout(500);
+    t("∞ : la carte l'affiche (👥 1/∞), le champ est grisé", /1\/∞/.test(await U.textContent("#v54Badges")) && await U.locator("#v54Max").isDisabled() && (await U.locator("#v54Inf").getAttribute("aria-pressed")) === "true");
+    const guests = [];
+    for (let i = 0; i < 9; i++) { const P = await N.newPage("U" + i); guests.push(P); await P.fill("#joinName", "Invite" + "abcdefghi"[i]); await P.fill("#roomInput", ucode); await P.evaluate(() => joinRoom()); await P.waitForTimeout(350); }
+    await U.waitForTimeout(800);
+    t("10 joueurs dans une salle illimitée (l'ancienne limite était 8)", (await N.ev(U, `Object.keys(players).length`)) === 10 && (await scr(guests[8])) === "waitingScreen");
+    t("fiche de salle chez le dernier arrivé : 10/∞", /10\/∞/.test(await guests[8].textContent("#v54Info")));
+    await U.locator("#v54Inf").click(); await U.waitForTimeout(400);
+    t("quitter ∞ : le nombre de places ne tombe jamais sous le nombre de joueurs", (await N.ev(U, `V54State.st.max`)) >= 10);
+    await U.fill("#v54Max", "1"); await U.locator("#v54Max").dispatchEvent("change"); await U.waitForTimeout(500);
+    t("saisie de 1 avec 10 joueurs : remontée à 10", (await N.ev(U, `V54State.st.max`)) === 10);
+    const S1 = await N.newPage("S1");
+    await S1.fill("#hostName", "Solo"); await S1.evaluate(() => createRoom()); await S1.waitForSelector("#v54Room", { timeout: 10000 }).catch(() => {});
+    const scode = await S1.textContent("#roomCodeDisplay");
+    await S1.fill("#v54Max", "1"); await S1.locator("#v54Max").dispatchEvent("change"); await S1.waitForTimeout(500);
+    t("1 place : badge 1/1 complète", /1\/1/.test(await S1.textContent("#v54Badges")) && /complète/.test(await S1.textContent("#v54Badges")));
+    const W1 = await N.newPage("W1"); await join(W1, "Passant", scode, "");
+    t("1 place : personne ne peut rejoindre", (await scr(W1)) === "homeScreen" && /pleine/.test(await W1.textContent("#homeMessage")));
     t("aucune erreur JavaScript pendant tout l'essai", N.errs.filter(e => !/peer-unavailable/.test(e)).length === 0);
     if (N.errs.length) console.log(N.errs.join("\n"));
   } catch (e) { bad++; console.log("ÉCHEC : exception", e && e.stack || e); }

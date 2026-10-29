@@ -11,7 +11,7 @@
    ============================================================================= */
 var V54Rooms = (function () {
   "use strict";
-  var MAX_NAME = 24, MIN_PASS = 4, MAX_PASS = 16, MIN_PLAYERS = 2, MAX_PLAYERS = 8;
+  var MAX_NAME = 24, MIN_PASS = 4, MAX_PASS = 16, MIN_PLAYERS = 1, HARD_CAP = 100, DEFAULT_MAX = 8, UNLIMITED = 0;
   var FAIL_WINDOW = 60000, FAIL_LIMIT = 6, LAST_TTL = 3 * 3600 * 1000;
   var CTRL = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g;
   var RESERVED = { "__proto__": 1, "constructor": 1, "prototype": 1, "tostring": 1, "valueof": 1, "hasownproperty": 1 };
@@ -46,12 +46,24 @@ var V54Rooms = (function () {
     if (n < MIN_PASS || n > MAX_PASS) return { ok: false, error: "Mot de passe : " + MIN_PASS + " à " + MAX_PASS + " caractères." };
     return { ok: true, pass: s };
   }
-  /* Nombre de places (hôte compris) : 2 à 8, jamais en dessous du nombre de joueurs déjà présents. */
-  function clampMax(n, count) {
-    n = Math.floor(Number(n)); if (!isFinite(n)) n = MAX_PLAYERS;
-    var c = Math.floor(Number(count)); if (!isFinite(c) || c < 0) c = 0;
-    return Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, n, c));
+  /* Nombre de places (hôte compris) : de 1 (partie solo) à 100, ou 0 = illimité (jusqu'au plafond technique de 100),
+     jamais en dessous du nombre de joueurs déjà présents. */
+  function wantsUnlimited(n) {
+    return n === UNLIMITED || n === Infinity || (typeof n === "string" && /^\s*(0|∞|inf|infini|illimit[a-zéèêë]*)\s*$/i.test(n));
   }
+  function clampMax(n, count) {
+    if (wantsUnlimited(n)) return UNLIMITED;
+    n = (n === "" || n == null) ? NaN : Math.floor(Number(n)); if (!isFinite(n)) n = DEFAULT_MAX;
+    var c = Math.floor(Number(count)); if (!isFinite(c) || c < 0) c = 0;
+    return Math.min(HARD_CAP, Math.max(MIN_PLAYERS, n, c));
+  }
+  /* Limite réelle d'une salle : 0 (illimité) = plafond technique ; une valeur absurde retombe sur 8. */
+  function limit(max) {
+    var m = Number(max);
+    if (m === UNLIMITED) return HARD_CAP;
+    return isFinite(m) && m >= MIN_PLAYERS ? Math.min(HARD_CAP, Math.floor(m)) : DEFAULT_MAX;
+  }
+  function isFull(max, count) { return Math.max(0, Math.floor(Number(count)) || 0) >= limit(max); }
   /* Comparaison sans arrêt au premier caractère différent. */
   function safeEq(a, b) {
     a = str(a); b = str(b);
@@ -62,7 +74,7 @@ var V54Rooms = (function () {
   function validId(id) {
     return typeof id === "string" && id.length > 0 && id.length <= 80 && !has(RESERVED, id.toLowerCase()) && id.toLowerCase().indexOf("__proto__") < 0;
   }
-  function newState() { return { name: "", max: MAX_PLAYERS, pass: "", locked: false, closed: false, fails: [] }; }
+  function newState() { return { name: "", max: DEFAULT_MAX, pass: "", locked: false, closed: false, fails: [] }; }
   function recentFails(st, now) { st.fails = st.fails.filter(function (t) { return now - t >= 0 && now - t < FAIL_WINDOW; }); return st.fails.length; }
   function retryIn(st, now) {
     if (recentFails(st, now) < FAIL_LIMIT) return 0;
@@ -86,7 +98,7 @@ var V54Rooms = (function () {
     if (st.closed) return refuse("closed");
     if (ctx.started) return refuse("started");
     if (st.locked) return refuse("locked");
-    if (ctx.count >= Math.min(MAX_PLAYERS, Number(st.max) || MAX_PLAYERS)) return refuse("full");
+    if (isFull(st.max, ctx.count)) return refuse("full");
     if (st.pass) {
       var wait = retryIn(st, now);
       if (wait > 0) return refuse("throttle", { wait: wait });
@@ -113,17 +125,17 @@ var V54Rooms = (function () {
   function sanitizeInfo(raw) {
     if (!raw || typeof raw !== "object") return null;
     var max = Math.floor(Number(raw.max)), count = Math.floor(Number(raw.count));
-    if (!isFinite(max)) max = MAX_PLAYERS;
+    if (!isFinite(max)) max = DEFAULT_MAX;
     if (!isFinite(count)) count = 0;
-    max = Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, max));
-    return { name: cleanName(raw.name, "Salle"), max: max, count: Math.min(MAX_PLAYERS, Math.max(0, count)), locked: raw.locked === true, priv: raw.priv === true };
+    max = max === UNLIMITED ? UNLIMITED : Math.min(HARD_CAP, Math.max(MIN_PLAYERS, max));
+    return { name: cleanName(raw.name, "Salle"), max: max, count: Math.min(HARD_CAP, Math.max(0, count)), locked: raw.locked === true, priv: raw.priv === true };
   }
   function badges(i) {
     if (!i) return [];
-    var b = ["👥 " + i.count + "/" + i.max];
+    var b = ["👥 " + i.count + "/" + (i.max === UNLIMITED ? "∞" : i.max)];
     b.push(i.priv ? "🔒 privée" : "🌐 publique");
     if (i.locked) b.push("⛔ verrouillée");
-    else if (i.count >= i.max) b.push("🈵 complète");
+    else if (isFull(i.max, i.count)) b.push("🈵 complète");
     return b;
   }
   /* Dernière salle de l'hôte (pour la rouvrir au même code) : jamais le mot de passe. */
@@ -139,8 +151,8 @@ var V54Rooms = (function () {
     return { code: str(o.code), name: cleanName(o.name, ""), max: clampMax(o.max, 1), host: str(o.host).replace(CTRL, "").trim().slice(0, 12), at: at };
   }
   var api = {
-    MAX_NAME: MAX_NAME, MIN_PASS: MIN_PASS, MAX_PASS: MAX_PASS, MIN_PLAYERS: MIN_PLAYERS, MAX_PLAYERS: MAX_PLAYERS, FAIL_LIMIT: FAIL_LIMIT, FAIL_WINDOW: FAIL_WINDOW, LAST_TTL: LAST_TTL,
-    cleanName: cleanName, checkPass: checkPass, clampMax: clampMax, safeEq: safeEq, validId: validId, newState: newState,
+    MAX_NAME: MAX_NAME, MIN_PASS: MIN_PASS, MAX_PASS: MAX_PASS, MIN_PLAYERS: MIN_PLAYERS, MAX_PLAYERS: HARD_CAP, HARD_CAP: HARD_CAP, DEFAULT_MAX: DEFAULT_MAX, UNLIMITED: UNLIMITED, FAIL_LIMIT: FAIL_LIMIT, FAIL_WINDOW: FAIL_WINDOW, LAST_TTL: LAST_TTL,
+    cleanName: cleanName, checkPass: checkPass, clampMax: clampMax, limit: limit, isFull: isFull, safeEq: safeEq, validId: validId, newState: newState,
     recentFails: recentFails, retryIn: retryIn, info: info, decideJoin: decideJoin, sanitizeRefuse: sanitizeRefuse, sanitizeInfo: sanitizeInfo,
     badges: badges, packLast: packLast, readLast: readLast
   };
@@ -382,15 +394,20 @@ var V54Rooms = (function () {
     var grid = mk("div", "v54-grid");
     function field(label, el) { var l = mk("label", "v54-field"); l.appendChild(mk("span", "", label)); l.appendChild(el); return l; }
     var name = mk("input", "input"); name.id = "v54Name"; name.maxLength = R.MAX_NAME; name.autocomplete = "off"; name.placeholder = "Salle de " + (myName || "…"); name.value = S.st.name;
-    var max = mk("select", "select"); max.id = "v54Max";
-    for (var n = R.MIN_PLAYERS; n <= R.MAX_PLAYERS; n++) { var op = mk("option", "", n + " joueurs"); op.value = String(n); max.appendChild(op); }
-    max.value = String(S.st.max);
+    var maxBox = mk("span", "v54-pw v54-max"), less = mk("button", "v54-eye", "−"), max = mk("input", "input"), more = mk("button", "v54-eye", "+"), inf = mk("button", "v54-eye v54-inf", "∞");
+    max.id = "v54Max"; max.type = "number"; max.min = String(R.MIN_PLAYERS); max.max = String(R.HARD_CAP); max.step = "1"; max.inputMode = "numeric"; max.setAttribute("aria-label", "Nombre de places, hôte compris");
+    less.id = "v54Less"; more.id = "v54More"; inf.id = "v54Inf"; less.type = more.type = inf.type = "button";
+    less.setAttribute("aria-label", "Une place de moins"); more.setAttribute("aria-label", "Une place de plus"); inf.title = "Places illimitées"; inf.setAttribute("aria-label", "Places illimitées");
+    less.addEventListener("click", function () { setMax(S.st.max === R.UNLIMITED ? count() : Math.max(1, S.st.max - 1)); });
+    more.addEventListener("click", function () { setMax(S.st.max === R.UNLIMITED ? R.UNLIMITED : S.st.max + 1); });
+    inf.addEventListener("click", function () { setMax(S.st.max === R.UNLIMITED ? Math.max(R.DEFAULT_MAX, count()) : R.UNLIMITED); });
+    maxBox.appendChild(less); maxBox.appendChild(max); maxBox.appendChild(more); maxBox.appendChild(inf);
     var pw = mk("span", "v54-pw"), pass = mk("input", "input"), eye = mk("button", "v54-eye", "👁");
     pass.id = "v54Pass"; pass.type = "password"; pass.maxLength = R.MAX_PASS; pass.autocomplete = "new-password"; pass.placeholder = "Aucun : salle publique"; pass.value = S.st.pass;
     eye.type = "button"; eye.setAttribute("aria-label", "Afficher ou masquer le mot de passe");
     eye.addEventListener("click", function () { pass.type = pass.type === "password" ? "text" : "password"; });
     pw.appendChild(eye); pw.appendChild(pass);
-    grid.appendChild(field("Nom de la salle", name)); grid.appendChild(field("Places (hôte compris)", max)); grid.appendChild(field("Mot de passe (facultatif)", pw));
+    grid.appendChild(field("Nom de la salle", name)); grid.appendChild(field("Places (hôte compris) : 1 à ∞", maxBox)); grid.appendChild(field("Mot de passe (facultatif)", pw));
     var msg = mk("div", "v54-msg"); msg.id = "v54Msg"; msg.setAttribute("role", "status");
     var acts = mk("div", "v54-actions");
     var lock = mk("button", "btn btn-secondary v54-act", "🔒 Verrouiller l'entrée"), copy = mk("button", "btn btn-secondary v54-act", "📋 Copier l'invitation"), close = mk("button", "btn btn-secondary v54-act v54-danger", "🚪 Fermer la salle");
@@ -399,12 +416,17 @@ var V54Rooms = (function () {
     card.appendChild(head); card.appendChild(grid); card.appendChild(msg); card.appendChild(acts);
     anchor.parentNode.insertBefore(card, anchor);
     name.addEventListener("change", applyName); name.addEventListener("keydown", function (e) { if (e.key === "Enter") applyName(); });
-    max.addEventListener("change", applyMax);
+    max.addEventListener("change", applyMax); max.addEventListener("keydown", function (e) { if (e.key === "Enter") applyMax(); });
     pass.addEventListener("change", applyPass); pass.addEventListener("keydown", function (e) { if (e.key === "Enter") applyPass(); });
-    lock.addEventListener("click", function () { S.st.locked = !S.st.locked; say(S.st.locked ? "⛔ Entrée verrouillée : personne d'autre ne peut rejoindre." : "🔓 Entrée rouverte.", true); syncInfo(true); });
+    lock.addEventListener("click", toggleLock);
     copy.addEventListener("click", copyInvite);
     close.addEventListener("click", function () { openConfirm("Fermer la salle ?", "Tous les joueurs seront renvoyés à l'accueil.", closeRoom, "🚪"); });
     paintHost();
+  }
+  function toggleLock() {
+    if (!isHost) return;
+    S.st.locked = !S.st.locked;
+    say(S.st.locked ? "⛔ Entrée verrouillée : personne d'autre ne peut rejoindre." : "🔓 Entrée rouverte.", true); syncInfo(true);
   }
   function applyName() {
     var f = $("v54Name"); if (!f) return;
@@ -414,9 +436,19 @@ var V54Rooms = (function () {
   }
   function applyMax() {
     var f = $("v54Max"); if (!f) return;
-    var want = Number(f.value), v = R.clampMax(want, count());
-    S.st.max = v; f.value = String(v);
-    say(v !== want ? "Il y a déjà " + count() + " joueurs : places portées à " + v + "." : "✅ " + v + " places.", true); syncInfo(true);
+    if (String(f.value).trim() === "") { paintHost(); return; }
+    setMax(Number(f.value));
+  }
+  /* Places : 1 (partie solo) à 100, ou ∞ (illimité, plafond technique de 100). */
+  function setMax(want) {
+    var v = R.clampMax(want, count());
+    S.st.max = v;
+    var note;
+    if (v === R.UNLIMITED) note = "∞ Places illimitées (plafond technique : " + R.HARD_CAP + " joueurs).";
+    else if (v !== want) note = "Il y a déjà " + count() + " joueurs : places portées à " + v + ".";
+    else note = v === 1 ? "✅ 1 place : partie solo, personne ne peut rejoindre." : "✅ " + v + " places.";
+    if (v === R.UNLIMITED || v > 30) note += " ⚠️ Au-delà d'une trentaine de joueurs, la partie peut ralentir sur ton appareil.";
+    say(note, true); syncInfo(true); paintHost();
   }
   function applyPass() {
     var f = $("v54Pass"); if (!f) return;
@@ -441,7 +473,9 @@ var V54Rooms = (function () {
     var b = $("v54Badges"); if (!b || !isHost) return;
     var i = roomInfo(); b.textContent = R.badges(i).join(" · ");
     var lock = $("v54Lock"); if (lock) lock.textContent = S.st.locked ? "🔓 Rouvrir l'entrée" : "🔒 Verrouiller l'entrée";
-    var mx = $("v54Max"); if (mx) { Array.prototype.forEach.call(mx.options, function (o) { o.disabled = Number(o.value) < count(); }); if (document.activeElement !== mx) mx.value = String(S.st.max); }
+    var mx = $("v54Max"), inf = $("v54Inf"), unl = S.st.max === R.UNLIMITED;
+    if (mx) { mx.min = String(Math.max(R.MIN_PLAYERS, count())); mx.disabled = unl; mx.placeholder = "∞"; if (document.activeElement !== mx) mx.value = unl ? "" : String(S.st.max); }
+    if (inf) { inf.classList.toggle("on", unl); inf.setAttribute("aria-pressed", String(unl)); }
   }
 
   /* ------------------------------------------------------------------ interface invité ------------------- */
@@ -537,5 +571,6 @@ var V54Rooms = (function () {
   document.addEventListener("DOMContentLoaded", tick);
   tick();
 
-  window.V54UI = { closeRoom: closeRoom, applyName: applyName, applyMax: applyMax, applyPass: applyPass, showGone: showGone, roomInfo: roomInfo, syncInfo: syncInfo, inviteText: inviteText };
+  window.v54PlayerCap = function () { return R.HARD_CAP; };
+  window.V54UI = { setMax: setMax, toggleLock: toggleLock, copyInvite: copyInvite, closeRoom: closeRoom, applyName: applyName, applyMax: applyMax, applyPass: applyPass, showGone: showGone, roomInfo: roomInfo, syncInfo: syncInfo, inviteText: inviteText };
 })();

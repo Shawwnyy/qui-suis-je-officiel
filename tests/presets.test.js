@@ -1,0 +1,37 @@
+/* 🎮 Préréglages de l'hôte (js/patches/049-v56-prereglages.js)   node tests/presets.test.js */
+const V = require("../js/patches/049-v56-prereglages.js");
+const fs = require("fs"), path = require("path");
+let ok = 0, bad = 0;
+function t(label, cond) { if (cond) ok++; else { bad++; console.log("ÉCHEC :", label); } }
+const rd = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+const ROUNDS = ["5", "10", "15", "20", "25", "30", "40", "50", "75", "100"], TIMES = ["10", "15", "20", "30", "45", "60"];
+t("4 préréglages avec des noms et valeurs distincts", V.PRESETS.length === 4 && new Set(V.PRESETS.map(p => p.id)).size === 4 && new Set(V.PRESETS.map(p => p.label)).size === 4 && V.PRESETS.every(p => p.rounds > 0 && p.time > 0));
+t("chaque préréglage existe tel quel dans les listes du jeu (questions et temps)", V.PRESETS.every(p => V.nearest(ROUNDS, p.rounds) === p.rounds && V.nearest(TIMES, p.time) === p.time));
+t("Éclair < Classique < Marathon en nombre de questions ; Éclair est le plus rapide", V.PRESETS[0].rounds < V.PRESETS[1].rounds && V.PRESETS[1].rounds < V.PRESETS[2].rounds && Math.min(...V.PRESETS.map(p => p.time)) === V.PRESETS[0].time);
+t("nearest : valeur exacte, la plus proche, égalité → la plus petite", V.nearest(ROUNDS, 15) === 15 && V.nearest(ROUNDS, 14) === 15 && V.nearest(ROUNDS, 12) === 10 && V.nearest(ROUNDS, 12.5) === 10 && V.nearest([10, 20], 15) === 10 && V.nearest([20, 10], 15) === 10);
+t("nearest : hors limites → les extrémités", V.nearest(ROUNDS, 1) === 5 && V.nearest(ROUNDS, 999) === 100 && V.nearest(ROUNDS, -5) === 5);
+t("nearest : listes vides, textes, null, booléens et objets ignorés", V.nearest([], 5) === null && V.nearest(["a", "", null, true, {}, []], 5) === null && V.nearest(["a", "7"], 5) === 7 && V.nearest(null, 5) === null && V.nearest(ROUNDS, "x") === null && V.nearest(ROUNDS, NaN) === null && V.nearest(undefined, 3) === null);
+t("sample : n éléments distincts pris dans la liste", (r => r.length === 3 && new Set(r).size === 3 && r.every(x => [1, 2, 3, 4, 5, 6].includes(x)))(V.sample([1, 2, 3, 4, 5, 6], 3)));
+t("sample : n trop grand → toute la liste, n négatif ou absurde → rien, la liste d'origine est intacte", (src => V.sample(src, 99).length === 4 && V.sample(src, -1).length === 0 && V.sample(src, "x").length === 0 && V.sample(src, 2.9).length === 2 && src.join() === "1,2,3,4")([1, 2, 3, 4]) && V.sample(null, 3).length === 0);
+t("sample : déterministe avec un générateur donné, et chaque élément peut sortir", V.sample([1, 2, 3, 4], 2, () => 0).join() === "1,2" && V.sample([1, 2, 3, 4], 2, () => 0.999).join() === "4,1" && V.sample([1, 2, 3, 4], 2, () => 1).length === 2);
+t("sample : répartition équitable (4000 tirages d'un élément sur 4)", (c => { for (let i = 0; i < 4000; i++) c[V.sample([0, 1, 2, 3], 1)[0]]++; return c.every(x => x > 800 && x < 1200); })([0, 0, 0, 0]));
+const S = x => V.cleanSaved(x);
+t("config : valeurs normales gardées", (c => c.rounds === 15 && c.time === 20 && c.lang === "fr" && c.themes.join() === "A,B")(S({ rounds: 15, time: 20, lang: "fr", themes: ["A", "B"] })));
+t("config : texte JSON accepté, JSON cassé ou autre type → null", S('{"rounds":5,"time":10}').rounds === 5 && S("{") === null && S("null") === null && S("[]") === null && S(5) === null && S(null) === null && S(undefined) === null && S([1]) === null);
+t("config : nombres bornés (1–500 questions, 1–600 s) et valeurs par défaut", (c => c.rounds === 500 && c.time === 600)(S({ rounds: 99999, time: 99999 })) && (c => c.rounds === 1 && c.time === 1)(S({ rounds: -4, time: 0 })) && (c => c.rounds === 10 && c.time === 20)(S({ rounds: "x", time: null })) && (c => c.rounds === 10 && c.time === 20)(S({ rounds: true, time: [] })) && S({ rounds: "12" }).rounds === 12 && S({ rounds: 7.9 }).rounds === 7);
+t("config : langue = 2 à 5 lettres minuscules, sinon vide", S({ lang: "en" }).lang === "en" && S({ lang: "FR" }).lang === "" && S({ lang: "<b>" }).lang === "" && S({ lang: 5 }).lang === "" && S({}).lang === "");
+t("config : thèmes = textes uniques, nettoyés, bornés (80 caractères, 400 thèmes)", (c => c.themes.join("|") === "Maths|Sport" && true)(S({ themes: ["Maths", "Maths", " Sport ", "", 5, null, {}, "\u0000"] })) && S({ themes: ["x".repeat(200)] }).themes[0].length === 80 && S({ themes: Array.from({ length: 900 }, (_, i) => "t" + i) }).themes.length === 400 && S({ themes: "pas une liste" }).themes.length === 0);
+t("config : « __proto__ » comme thème n'abîme rien", (c => c.themes.join() === "__proto__" && ({}).polluted === undefined)(S({ themes: ["__proto__", "__proto__"] })));
+t("config : caractères de contrôle et sens de lecture retirés des thèmes", S({ themes: ["a‮b"] }).themes[0] === "ab");
+const src = rd("js/patches/049-v56-prereglages.js"), css = rd("css/v56.css"), html = rd("index.html");
+t("hôte seulement, monté dans les paramètres avant la grille", /if \(!isHost \|\| \$\("v56Presets"\)\) return;/.test(src) && /box\.insertBefore\(card, grid\)/.test(src));
+t("un préréglage déclenche l'événement « change » (les autres modules suivent)", /dispatchEvent\(new Event\("change", \{ bubbles: true \}\)\)/.test(src) && /s\.value = String\(v\); fire\(s\)/.test(src));
+t("reprise : la langue d'abord, les thèmes ensuite (la langue reconstruit la liste)", src.indexOf("l.value = c.lang; fire(l)") > 0 && src.indexOf("l.value = c.lang; fire(l)") < src.indexOf("var want = Object.create(null)") && /, 250\);/.test(src));
+t("reprise : coche les thèmes en cliquant l'étiquette (c'est elle qui met à jour la sélection du jeu)", /label\[for="/.test(src) && /lab\.click\(\)/.test(src));
+t("reprise : ne touche pas aux thèmes grisés", /if \(i\.disabled\) return;/.test(src));
+t("rien de sensible mémorisé (ni mot de passe, ni code de salle, ni pseudo)", !/pass|roomCode|myName/.test(src.replace(/passive/g, "")));
+t("texte affiché avec textContent (pas d'innerHTML)", !/innerHTML/.test(src));
+t("index.html : feuille v56 et script 049 après 048, avant le mode révision", html.includes("css/v56.css") && html.indexOf("048-v55-menus.js") < html.indexOf("049-v56-prereglages.js") && html.indexOf("049-v56-prereglages.js") < html.indexOf("review/review.js"));
+t("CSS : carte et boutons", /\.v56-card/.test(css) && /\.v56-b/.test(css));
+console.log("Préréglages : " + ok + " OK, " + bad + " échec(s)");
+process.exit(bad ? 1 : 0);
