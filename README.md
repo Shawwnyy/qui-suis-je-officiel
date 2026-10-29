@@ -343,6 +343,8 @@ S'appuie sur le mode de jeu **👥 Équipes** (`window.v9GameMode === "teams"`).
 - Un trophée à égalité est partagé ; il n'est pas décerné quand il ne distingue personne (tout le monde à égalité, ou personne n'a assez joué). Le champion et le roi n'existent qu'à partir de 2 joueurs.
 - L'écran de fin affiche les trophées et **« Tes trophées »** (retrouvés par ton prénom) ; un clic ouvre l'onglet détaillé. Ils sont aussi dans le **📋 Récap** copiable et dans les **PDF**.
 
+- **🖼️ Ma carte de résultat** (en bas de l'onglet 🏆) : une image avec ton rang (« 2e sur 3 »), ton score, ta réussite, ta meilleure série, ta réponse la plus rapide, la courbe de ton score question après question et tes trophées. **📋 Copier l'image** ou **⬇️ PNG**. Elle porte le filigrane « qui-suis-je-officiel » ; seul l'hôte peut le retirer (comme pour les autres images).
+
 ## 🗳️ Sondage éclair de l'hôte (`js/patches/045-v53-sondage.js`, `css/v53.css`)
 - Bouton **🗳️** de l'hôte : une question (3 à 100 caractères), 2 à 4 choix, durée 15 / 30 / 60 s, bouton « 👍 Oui / Non » pour aller vite.
 - **Tout le monde vote d'un clic** (on peut changer d'avis jusqu'à la fin) et voit les barres bouger en direct. Résultats **anonymes** : on voit les totaux, jamais qui a voté quoi. L'hôte peut le terminer avant l'heure ; un joueur qui arrive en cours le reçoit avec le temps restant.

@@ -537,6 +537,17 @@ var V40Analysis = (function () {
     if (!key) return [];
     return (list || []).filter(function (a) { return a.holders.some(function (h) { return String(h.name).trim().toLowerCase() === key; }); });
   }
+  /* Carte de résultat d'un joueur (retrouvé par son prénom) : de quoi dessiner une image à partager */
+  function myCard(log, name) {
+    var key = String(name || "").trim().toLowerCase();
+    if (!key || !log || !log.P || !log.R || !log.R.length) return null;
+    var rows = perPlayer(log), me = null;
+    rows.forEach(function (r) { if (!me && String(r.name).trim().toLowerCase() === key) me = r; });
+    if (!me || !me.answered) return null;
+    return { name: me.name, avatar: me.avatar || "", rank: me.rank, players: log.P.length, rounds: log.R.length, final: me.final, accuracy: me.accuracy, correct: me.correct, answered: me.answered,
+      bestStreak: me.bestStreak, fastest: me.fastest, bestGain: me.bestGain, series: scoreSeries(log)[me.idx].values.slice(),
+      awards: myAwards(awards(log), name).map(function (x) { return { emoji: x.emoji, title: x.title }; }) };
+  }
   function awardNames(a, max) {
     var names = a.holders.map(function (h) { return h.name; }), m = max || 3;
     return names.length > m ? names.slice(0, m).join(", ") + " et " + (names.length - m) + " autre" + (names.length - m > 1 ? "s" : "") : listFr(names);
@@ -667,7 +678,7 @@ var V40Analysis = (function () {
   }
 
   return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
-    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, questionInsights: questionInsights, rankingAt: rankingAt, rankingMoments: rankingMoments, rankingTitle: rankingTitle, ordinal: ordinal, recapText: recapText, awards: awards, myAwards: myAwards, awardNames: awardNames, myRecords: myRecords, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
+    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, questionInsights: questionInsights, rankingAt: rankingAt, rankingMoments: rankingMoments, rankingTitle: rankingTitle, ordinal: ordinal, recapText: recapText, awards: awards, myAwards: myAwards, myCard: myCard, awardNames: awardNames, myRecords: myRecords, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell,
     tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats, textReport: textReport, textReportTxt: textReportTxt, reactionStats: reactionStats, quantile: quantile };
 })();

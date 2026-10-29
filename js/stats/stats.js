@@ -493,6 +493,72 @@
     main.appendChild(el("div", { "class": "v40s-tiles" }, list.map(function (a) {
       return tile(a.emoji + " " + A.awardNames(a, 3), a.title, (a.detail ? a.detail + " · " : "") + a.desc);
     })));
+    buildMyCard(main, log);
+  }
+  /* ---------- Ma carte de résultat : une image à partager (filigrane réservé à l'hôte pour l'enlever) ---------- */
+  function drawCard(c, log, withMark) {
+    var W = RK_W, scale = 2, pad = 24, H = 452 + (withMark ? K.FOOT : 0), MEDAL = ["#f5c518", "#c0c7d1", "#cd7f32"];
+    var cv = document.createElement("canvas"); cv.width = W * scale; cv.height = H * scale;
+    var ctx = cv.getContext("2d"); ctx.scale(scale, scale);
+    ctx.fillStyle = K.C.surface; ctx.fillRect(0, 0, W, H);
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+    ctx.fillStyle = K.C.ink; ctx.font = "900 26px " + RK_FONT; ctx.fillText("🎮 Ma partie", pad, 40);
+    ctx.fillStyle = K.C.ink2; ctx.font = "400 15px " + RK_FONT;
+    ctx.fillText(dateLabel(log.at) + " · " + c.players + " joueur" + (c.players > 1 ? "s" : "") + " · " + c.rounds + " question" + (c.rounds > 1 ? "s" : "") + (log.rc ? " · 🔑 " + log.rc : ""), pad, 68);
+    var col = c.rank <= 3 ? MEDAL[c.rank - 1] : K.C.palette[0];
+    ctx.fillStyle = col; ctx.font = "900 92px " + RK_FONT; ctx.fillText(A.ordinal(c.rank), pad, 190);
+    ctx.fillStyle = K.C.ink2; ctx.font = "400 17px " + RK_FONT; ctx.fillText("sur " + c.players + " joueur" + (c.players > 1 ? "s" : ""), pad + 2, 218);
+    ctx.fillStyle = K.C.ink; ctx.font = "400 44px " + RK_FONT; ctx.fillText(c.rank === 1 && c.players > 1 ? "🥇" : c.rank === 2 ? "🥈" : c.rank === 3 ? "🥉" : (c.avatar || "🙂"), 300, 138);
+    ctx.font = "800 28px " + RK_FONT; var nm = c.name; while (nm.length > 3 && ctx.measureText(nm).width > 380) nm = nm.slice(0, -2) + "…"; ctx.fillText(nm, 360, 135);
+    ctx.fillStyle = col; ctx.font = "900 40px " + RK_FONT; ctx.fillText(fmt.int(c.final) + " pts", 300, 190);
+    var tiles = [["Réussite", c.accuracy === null ? "—" : fmt.pct(c.accuracy)], ["Bonnes réponses", c.correct + " / " + c.answered], ["Meilleure série", c.bestStreak ? c.bestStreak + " d’affilée" : "—"], ["Plus rapide", c.fastest === null ? "—" : fmt.sec(c.fastest)]];
+    var tw = (W - pad * 2 - 30) / 4;
+    tiles.forEach(function (t, i) {
+      var x = pad + i * (tw + 10), y = 246;
+      ctx.fillStyle = "rgba(255,255,255,.06)"; ctx.fillRect(x, y, tw, 66);
+      ctx.fillStyle = K.C.muted; ctx.font = "400 13px " + RK_FONT; ctx.fillText(t[0], x + 12, y + 24);
+      ctx.fillStyle = K.C.ink; ctx.font = "800 20px " + RK_FONT; ctx.fillText(t[1], x + 12, y + 51);
+    });
+    var vals = c.series, n = vals.length - 1, top = 1, i0;
+    vals.forEach(function (v) { if (v !== null && v > top) top = v; });
+    var sx = pad, sy = 340, sw = W - pad * 2, sh = 52;
+    ctx.fillStyle = K.C.muted; ctx.font = "400 13px " + RK_FONT; ctx.fillText("Mon score, question après question", sx, sy - 6);
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.lineJoin = "round"; ctx.beginPath(); var pen = false;
+    for (i0 = 0; i0 <= n; i0++) {
+      var v = vals[i0]; if (v === null || v === undefined) { pen = false; continue; }
+      var px = sx + (n ? sw * i0 / n : 0), py = sy + sh - sh * v / top;
+      if (pen) ctx.lineTo(px, py); else { ctx.moveTo(px, py); pen = true; }
+    }
+    ctx.stroke();
+    ctx.fillStyle = K.C.ink; ctx.font = "700 17px " + RK_FONT;
+    var tr = c.awards.length ? "🏅 " + c.awards.map(function (a) { return a.emoji + " " + a.title; }).join("  ·  ") : "🏅 Pas de trophée cette fois-ci : à toi de jouer à la prochaine !";
+    while (tr.length > 8 && ctx.measureText(tr).width > W - pad * 2) tr = tr.slice(0, -2) + "…";
+    ctx.fillText(tr, pad, 432);
+    if (withMark) K.watermark(ctx, W, H, RK_FONT);
+    return cv;
+  }
+  function buildMyCard(main, log) {
+    var me = (typeof myName === "string" ? myName : "").trim(), c = A.myCard(log, me);
+    if (!c) return;
+    var cv = el("canvas", { id: "v53CardCanvas", role: "img", "aria-label": "Ma carte de résultat : " + A.ordinal(c.rank) + " sur " + c.players + ", " + fmt.int(c.final) + " points", style: "width:100%;max-width:" + RK_W + "px;height:auto;border-radius:12px;display:block;margin:10px auto" });
+    var copyB = el("button", { type: "button", id: "v53CardCopy", "class": "v40s-tool", text: "📋 Copier l’image" }), saveB = el("button", { type: "button", id: "v53CardSave", "class": "v40s-tool", text: "⬇️ PNG" }), markB = el("button", { type: "button", id: "v53CardMark", "class": "v40s-tool v40s-mark" });
+    function repaint() { var fresh = drawCard(c, log, K.markOn()); cv.width = fresh.width; cv.height = fresh.height; cv.getContext("2d").drawImage(fresh, 0, 0); }
+    function mk() { return new Promise(function (res, rej) { drawCard(c, log, K.markOn()).toBlob(function (b) { b ? res(b) : rej(new Error("png")); }, "image/png"); }); }
+    function say(b, m, back) { b.textContent = m; setTimeout(function () { b.textContent = back; }, 2600); }
+    function dl(blob) { var a = el("a", { href: URL.createObjectURL(blob), download: "ma-carte-resultat.png" }); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 4000); }
+    copyB.addEventListener("click", function () {
+      var p = mk();
+      if (navigator.clipboard && window.ClipboardItem && navigator.clipboard.write) navigator.clipboard.write([new ClipboardItem({ "image/png": p })]).then(function () { say(copyB, "✓ Image copiée", "📋 Copier l’image"); }, function () { p.then(dl); say(copyB, "⬇️ Image enregistrée", "📋 Copier l’image"); });
+      else p.then(dl).then(function () { say(copyB, "⬇️ Image enregistrée", "📋 Copier l’image"); });
+    });
+    saveB.addEventListener("click", function () { mk().then(function (b) { dl(b); say(saveB, "✓ Image enregistrée", "⬇️ PNG"); }, function () { say(saveB, "✗ Échec", "⬇️ PNG"); }); });
+    markB.addEventListener("click", function () { if (!K.canSkipMark()) return; K.setNoMarkPref(!K.noMarkPref()); paintRankMark(markB); repaint(); });
+    paintRankMark(markB);
+    main.appendChild(el("section", { "class": "v40s-card" }, [
+      el("div", { "class": "v40s-cardhead" }, [el("div", null, [el("h3", { text: "Ma carte de résultat" }), el("p", { text: "Ton rang, ton score et tes trophées en une image à partager." })]), el("div", { "class": "v40s-cardctl" }, [copyB, saveB, markB])]),
+      cv
+    ]));
+    repaint();
   }
   /* Bloc « Trophées » directement sur l'écran de fin de partie */
   function paintAwards() {

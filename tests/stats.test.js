@@ -275,7 +275,19 @@ t("trophées : journal vide, nul ou sans réponse → liste vide, sans erreur", 
 t("trophées : « mes trophées » retrouvés par le prénom, casse ignorée", A.myAwards(aw, " léa ").length >= 4 && A.myAwards(aw, "personne").length === 0 && A.myAwards(aw, "").length === 0 && A.myAwards(null, "Léa").length === 0);
 t("trophées : plus de 3 gagnants → « et N autres »", A.awardNames({ holders: [{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }, { name: "E" }] }, 3) === "A, B, C et 2 autres" && A.awardNames({ holders: [{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }] }, 3) === "A, B, C et 1 autre");
 t("trophées : le récap texte les résume (sans le champion, déjà dans le classement)", /🏅 Trophées : ⚡ Éclair — Léa/.test(A.recapText(lg, "x")) && !/Trophées : 🥇/.test(A.recapText(lg, "x")));
+/* ---- Carte de résultat ---- */
+const lgRun = A.normalize(rawRun);   /* la partie à 6 questions : Léa 3 400, Tom 2 500, Max 2 400 */
+const cardTom = A.myCard(lgRun, "tom");
+t("carte : Tom, 2e sur 3, 2 500 pts, 4 bonnes sur 6, série de 4", cardTom && cardTom.name === "Tom" && cardTom.rank === 2 && cardTom.players === 3 && cardTom.final === 2500 && cardTom.correct === 5 && cardTom.answered === 6 && cardTom.bestStreak === 4 && cardTom.rounds === 6);
+t("carte : courbe de score complète (départ à 0, puis une valeur par question)", cardTom.series.length === 7 && cardTom.series[0] === 0 && cardTom.series[6] === 2500);
+t("carte : ses trophées seulement (série en or, plus précis)", cardTom.awards.map(x => x.title).sort().join() === ["Le plus précis", "Série en or"].sort().join() && cardTom.awards.every(x => x.emoji && x.title));
+t("carte : prénom retrouvé sans tenir compte de la casse ni des espaces", A.myCard(lgRun, "  LÉA ").name === "Léa" && A.myCard(lgRun, "Léa").rank === 1);
+t("carte : prénom inconnu, vide, journal absent ou vide → rien, sans erreur", A.myCard(lgRun, "Zoé") === null && A.myCard(lgRun, "") === null && A.myCard(lgRun, null) === null && A.myCard(null, "Tom") === null && A.myCard({}, "Tom") === null && A.myCard(A.normalize({ id: "z", P: [{ n: "Tom" }], R: [] }), "Tom") === null);
+t("carte : joueur qui n'a répondu à aucune question → pas de carte", A.myCard(A.normalize({ id: "y", P: [{ n: "Tom" }, { n: "Léa" }], R: [{ q: "Q", c: "x", d: "facile", m: 0, r: [[0, 0, 0], [1, 2, 500]] }] }), "Tom") === null);
+t("carte : la liste de ses données n'est pas partagée avec le journal (copie)", (() => { const c = A.myCard(lgRun, "Tom"); c.series[0] = 999; return A.myCard(lgRun, "Tom").series[0] === 0; })());
 const stSrc2 = require("fs").readFileSync(require("path").join(__dirname, "../js/stats/stats.js"), "utf8");
+const stSrc3 = require("fs").readFileSync(require("path").join(__dirname, "../js/stats/stats.js"), "utf8");
+t("carte : dessinée avec le filigrane géré par K.markOn, copie / PNG / bascule du filigrane réservée à l'hôte", /function drawCard/.test(stSrc3) && /drawCard\(c, log, K\.markOn\(\)\)/.test(stSrc3) && /if \(withMark\) K\.watermark\(ctx, W, H, RK_FONT\)/.test(stSrc3) && /K\.canSkipMark\(\)\) return; K\.setNoMarkPref/.test(stSrc3) && /v53CardCopy/.test(stSrc3) && /buildMyCard\(main, log\)/.test(stSrc3));
 t("trophées : onglet 🏆 et bloc sur l'écran de fin de partie, rendu par textContent (pas d'innerHTML)", /\["trophies", "🏆 Trophées"\]/.test(stSrc2) && /trophies: buildTrophies/.test(stSrc2) && /paintAwards\(\)/.test(stSrc2) && !/innerHTML[^;]*awards|awards[^;]*innerHTML/i.test(stSrc2));
 
 console.log("Stats : " + ok + " OK, " + ko + " échec(s)");
