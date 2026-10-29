@@ -42,9 +42,14 @@ var V43Justif = (function () {
     [/^comment s'appelle (le|la|l'|les|un|une) ?(.+?) ?\?$/i, function (m, a) { return cap((m[1] === "l'" ? "l'" : m[1] + " ") + m[2]) + " s'appelle " + a + "."; }]
   ];
   function joinDe(art, name) { return art === "de l'" || art === "d'" ? art + name : art + " " + name; }
+  /* Réponse qui est déjà une phrase (« Aucun, le Capricorne ne traverse pas l'équateur », « Oui », « Tous ») : on ne la glisse pas dans « La capitale de X est … ». */
+  function sentenceLike(a) {
+    a = strip(a);
+    return a.length > 45 || /[,;:]/.test(a) || /^(aucune?|oui|non|tous|toutes|personne|rien|jamais|ni |ils |elles |il |elle |on )/i.test(a) || (a.split(" ").length > 6);
+  }
   function sentence(question, answer) {
     var q = strip(question), a = strip(answer);
-    if (!q || !a || q.length > 160 || a.length > 80) return "";
+    if (!q || !a || q.length > 160 || a.length > 80 || sentenceLike(a)) return "";
     for (var i = 0; i < RULES.length; i++) {
       var m = RULES[i][0].exec(q);
       if (m) { var s = RULES[i][1](m, a); return s && s.length <= 220 ? s : ""; }
@@ -133,9 +138,56 @@ var V43Justif = (function () {
     return { players: inGame, answered: answered, good: good, best: best, mineState: mine ? mine[0] : 0, mineTime: mine ? mine[1] : 0, slower: slower, rate: inGame ? good / inGame : null };
   }
 
+  /* ---------- 💰 Tes points : d'où viennent les points gagnés ou perdus sur cette question ---------- */
+  function fmt(n) { n = Math.round(Number(n) || 0); return (n < 0 ? "−" : "") + String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f"); }
+  function sgn(n) { n = Math.round(Number(n) || 0); return (n > 0 ? "+" : n < 0 ? "−" : "") + fmt(Math.abs(n)); }
+  /* Lit le journal de la manche (js/stats) : score avant / après, série en cours, pouvoirs qui m'ont touché ou que j'ai lancés. */
+  function pointsFromLog(log, myId, nameOf) {
+    if (!log || !Array.isArray(log.R) || !log.R.length || !Array.isArray(log.P)) return null;
+    var me = -1; log.P.forEach(function (P, k) { if (P && P.i === myId) me = k; });
+    if (me < 0) return null;
+    var n = log.R.length, cur = log.R[n - 1] && log.R[n - 1].r && log.R[n - 1].r[me];
+    if (!cur || !(cur[0] >= 1 && cur[0] <= 3)) return null;
+    var prev = 0, k; for (k = n - 2; k >= 0; k--) { var e = log.R[k] && log.R[k].r && log.R[k].r[me]; if (e && e[0] !== 0) { prev = Number(e[2]) || 0; break; } }
+    var combo = 0; for (k = n - 1; k >= 0; k--) { var f = log.R[k] && log.R[k].r && log.R[k].r[me]; if (f && f[0] === 1) combo++; else break; }
+    var powers = [];
+    (Array.isArray(log.B) ? log.B : []).forEach(function (b) {
+      if (!Array.isArray(b) || b[0] !== n || (b[1] !== me && b[2] !== me)) return;
+      var nm = typeof nameOf === "function" ? nameOf(b) : (b[7] || b[4]);
+      powers.push({ choice: b[3], amount: Number(b[5]) || 0, blocked: !!(b[6] & 1), reflected: !!(b[6] & 2), mine: b[1] === me, target: b[2] === me, name: strip(nm), giver: log.P[b[1]] ? strip(log.P[b[1]].n) : "", victim: b[2] >= 0 && log.P[b[2]] ? strip(log.P[b[2]].n) : "", wheel: /^w_/.test(String(b[4])) });
+    });
+    return { before: prev, after: Number(cur[2]) || 0, combo: combo, powers: powers };
+  }
+  /* p : { mult, streak, pts: pointsFromLog() ou null } — sans journal on explique tout de même la question (or, piège, éclair…) */
+  function pointsLines(q, ok, none, p) {
+    p = p || {}; var out = [], pt = p.pts || null, delta = pt ? pt.after - pt.before : null, trap = !!(q && q.trap);
+    if (pt) out.push({ k: "points", t: "Tes points sur cette question : " + sgn(delta) + " pts (" + fmt(pt.before) + " → " + fmt(pt.after) + ")" + (delta === 0 ? " : rien n'a bougé." : ".") });
+    if (ok) {
+      var parts = ["500 de base", "+ vitesse (25 pts par seconde restante)"];
+      if (pt && pt.combo > 0) parts.push("+ combo (" + fmt(Math.min(pt.combo * 100, 1000)) + " pts pour " + plural(pt.combo, "bonne réponse", "bonnes réponses") + " d'affilée)");
+      else parts.push("+ combo (100 pts par bonne réponse d'affilée, 1 000 au plus)");
+      out.push({ k: "points", t: "Calcul : " + parts.join(" ") + (p.mult > 0 ? ", le tout × " + p.mult + " (difficulté " + strip(q && q.difficulty) + ")" : ", le tout × le coefficient de difficulté") + "." });
+    }
+    if (q && q.golden) out.push({ k: "mult", t: ok ? "Question en or : tes points sont doublés (×2)." : "Question en or : les bonnes réponses valaient le double." });
+    if (q && q.event === "eclair") out.push({ k: "mult", t: ok ? "Question éclair : tes points sont multipliés par 1,5 (chrono plus court)." : "Question éclair : chrono plus court, points ×1,5 pour les bonnes réponses." });
+    if (q && q.event === "chance" && ok) out.push({ k: "mult", t: "Question chance : +200 pts offerts." });
+    if (trap) out.push({ k: "mult", t: ok ? "Question piège déjouée : tes points sont multipliés par 5." : none ? "Question piège : sans réponse, tu ne gagnes rien." : "Question piège : une mauvaise réponse coûte 300 pts." });
+    if (ok && p.streak && pt && pt.combo > 0 && pt.combo % 5 === 0) out.push({ k: "mult", t: "Série de " + pt.combo + " : palier de +" + fmt(500 * (pt.combo / 5)) + " pts." });
+    if (!ok && !none && !trap && pt) out.push({ k: "mult", t: delta <= -200 ? "Pénalité de 200 pts : deux mauvaises réponses (un bouclier l'aurait annulée)." : "Pas de pénalité cette fois : elle tombe à la 2ᵉ mauvaise réponse (−200 pts)." });
+    if (pt) pt.powers.slice(0, 6).forEach(function (w) {
+      var nm = "« " + (w.name || "pouvoir") + " »", amt = w.amount > 0 ? " (" + fmt(w.amount) + " pts)" : "";
+      if (w.choice === 1) { if (w.mine) out.push({ k: "power", t: (w.wheel ? "Roue : " : "Ton bonus ") + nm + (w.amount > 0 ? " : +" + fmt(w.amount) + " pts." : " est actif.") }); return; }
+      if (w.wheel) { out.push({ k: "power", t: "Roue : malus " + nm + (w.blocked ? " bloqué." : w.amount > 0 ? " : −" + fmt(w.amount) + " pts." : ".") }); return; }
+      if (w.mine && !w.target) out.push({ k: "power", t: "Ton malus " + nm + (w.victim ? " sur " + w.victim : "") + (w.blocked ? " a été bloqué." : w.reflected ? " t'est revenu : renvoyé par le Miroir." : w.amount > 0 ? " : −" + fmt(w.amount) + " pts pour lui." : " a fait effet.") });
+      else if (w.target && !w.mine) out.push({ k: "power", t: "Malus " + nm + (w.giver ? " lancé par " + w.giver : "") + (w.blocked ? " : bloqué, tu ne perds rien." : w.reflected ? " : renvoyé sur lui par ton Miroir." : w.amount > 0 ? " : −" + fmt(w.amount) + " pts pour toi." : " : il fait effet sur toi.") });
+    });
+    return out;
+  }
+
   /* explain(q, ctx) → { tone, headline, lines:[{k, t}], speech }
        q   : question affichée (answers, correct, question, correction, difficulty)
-       ctx : { mine: index choisi ou null, correct: index, stats: roundStats(), time: secondes }              */
+       ctx : { mine: index choisi ou null, correct: index, stats: roundStats(), time: secondes,
+               points: { mult, streak, pts: pointsFromLog() } }                                              */
   function explain(q, ctx) {
     ctx = ctx || {};
     var answers = (q && q.answers) || [], ci = typeof ctx.correct === "number" ? ctx.correct : (q ? q.correct : -1);
@@ -165,9 +217,10 @@ var V43Justif = (function () {
       if (rel) out.lines.push({ k: "related", t: "Attention à la confusion : « " + mine + " » est en fait la bonne réponse à une autre question : « " + rel + " »" });
     }
     if (L && !ok) out.lines.push({ k: "remember", t: "À réviser : " + (L.p ? "page " + L.p + " de " : "") + (L.t ? "« " + L.t + " »" : "le cours") + "." });
-    if (!sen && !exp && !L) out.lines.push({ k: "remember", t: "À retenir : la réponse à « " + strip(q && q.question).replace(/\s*\?$/, "") + " ? » est « " + right + " »." });
+    if (!sen && !exp && !L && !sentenceLike(right)) out.lines.push({ k: "remember", t: "À retenir : la réponse à « " + strip(q && q.question).replace(/\s*\?$/, "") + " ? » est « " + right + " »." });
     if (ok && hard) out.lines.push({ k: "bonus", t: "Bravo : c'était une question " + q.difficulty + "." });
     if (!ok && !none && hard) out.lines.push({ k: "bonus", t: "Pas de honte : c'était une question " + q.difficulty + "." });
+    if (ctx.points) pointsLines(q, ok, none, ctx.points).forEach(function (l) { out.lines.push(l); });
     if (st && st.players > 0) {
       var parts = [];
       parts.push(plural(st.good, "joueur a", "joueurs ont") + " trouvé la bonne réponse sur " + st.players + " (" + Math.round(st.good / st.players * 100) + " %)");
@@ -182,7 +235,7 @@ var V43Justif = (function () {
 
   /* ---------- Affichage (navigateur) ---------- */
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  var ICON = { lesson: "📖", answer: "🎯", sentence: "💡", explain: "📘", why: "🔎", related: "🔀", remember: "🧠", bonus: "⭐", stats: "📊" };
+  var ICON = { points: "💰", mult: "✨", power: "⚡", lesson: "📖", answer: "🎯", sentence: "💡", explain: "📘", why: "🔎", related: "🔀", remember: "🧠", bonus: "⭐", stats: "📊" };
   /* Texte échappé avec la réponse mise en évidence (<mark>), au plus 4 occurrences. */
   function mark(text, hl) {
     var t = String(text == null ? "" : text), a = strip(hl);
@@ -196,7 +249,7 @@ var V43Justif = (function () {
     return '<div class="v43j ' + ex.tone + '" role="group" aria-label="Justification de la réponse"><div class="v43j-head">' + esc(ex.headline) + "</div><ul>"
       + ex.lines.map(function (l) { return '<li class="v43-' + l.k + '"><span aria-hidden="true">' + (ICON[l.k] || "•") + "</span> " + esc(l.t) + (l.quote ? " <q>" + mark(l.quote, l.hl) + "</q>" : "") + "</li>"; }).join("") + "</ul></div>";
   }
-  return { explain: explain, lessonOf: lessonOf, mark: mark, buildIndex: buildIndex, related: related, sentence: sentence, roundStats: roundStats, gap: gap, num: num, html: html, specificCorrection: specificCorrection };
+  return { explain: explain, lessonOf: lessonOf, mark: mark, buildIndex: buildIndex, related: related, sentence: sentence, roundStats: roundStats, pointsFromLog: pointsFromLog, pointsLines: pointsLines, sentenceLike: sentenceLike, gap: gap, num: num, html: html, specificCorrection: specificCorrection };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V43Justif;
 if (typeof window !== "undefined") {
@@ -211,7 +264,12 @@ if (typeof window !== "undefined") {
         if (!box || !last || typeof currentQuestion === "undefined" || !currentQuestion) return;
         var log = withStats && window.V40Stats && window.V40Stats.getLive ? window.V40Stats.getLive() : null;
         var st = log ? V43Justif.roundStats(log, typeof myId !== "undefined" ? myId : "") : null;
-        var ex = V43Justif.explain(currentQuestion, { mine: last.mine, correct: last.correct, stats: st, index: bankIndex() });
+        var pts = null;
+        try {
+          var nameOf = window.V40Analysis && window.V40Analysis.powerName ? window.V40Analysis.powerName : null;
+          pts = { mult: typeof DIFFICULTY_INFO !== "undefined" && DIFFICULTY_INFO[currentQuestion.difficulty] ? DIFFICULTY_INFO[currentQuestion.difficulty].points : 0, streak: !!(window.gameOpts && window.gameOpts.streak), pts: log ? V43Justif.pointsFromLog(log, typeof myId !== "undefined" ? myId : "", nameOf) : null };
+        } catch (e) { pts = null; }
+        var ex = V43Justif.explain(currentQuestion, { mine: last.mine, correct: last.correct, stats: st, index: bankIndex(), points: pts });
         box.innerHTML = V43Justif.html(ex); box.classList.add("show");
         if (!withStats && window.V43Voice && window.V43Voice.readExplanation) window.V43Voice.readExplanation(ex.speech);
       } catch (e) { if (window.console) console.error("V43Justif", e); }

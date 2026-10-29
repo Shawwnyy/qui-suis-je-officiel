@@ -56,3 +56,7 @@ body.v46-review #powerModal .power-card.bonus{grid-column:1 / -1!important}
 .v43j mark{background:rgba(250,204,21,.28);color:inherit;border-radius:4px;padding:0 3px;font-weight:800}
 .v43j q{quotes:"«\00a0" "\00a0»";display:inline;font-style:italic}
 .v43j .v43-lesson{line-height:1.45}
+
+.v43j li.v43-points{font-weight:700;color:#fde68a}
+.v43j li.v43-mult{color:#fcd34d}
+.v43j li.v43-power{color:#c4b5fd}

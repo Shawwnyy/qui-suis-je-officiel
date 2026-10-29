@@ -139,6 +139,7 @@
   function sourceHTML() {
     return '<div id="qcmMsg" class="v35q-msg" role="alert" aria-live="polite"></div>'
       + '<div class="v35q-hint qcm-intro">Choisis un cours (document, présentation, tableur, page web, audio ou vidéo) : le jeu en tire des questions à 4 réponses. Rien n\'est envoyé sur Internet en mode rapide : le fichier est lu sur ton appareil.</div>'
+      + savedHtml()
       + '<label class="qcm-step">1 · Ton cours</label>'
       + '<label class="qcm-drop" id="qcmDrop" for="qcmFile"><span class="qcm-drop-ico" aria-hidden="true">📄</span><b>Choisir un fichier</b><span>ou dépose-le ici</span><small>PDF · Word · PowerPoint · ODP / ODT · Excel · EPUB · HTML · TXT · sous-titres · MP3 · WAV · MP4… — 25 Mo (300 Mo pour le son / la vidéo)</small></label>'
       + '<input type="file" id="qcmFile" class="qcm-file" accept=".pdf,.docx,.odt,.pptx,.odp,.xlsx,.ods,.csv,.tsv,.epub,.rtf,.html,.htm,.xhtml,.txt,.md,.markdown,.json,.srt,.vtt,.sbv,.ass,.ssa,.lrc,.mp3,.wav,.m4a,.aac,.ogg,.oga,.opus,.flac,.weba,.mp4,.m4v,.webm,.mov,.mkv,.ogv,audio/*,video/*,text/*,application/pdf,application/vnd.openxmlformats-officedocument.*,application/vnd.oasis.opendocument.*,application/epub+zip,application/rtf">'
@@ -233,7 +234,7 @@
       + (d.full ? '<div class="v35q-msg warn show">⚠️ ' + plural(d.full, "question refusée", "questions refusées") + ' : limite de ' + esc(window.v35Q ? window.v35Q.max : "") + ' questions perso atteinte.</div>' : '')
       + (d.persisted ? '' : '<div class="v35q-msg warn show">⚠️ Le stockage du navigateur est indisponible : ces questions seront perdues à la fermeture de la page (exporte-les depuis « 📝 Mes questions »).</div>')
       + '<div class="v35q-msg ok show">📚 <b>Mode révision</b> : pour ce cours, la partie se joue sans roue ni malus (uniquement des bonus à gagner), et chaque mauvaise réponse est justifiée avec le passage du cours (réglable dans la salle d\'attente).</div>'
-      + '<p class="qcm-done-txt">' + (d.selected ? 'Le thème est <b>présélectionné</b> et le nombre de questions est réglé sur <b>' + d.rounds + '</b>. Il te reste à créer la partie.' : 'Le thème est disponible dans la liste des thèmes de la salle d\'attente.') + '</p>'
+      + '<p class="qcm-done-txt">' + (d.selected ? 'Le thème est <b>présélectionné</b> et le nombre de questions est réglé sur <b>' + d.rounds + '</b>. Il te reste à créer la partie.' : (root.V60CourseUI ? 'Ce thème de cours reste à part : il n\'apparaît pas dans les salles normales. Utilise « Jouer maintenant » ou « Réviser à plusieurs » pour créer la salle de ce cours (tu le retrouveras dans « 📚 Mes cours enregistrés »).' : 'Le thème est disponible dans la liste des thèmes de la salle d\'attente.')) + '</p>'
       + '<div class="v35q-actions"><button type="button" class="btn btn-secondary" data-qcm="manage">📝 Voir mes questions</button><button type="button" class="btn btn-secondary" data-qcm="again">📄 Un autre cours</button><button type="button" class="btn btn-secondary" data-qcm="close">Terminer</button><button type="button" class="btn btn-secondary" data-qcm="multi">👥 Réviser à plusieurs</button><button type="button" class="btn btn-primary" data-qcm="play">▶️ Jouer maintenant</button></div>';
   }
 
@@ -443,6 +444,26 @@
     });
   }
 
+  /* ---------- Mes cours : les thèmes de cours n'apparaissent que dans une salle créée à partir d'un cours ---------- */
+  function savedCourses() { try { return root.V60CourseUI ? root.V60CourseUI.list() : []; } catch (e) { return []; } }
+  function savedHtml() {
+    var l = savedCourses();
+    if (!l.length) return "";
+    return '<div class="qcm-saved" id="qcmSaved"><label class="qcm-step">📚 Mes cours enregistrés</label>'
+      + '<div class="v35q-hint">Les thèmes de cours n\'apparaissent pas dans les salles normales : lance la salle d\'un cours d\'ici.</div>'
+      + l.map(function (c, i) {
+        return '<div class="qcm-saved-row"><span class="qcm-saved-name">' + esc(c.category) + ' <small>· ' + c.count + ' q.</small></span>'
+          + '<button type="button" class="btn btn-secondary" data-qcm="replay" data-i="' + i + '">▶️ Jouer</button>'
+          + '<button type="button" class="btn btn-secondary" data-qcm="replaymulti" data-i="' + i + '">👥 À plusieurs</button></div>';
+      }).join("") + '</div>';
+  }
+  function replayCourse(i, multi) {
+    var c = savedCourses()[i];
+    if (!c) return;
+    S.done = { category: c.category, added: Math.max(1, c.count) };
+    playNow(multi);
+  }
+
   /* ---------- Ajout au jeu ---------- */
   function addToGame() {
     if (S.busy || !window.v35Q || typeof window.v35Q.addRecords !== "function") { setMsg("err", "❌ Le gestionnaire de questions n'est pas disponible."); return; }
@@ -459,6 +480,7 @@
     }
     window.v35Q.ensureAllSource();
     S.onlyThis = !!($("qcmOnly") && $("qcmOnly").checked);
+    try { if (root.V60CourseUI && typeof isHost !== "undefined" && isHost && typeof roomCode !== "undefined" && roomCode && $("lobbyScreen") && $("lobbyScreen").classList.contains("active")) root.V60CourseUI.reveal(cat); } catch (e) {}
     var selected = selectTheme(cat, S.onlyThis);
     var rounds = setRounds(res.added);
     S.done = { images: withImg, added: res.added, removed: res.removed, duplicates: res.duplicates, full: res.full, persisted: res.persisted, category: cat, selected: selected, rounds: rounds };
@@ -475,17 +497,18 @@
     var inLobby = host && room && $("lobbyScreen") && $("lobbyScreen").classList.contains("active");
     if (!host && room) { notice("Tu es dans la salle de quelqu'un d'autre : quitte-la d'abord."); return; }
     var count = S.done.added;
+    try { if (root.V60CourseUI) root.V60CourseUI.reveal(cat); } catch (e) {}
     close();
     if (inLobby) { launch(cat, count, multi); return; }
     var hn = $("hostName");
-    if (!hn || typeof root.createRoom !== "function") { notice("Crée la partie depuis l'accueil : le thème est présélectionné."); return; }
+    if (!hn || typeof root.createRoom !== "function") { try { if (root.V60CourseUI) root.V60CourseUI.hideAll(); } catch (e) {} notice("Crée la salle depuis l'accueil, puis relance ce cours depuis « 📚 Mes cours enregistrés »."); return; }
     if (!hn.value.trim()) hn.value = "Moi";
     toast(multi ? "👥 Création de la salle de révision…" : "📚 Création de ta partie de révision…");
     root.createRoom();
     var t0 = Date.now(), iv = setInterval(function () {
       var lobby = $("lobbyScreen") && $("lobbyScreen").classList.contains("active");
       if (lobby) { clearInterval(iv); launch(cat, count, multi); }
-      else if (Date.now() - t0 > 12000) { clearInterval(iv); notice("⚠️ Impossible de créer la salle (connexion ?). Crée la partie à la main : le thème est présélectionné."); }
+      else if (Date.now() - t0 > 12000) { clearInterval(iv); try { if (root.V60CourseUI) root.V60CourseUI.hideAll(); } catch (e) {} notice("⚠️ Impossible de créer la salle (connexion ?). Relance ce cours depuis « 📚 Mes cours enregistrés »."); }
     }, 150);
   }
   function launch(cat, count, multi) {
@@ -555,6 +578,7 @@
     else if (a === "add") addToGame();
     else if (a === "addplay") { addToGame(); if (S && S.step === "done") playNow(); }
     else if (a === "addmulti") { addToGame(); if (S && S.step === "done") playNow(true); }
+    else if (a === "replay" || a === "replaymulti") replayCourse(Number(t.dataset.i), a === "replaymulti");
     else if (a === "play") playNow();
     else if (a === "multi") playNow(true);
     else if (a === "manage") { close(); if (window.v35Q) window.v35Q.open("list"); }

@@ -94,3 +94,10 @@ html.qcm-open #v44Clock{visibility:hidden}
 #themeGrid .v163-theme label{flex-wrap:wrap;row-gap:4px;overflow-wrap:anywhere}
 #themeGrid .v163-theme label>.v35-count,#themeGrid .v163-theme label>.v231-theme-count{flex:0 0 auto;white-space:nowrap}
 #themeGrid .v163-theme label>.v35-count{margin-left:auto}
+
+.v35q-body .qcm-saved{margin:8px 0 4px;padding:8px 10px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:rgba(255,255,255,.05)}
+.v35q-body .qcm-saved label.qcm-step{margin-top:2px}
+.v35q-body .qcm-saved-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:6px}
+.v35q-body .qcm-saved-name{flex:1 1 160px;min-width:0;overflow-wrap:anywhere;font-weight:700}
+.v35q-body .qcm-saved-name small{opacity:.75;font-weight:400}
+.v35q-body .qcm-saved-row .btn{width:auto;padding:6px 10px;font-size:13px}
