@@ -38,6 +38,7 @@ css/
   v40.css               anti-triche, questions avec média, statistiques
   v57.css               écran de configuration : résumé, difficulté, code à partager
   v58.css               outils de l'hôte : jamais jouées, difficulté progressive, thèmes favoris
+  v59.css               pronostic de fin, question piège, Brouillard, cases de « Modes fun »
   v43.css               voix off (réglages), justification de la réponse, horloge permanente et roue des bonus / malus
   voicechat.css         bouton et panneau du chat vocal
 js/
@@ -402,6 +403,14 @@ Une carte « ✨ Outils de l'hôte » s'affiche sous « Ta partie en un coup d'�
 - **⭐ Thèmes favoris** : **💾 Enregistrer ma sélection**, **⭐ Mes favoris** (recoche exactement ces thèmes, ceux qui n'existent plus sont ignorés) et **↔ Inverser** (coche les thèmes décochés et inversement).
 - Les réglages et favoris sont gardés dans le navigateur. Tests : `node tests/extras.test.js` (clés, mémoire, tirage, tri, favoris — mutations vérifiées) et, avec Playwright, `node tests/e2e/extras.e2e.js` (vraie partie en 20 questions, mémoire des questions posées, tirage, oubli, favoris, inversion).
 
+## 🔮 Pronostic, 🕳️ questions pièges et 13 pouvoirs de plus (`js/patches/052-v59-pouvoirs.js`, `053-v59-pronostic.js`, `css/v59.css`)
+- **🔮 Pronostic de fin** : juste **avant la dernière question** (au moins 3 manches et 2 joueurs), une fenêtre de 15 s demande à chacun sa **place finale** (boutons 1 à N, ou une case numérique au-delà de 16 joueurs ; rappel de sa place du moment ; « Je ne parie pas » possible). Après la dernière question, le classement est établi (les ex æquo partagent la meilleure place) : **place exacte → score ×2**, **sinon → score ÷2** (arrondi vers le bas), **pas de pari → rien ne change**. Le résultat s'affiche chez tous (ta ligne en premier : pari, place réelle, score avant → après), puis l'écran final arrive avec les scores réglés — les statistiques, le podium et le PDF utilisent ces scores. Le pari d'un invité est rattaché à **sa connexion** (jamais à l'identifiant écrit dans le message) ; les résultats reçus sont bornés (60 lignes) et nettoyés.
+- **🕳️ Question piège** : de temps en temps, une question est annoncée « piège » (bandeau + halo rouge) : **bonne réponse = points ×5**, **mauvaise réponse = −300 pts** (jamais sous 0). Jamais les 2 premières ni la dernière, jamais deux de suite, jamais sur une question en or, au plus 1 piège pour 5 questions. Fréquence réglable : rares (8 %), normaux (16 %), fréquents (30 %).
+- Les deux se règlent dans « 🎮 Modes fun » du salon (cases cochées par défaut). Les règles détaillées (article 13, en français, anglais et espagnol) les expliquent.
+- **13 pouvoirs de plus** (même chaîne que les autres : bouclier, Miroir, Hérisson, 2 malus actifs au maximum, rareté, « pas deux fois le même »). **Bonus** : 🎁 Cadeau surprise (+200 et +1 combo), 🎰 Machine à sous (+100 / +250 / +500 / +900), 🔭 Radar (+5 s par question, 2 q.), 💎 Rente (+100 par bonne réponse, 3 q.), 🦸 Rattrapage (15 % de l'écart avec le leader, de 150 à 900), 🪄 Magicien 🔵 (prochaine bonne réponse ×4), 🕊️ Trêve 🔵 (un bouclier neuf à chaque question, 3 q.). **Malus** : 💣 Mine (−300 s'il se trompe à la prochaine question), 🏷️ Dévaluation (sa prochaine bonne réponse rapporte moitié moins), 🎢 Montagnes russes (son combo tombe au hasard entre 0 et sa valeur), 🌫️ Brouillard (énoncé flou 4 s), 💀 Faucheuse 🔵 (−25 % du score, max 1 500), 🧛 Vampire 🔵 (tu lui voles 10 %, de 100 à 700).
+- **Cases à cocher de « Modes fun » réparées** : sans style propre elles s'affichaient à la taille 0 (invisibles) ; elles sont maintenant bien visibles.
+- Tests : `node tests/v59.test.js` (pouvoirs, mutations vérifiées), `node tests/predict.test.js` (classement, paris, règlement, résultat reçu du réseau, pièges, fréquences — mutations vérifiées) et, avec Playwright, `node tests/e2e/predict.e2e.js` (deux navigateurs, vraie partie : fenêtre de pari chez l'hôte et l'invité, paris reçus, règlement ×2 / ÷2 diffusé, écran final, piège ×5 / −300, pouvoirs dans les listes du jeu).
+
 ## 🔒 Corrections de sécurité de cette version
 - Un joueur dont l'identifiant réseau est un mot réservé du langage (`__proto__`, `constructor`…) pouvait corrompre la liste des joueurs de tout le jeu : son arrivée est désormais ignorée, et le sondage comme les équipes ne reconnaissent un joueur que s'il existe vraiment dans la liste.
 - **Usurpation d'identité** : l'hôte croyait l'identité écrite dans chaque message, donc n'importe quel invité pouvait répondre, écrire dans le chat, choisir un pouvoir ou accepter les règles **au nom d'un autre joueur**, ou envoyer une fiche truquée (`host: true`, « règles acceptées », score). Désormais l'identité vient **de la connexion réseau** pour tous les messages d'un invité, et la fiche du joueur est **reconstruite par l'hôte**.
@@ -483,11 +492,14 @@ node tests/menus.test.js                 # menus : réglages bornés, annonces d
 node tests/presets.test.js               # préréglages : valeur la plus proche, tirage sans remise, configuration mémorisée nettoyée
 node tests/config.test.js                # écran de configuration : code QSJ1, filtre de difficulté, durée estimée, résumé
 node tests/extras.test.js                # outils de l'hôte : questions jamais jouées, tri progressif, thèmes favoris et inversion
+node tests/v59.test.js                   # 13 pouvoirs de plus : effets exacts, plafonds, Mine, Trêve, Magicien
+node tests/predict.test.js               # pronostic de fin (classement, ×2 / ÷2) et questions pièges (×5 / −300, fréquence)
 node tests/e2e/menus.e2e.js              # (facultatif, Playwright) menus et préréglages de bout en bout
 node tests/e2e/bigroom.e2e.js            # (facultatif, Playwright) places jusqu'à 9 999, panneau borné, onglets Duels / Faits marquants, journal de 300 joueurs
 node tests/e2e/config.e2e.js             # (facultatif, Playwright) résumé, auto-réparation des listes, difficulté sur une vraie partie, code de config, anglais
 node tests/e2e/stats.e2e.js              # (facultatif, Playwright) onglets Catégories et Profils avec une partie de démonstration
 node tests/e2e/extras.e2e.js             # (facultatif, Playwright) vraie partie : difficulté progressive, mémoire des questions, favoris
+node tests/e2e/predict.e2e.js            # (facultatif, Playwright) deux navigateurs : pari avant la dernière question, règlement, piège ×5, nouveaux pouvoirs
 node tests/e2e/rooms.e2e.js              # (facultatif, Playwright) salles de bout en bout dans deux navigateurs avec réseau simulé
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)
 ```

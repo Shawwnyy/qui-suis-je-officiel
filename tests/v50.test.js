@@ -117,7 +117,7 @@ const R = rc.RULES_TEXT;
 ["fr", "en", "es"].forEach(l => {
   t(l + " : règlement ajouté à la suite de l'existant", R[l].startsWith(base[l]) && R[l].length > base[l].length + 2500);
   t(l + " : les 16 pouvoirs sont cités (emoji + nom)", P.IDS.every(k => R[l].includes(P.DEFS[k].emoji + " " + P.DEFS[k].name)));
-  t(l + " : 13 articles numérotés dans l'ordre", [...R[l].matchAll(/<b>(\d+)\. /g)].map(m => +m[1]).join() === "1,2,3,4,5,6,7,8,9,10,11,12,13");
+  t(l + " : 14 articles numérotés dans l'ordre", [...R[l].matchAll(/<b>(\d+)\. /g)].map(m => +m[1]).join() === "1,2,3,4,5,6,7,8,9,10,11,12,13,14");
   t(l + " : balises <b> équilibrées, pas de script", (R[l].match(/<b>/g) || []).length === (R[l].match(/<\/b>/g) || []).length && !/<script|onerror|javascript:/i.test(R[l]));
   t(l + " : parle de l'écran vert et de l'écran rouge", /🟢/.test(R[l]) && /🔴/.test(R[l]));
   t(l + " : parle du filigrane qui-suis-je-officiel", R[l].includes("qui-suis-je-officiel"));

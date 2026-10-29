@@ -39,7 +39,8 @@
       "<b>10. Chat vocal :</b> sans rien installer, entre joueurs de la salle. Le micro est coupé tant que tu ne le rejoins pas. La retranscription du texte est <b>facultative</b>, activée par chacun pour lui-même, et utilise la reconnaissance vocale de ton navigateur.<br>" +
       "<b>11. Statistiques :</b> à la fin, tu retrouves des graphiques (scores, réponses, questions, temps de réaction…), un rapport PDF et l'historique des 12 dernières parties, gardés dans ton navigateur.<br>" +
       "<b>12. Images de graphiques :</b> toute image copiée ou téléchargée porte le filigrane <b>qui-suis-je-officiel</b> ; seul l'hôte de la partie peut les avoir sans filigrane.<br>" +
-      "<b>13. Dernière règle :</b> on joue pour s'amuser. Bonne chance à tous !",
+      "<b>13. 🔮 Pronostic, 🕳️ questions pièges et 13 pouvoirs de plus :</b> avant la <b>dernière question</b>, tu peux parier sur ta place finale : place exacte = ton score <b>×2</b>, sinon <b>÷2</b> (pas de pari = rien ne change). De temps en temps, une <b>question piège</b> est annoncée : bonne réponse = points <b>×5</b>, mauvaise réponse = <b>−300 pts</b> (jamais les deux premières ni la dernière question). L'hôte peut désactiver les deux dans « Modes fun ». Bonus en plus : 🎁 Cadeau surprise, 🎰 Machine à sous, 🔭 Radar, 💎 Rente, 🦸 Rattrapage, 🪄 Magicien, 🕊️ Trêve. Malus en plus : 💣 Mine, 🏷️ Dévaluation, 🎢 Montagnes russes, 🌫️ Brouillard, 💀 Faucheuse, 🧛 Vampire.<br>" +
+      "<b>14. Dernière règle :</b> on joue pour s'amuser. Bonne chance à tous !",
     en: "<hr><b>📖 DETAILED RULES</b><br>" +
       "<b>1. Before playing:</b> every player picks a decent nickname (insults are refused) and <b>accepts the rules</b>; the host can only start once everyone has accepted.<br>" +
       "<b>2. Points:</b> a correct answer earns 500 pts plus a speed bonus and a combo bonus, multiplied by difficulty. Easy, medium, hard and impossible questions do not pay the same.<br>" +
@@ -53,7 +54,8 @@
       "<b>10. Voice chat:</b> nothing to install, between players of the room. Your microphone stays off until you join. Transcription is <b>optional</b>, turned on by each person for themselves, and uses your browser's speech recognition.<br>" +
       "<b>11. Statistics:</b> at the end you get charts (scores, answers, questions, reaction times…), a PDF report and the history of the last 12 games, kept in your browser.<br>" +
       "<b>12. Chart images:</b> every copied or downloaded image carries the <b>qui-suis-je-officiel</b> watermark; only the game's host can have them without it.<br>" +
-      "<b>13. Last rule:</b> we play for fun. Good luck everyone!",
+      "<b>13. 🔮 Forecast, 🕳️ trap questions and 13 more powers:</b> before the <b>last question</b> you may bet on your final rank: exact rank = your score <b>×2</b>, otherwise <b>÷2</b> (no bet = nothing changes). Now and then a <b>trap question</b> is announced: correct answer = points <b>×5</b>, wrong answer = <b>−300 pts</b> (never the first two or the last question). The host can turn both off in “Fun modes”. Extra bonuses: 🎁 Surprise Gift, 🎰 Slot Machine, 🔭 Radar, 💎 Annuity, 🦸 Catch-up, 🪄 Magician, 🕊️ Truce. Extra maluses: 💣 Mine, 🏷️ Devaluation, 🎢 Roller Coaster, 🌫️ Fog, 💀 Reaper, 🧛 Vampire.<br>" +
+      "<b>14. Last rule:</b> we play for fun. Good luck everyone!",
     es: "<hr><b>📖 REGLAMENTO DETALLADO</b><br>" +
       "<b>1. Antes de jugar:</b> cada jugador elige un apodo correcto (se rechazan los insultos) y <b>acepta las reglas</b>; el anfitrión solo puede empezar cuando todos las han aceptado.<br>" +
       "<b>2. Puntos:</b> un acierto vale 500 pts más un bonus de velocidad y un bonus de combo, multiplicados según la dificultad. Las preguntas fáciles, medias, difíciles e imposibles no valen lo mismo.<br>" +
@@ -67,7 +69,8 @@
       "<b>10. Chat de voz:</b> sin instalar nada, entre los jugadores de la sala. Tu micrófono sigue apagado hasta que te unes. La transcripción es <b>opcional</b>, la activa cada uno para sí mismo y usa el reconocimiento de voz de tu navegador.<br>" +
       "<b>11. Estadísticas:</b> al final tienes gráficos (puntos, respuestas, preguntas, tiempos de reacción…), un informe PDF y el historial de las últimas 12 partidas, guardado en tu navegador.<br>" +
       "<b>12. Imágenes de gráficos:</b> toda imagen copiada o descargada lleva la marca de agua <b>qui-suis-je-officiel</b>; solo el anfitrión de la partida puede tenerlas sin ella.<br>" +
-      "<b>13. Última regla:</b> jugamos para divertirnos. ¡Suerte a todos!"
+      "<b>13. 🔮 Pronóstico, 🕳️ preguntas trampa y 13 poderes más:</b> antes de la <b>última pregunta</b> puedes apostar por tu puesto final: puesto exacto = tu puntuación <b>×2</b>, si no <b>÷2</b> (sin apuesta no cambia nada). De vez en cuando se anuncia una <b>pregunta trampa</b>: acierto = puntos <b>×5</b>, fallo = <b>−300 pts</b> (nunca las dos primeras ni la última). El anfitrión puede desactivar ambas en «Modos divertidos». Bonus extra: 🎁 Regalo sorpresa, 🎰 Tragaperras, 🔭 Radar, 💎 Renta, 🦸 Remontada, 🪄 Mago, 🕊️ Tregua. Malus extra: 💣 Mina, 🏷️ Devaluación, 🎢 Montaña rusa, 🌫️ Niebla, 💀 Parca, 🧛 Vampiro.<br>" +
+      "<b>14. Última regla:</b> jugamos para divertirnos. ¡Suerte a todos!"
   };
 
   var MARK = { fr: "RÈGLEMENT DÉTAILLÉ", en: "DETAILED RULES", es: "REGLAMENTO DETALLADO" };
