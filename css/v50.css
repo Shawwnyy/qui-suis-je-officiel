@@ -1,0 +1,39 @@
+/* V50 — écran vert (bonus) / rouge (malus) animé, effets d'écran Séisme et Éclipse */
+.v50-flash{position:fixed;inset:0;z-index:100000;pointer-events:none;display:flex;align-items:center;justify-content:center;overflow:hidden;
+  animation:v50-life 2.5s ease-out forwards}
+.v50-good{background:radial-gradient(circle at 50% 45%,rgba(74,222,128,.62),rgba(5,60,38,.9) 78%);box-shadow:inset 0 0 140px 30px rgba(74,222,128,.55)}
+.v50-bad{background:radial-gradient(circle at 50% 45%,rgba(248,113,113,.62),rgba(80,8,12,.92) 78%);box-shadow:inset 0 0 160px 40px rgba(239,68,68,.75);
+  animation:v50-life 2.5s ease-out forwards,v50-pulse .5s ease-in-out 3}
+.v50-core{text-align:center;color:#fff;padding:0 22px;max-width:min(92vw,640px)}
+.v50-emoji{font-size:clamp(84px,22vw,170px);line-height:1;filter:drop-shadow(0 6px 24px rgba(0,0,0,.45));animation:v50-pop .75s cubic-bezier(.2,1.4,.4,1) both}
+.v50-bad .v50-emoji{animation:v50-pop .75s cubic-bezier(.2,1.4,.4,1) both,v50-shake .45s linear .6s 2}
+.v50-title{margin-top:6px;font-size:clamp(34px,10vw,76px);font-weight:900;letter-spacing:.06em;text-shadow:0 4px 26px rgba(0,0,0,.55);animation:v50-rise .55s ease-out .15s both}
+.v50-sub{margin-top:10px;font-size:clamp(15px,3.6vw,22px);font-weight:700;opacity:.95;text-shadow:0 2px 12px rgba(0,0,0,.6);animation:v50-rise .55s ease-out .3s both}
+.v50-bit{position:absolute;font-size:calc(26px*var(--s,1));left:var(--x,50%);opacity:0;animation-delay:var(--d,0s);animation-duration:2s;animation-fill-mode:both;animation-timing-function:ease-out}
+.v50-good .v50-bit{bottom:-10%;animation-name:v50-up}
+.v50-bad .v50-bit{top:-10%;animation-name:v50-down}
+/* version « calme » (prefers-reduced-motion) : un simple fondu, sans mouvement */
+.v50-calm,.v50-calm.v50-bad{animation:v50-fade 1.4s ease-out forwards}
+.v50-calm .v50-emoji,.v50-calm .v50-title,.v50-calm .v50-sub{animation:none}
+@keyframes v50-life{0%{opacity:0}10%{opacity:1}72%{opacity:1}100%{opacity:0}}
+@keyframes v50-fade{0%{opacity:0}15%{opacity:1}75%{opacity:1}100%{opacity:0}}
+@keyframes v50-pop{0%{transform:scale(.1) rotate(-25deg);opacity:0}60%{transform:scale(1.25) rotate(6deg);opacity:1}100%{transform:scale(1) rotate(0)}}
+@keyframes v50-rise{0%{transform:translateY(24px);opacity:0}100%{transform:none;opacity:1}}
+@keyframes v50-shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-14px) rotate(-4deg)}40%{transform:translateX(14px) rotate(4deg)}60%{transform:translateX(-10px)}80%{transform:translateX(10px)}}
+@keyframes v50-pulse{0%,100%{filter:none}50%{filter:brightness(1.25) saturate(1.2)}}
+@keyframes v50-up{0%{transform:translateY(0) rotate(0);opacity:0}15%{opacity:1}100%{transform:translateY(-115vh) rotate(260deg);opacity:0}}
+@keyframes v50-down{0%{transform:translateY(0) rotate(0);opacity:0}15%{opacity:1}100%{transform:translateY(115vh) rotate(-260deg);opacity:0}}
+
+/* Séisme : l'écran de la cible tremble pendant la question */
+body.v50-quake #gameScreen{animation:v50-quake .3s linear infinite}
+@keyframes v50-quake{0%,100%{transform:translate(0,0)}25%{transform:translate(-3px,2px)}50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-3px)}}
+/* Éclipse : les réponses reviennent après 3 s (visibility discrète : step-end garde « caché » jusqu'à la fin) */
+body.v50-eclipse #answers .answer{animation:v50-eclipse 3s step-end both}
+@keyframes v50-eclipse{from{visibility:hidden;opacity:0}to{visibility:visible;opacity:1}}
+body.v50-eclipse #answers::before{content:"🌑 Éclipse : les réponses reviennent dans 3 s…";display:block;text-align:center;font-weight:800;padding:12px;grid-column:1/-1;
+  animation:v50-eclipse-note 3s step-end both}
+@keyframes v50-eclipse-note{from{visibility:visible;opacity:1}to{visibility:hidden;opacity:0;height:0;padding:0}}
+@media (prefers-reduced-motion:reduce){
+  body.v50-quake #gameScreen{animation:none}
+  body.v50-eclipse #answers .answer{animation-duration:1.5s}
+}
