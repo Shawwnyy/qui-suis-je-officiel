@@ -108,6 +108,7 @@ const bigd = Buffer.from(P.build(nb, { theme: "dark" })).toString("latin1");
 t("gros journal sombre : valide, sans NaN", bigd.startsWith("%PDF-1.4") && !/NaN|undefined|Infinity/.test(bigd));
 const lat = b => Buffer.from(b).toString("latin1");
 t("PDF : classement à la mi-partie présent (journal de 4 questions : après la question 2)", lat(P.build(log)).includes("Classement \\340 la mi-partie") && lat(P.build(log)).includes("apr\\350s la question 2 sur 4"));
+t("PDF : trophées de la partie présents (tableau des gagnants)", lat(P.build(log)).includes("Troph\\351es de la partie") && lat(P.build(log)).includes("Gagnant\\(e\\)"));
 t("PDF : pas de classement à la mi-partie pour une seule question", !lat(P.build(one)).includes("Classement \\340 la mi-partie"));
 /* tous les sous-titres de graphique de la page de stats ont leur équivalent dans le PDF (mêmes mots) */
 const statsSrc = fs.readFileSync(path.join(__dirname, "../js/stats/stats.js"), "utf8");

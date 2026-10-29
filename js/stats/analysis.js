@@ -478,9 +478,68 @@ var V40Analysis = (function () {
     if (fs) L.push("⚡ Réponse la plus rapide : " + fs.name + " (" + (Math.round(fs.fastest * 10) / 10).toString().replace(".", ",") + " s)");
     var hd = hardest(log, 1)[0];
     if (hd) L.push("🧗 Question la plus difficile : « " + (hd.q || "(sans texte)").slice(0, 90) + " » (" + pctFr(hd.rate) + " de réussite)");
+    var aw = awards(log).filter(function (a) { return a.key !== "champion"; }).slice(0, 4);
+    if (aw.length) L.push("🏅 Trophées : " + aw.map(function (a) { return a.emoji + " " + a.title + " — " + awardNames(a, 2); }).join(" · "));
     if (log.rc) L.push("🔑 Code de la salle : " + log.rc);
     L.push("🎮 qui-suis-je-officiel");
     return L.join("\n");
+  }
+
+  /* ---------- Trophées : des prix décernés d'après le journal de la partie ---------- */
+  function secFr(x) { return (Math.round(x * 10) / 10).toString().replace(".", ",") + " s"; }
+  function awards(log) {
+    var out = [];
+    if (!log || !log.P || !log.R || !log.R.length) return out;
+    var rows = perPlayer(log), n = rows.length, elig = rows.filter(function (r) { return r.answered > 0; });
+    if (!elig.length) return out;
+    function best(list, val, better) {
+      var b = null, keep = [];
+      list.forEach(function (r) { var v = val(r); if (v === null || v === undefined) return; if (b === null || better(v, b)) { b = v; keep = [r]; } else if (v === b) keep.push(r); });
+      return { value: b, rows: keep };
+    }
+    function add(key, emoji, title, desc, list, detail) {
+      if (!list.length) return;
+      out.push({ key: key, emoji: emoji, title: title, desc: desc, detail: detail, holders: list.map(function (r) { return { idx: r.idx, name: r.name, avatar: r.avatar }; }) });
+    }
+    var hi = function (v, b) { return v > b; }, lo = function (v, b) { return v < b; };
+    if (n > 1) { var champ = best(elig, function (r) { return r.final; }, hi); if (champ.value > 0) add("champion", "🥇", "Champion", "Le meilleur score final", champ.rows, nfr(champ.value) + " pts"); }
+    var fast = best(elig, function (r) { return r.fastest; }, lo);
+    add("fast", "⚡", "Éclair", "La bonne réponse la plus rapide", fast.rows, fast.value === null ? "" : secFr(fast.value));
+    var e3 = elig.filter(function (r) { return r.answered >= 3; });
+    var prec = best(e3, function (r) { return r.accuracy; }, hi);
+    if (prec.rows.length && prec.value > 0 && !(e3.length > 1 && prec.rows.length === e3.length)) add("precise", "🎯", "Le plus précis", "Le meilleur taux de bonnes réponses (3 réponses ou plus)", prec.rows, pctFr(prec.value));
+    var streak = best(elig, function (r) { return r.bestStreak; }, hi);
+    if (streak.value >= 3) add("streak", "🔥", "Série en or", "La plus longue série de bonnes réponses d’affilée", streak.rows, streak.value + " d’affilée");
+    var gain = best(elig, function (r) { return r.bestGain; }, hi);
+    if (gain.value > 0) add("gain", "💥", "Gros coup", "Le plus gros gain de points sur une seule question", gain.rows, "+" + nfr(gain.value) + " pts");
+    var perfect = e3.filter(function (r) { return r.wrong === 0 && r.none === 0; });
+    if (perfect.length) add("perfect", "✨", "Sans faute", "Aucune erreur ni oubli (3 réponses ou plus)", perfect, "100 %");
+    var hardWin = rows.map(function (r) { return { r: r, c: 0 }; }), hardN = 0;
+    log.R.forEach(function (R) { if (R.d !== "difficile") return; hardN++; R.r.forEach(function (e, k) { if (e[0] === 1 && hardWin[k]) hardWin[k].c++; }); });
+    var hw = best(hardWin.filter(function (h) { return h.c > 0; }), function (h) { return h.c; }, hi);
+    if (hardN >= 2 && hw.rows.length && !(n > 1 && hw.rows.length === rows.length)) add("hard", "🧗", "Briseur de difficile", "Le plus de bonnes réponses aux questions difficiles", hw.rows.map(function (h) { return h.r; }), hw.value + " sur " + hardN);
+    if (n > 1) {
+      var slow = best(elig.filter(function (r) { return r.answered >= 3 && r.avgTime !== null; }), function (r) { return r.avgTime; }, hi);
+      add("thinker", "🧐", "Le plus réfléchi", "Le temps moyen de réponse le plus long : il prend le temps de bien penser", slow.rows, slow.value === null ? "" : secFr(slow.value) + " en moyenne");
+      var lead = leadStats(log), led = best(lead.players.map(function (l) { return rows[l.idx]; }).filter(function (r) { return r.answered > 0; }), function (r) { return lead.players[r.idx].led; }, hi);
+      if (led.value >= 2) add("king", "👑", "Roi de la partie", "A été en tête le plus longtemps", led.rows, led.value + " questions en tête");
+      var rs = rankSeries(log), comeback = best(elig, function (r) {
+        var vals = rs[r.idx].values.filter(function (v) { return v !== null && v !== undefined; }), last = vals[vals.length - 1], worst = Math.max.apply(null, vals);
+        return worst - last >= 2 ? worst - last : null;
+      }, hi);
+      if (comeback.rows.length) add("comeback", "🎢", "Remontada", "La plus belle remontée au classement", comeback.rows, "+" + comeback.value + " places gagnées");
+    }
+    return out;
+  }
+  /* Trophées d'un joueur, retrouvé par son prénom (sans tenir compte des majuscules) */
+  function myAwards(list, name) {
+    var key = String(name || "").trim().toLowerCase();
+    if (!key) return [];
+    return (list || []).filter(function (a) { return a.holders.some(function (h) { return String(h.name).trim().toLowerCase() === key; }); });
+  }
+  function awardNames(a, max) {
+    var names = a.holders.map(function (h) { return h.name; }), m = max || 3;
+    return names.length > m ? names.slice(0, m).join(", ") + " et " + (names.length - m) + " autre" + (names.length - m > 1 ? "s" : "") : listFr(names);
   }
 
   /* ---------- Mes records : les parties enregistrées sur cet appareil où un joueur porte mon prénom ---------- */
@@ -608,7 +667,7 @@ var V40Analysis = (function () {
   }
 
   return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
-    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, questionInsights: questionInsights, rankingAt: rankingAt, rankingMoments: rankingMoments, rankingTitle: rankingTitle, ordinal: ordinal, recapText: recapText, myRecords: myRecords, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
+    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, questionInsights: questionInsights, rankingAt: rankingAt, rankingMoments: rankingMoments, rankingTitle: rankingTitle, ordinal: ordinal, recapText: recapText, awards: awards, myAwards: myAwards, awardNames: awardNames, myRecords: myRecords, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell,
     tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats, textReport: textReport, textReportTxt: textReportTxt, reactionStats: reactionStats, quantile: quantile };
 })();

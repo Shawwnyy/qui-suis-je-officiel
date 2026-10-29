@@ -1,0 +1,51 @@
+/* 🏆 Trophées de fin de partie et 📊 sondage éclair (js/stats/stats.js, js/patches/045-v53-sondage.js) */
+.v53-awards { margin: 22px 0 6px; padding: 14px; border-radius: 16px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .12); text-align: left; }
+.v53-aw-title { font-weight: 900; font-size: 1.1rem; margin-bottom: 4px; }
+.v53-aw-mine { margin: 4px 0 8px; padding: 6px 10px; border-radius: 10px; background: rgba(124, 92, 255, .22); font-weight: 700; }
+.v53-aw-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 8px; }
+.v53-aw { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .05); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: transform .15s, border-color .15s; animation: v53-pop .5s ease-out both; }
+.v53-aw:hover { transform: translateY(-2px); border-color: rgba(124, 92, 255, .8); }
+.v53-aw.mine { border-color: #f5c518; background: rgba(245, 197, 24, .12); }
+.v53-aw .e { font-size: 1.6rem; line-height: 1; }
+.v53-aw .w { opacity: .9; overflow-wrap: anywhere; }
+.v53-aw small { opacity: .7; }
+@keyframes v53-pop { from { opacity: 0; transform: scale(.9) } to { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) { .v53-aw { animation: none } }
+
+/* ---- 🗳️ Sondage éclair ---- */
+.v53-poll, .v53-compose { position: fixed; z-index: 9400; background: #17171f; color: #f3f3f7; border: 1px solid rgba(255, 255, 255, .16); border-radius: 18px; box-shadow: 0 18px 60px rgba(0, 0, 0, .6); font-family: inherit; }
+.v53-poll { left: 50%; bottom: 16px; transform: translateX(-50%); width: min(520px, calc(100vw - 24px)); padding: 16px 16px 12px; animation: v53-up .35s ease-out both; }
+.v53-tag { font-size: .8rem; font-weight: 800; letter-spacing: .04em; opacity: .75; }
+.v53-q { font-size: 1.2rem; font-weight: 900; margin: 4px 36px 10px 0; overflow-wrap: anywhere; }
+.v53-x { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .2); background: transparent; color: inherit; font-size: 15px; cursor: pointer; }
+.v53-opts { display: grid; gap: 6px; }
+.v53-opt { position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: center; gap: 10px; text-align: left; padding: 10px 12px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .05); color: inherit; font: inherit; font-weight: 700; cursor: pointer; transition: border-color .15s, transform .15s; }
+.v53-opt:hover:not(:disabled) { border-color: rgba(124, 92, 255, .9); transform: translateY(-1px); }
+.v53-opt:disabled { cursor: default; }
+.v53-opt.mine { border-color: #7c5cff; }
+.v53-bar { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(124, 92, 255, .32); transition: width .35s ease; z-index: 0; }
+.v53-opt.mine .v53-bar { background: rgba(124, 92, 255, .55); }
+.v53-label, .v53-pc { position: relative; z-index: 1; }
+.v53-label { overflow-wrap: anywhere; }
+.v53-pc { white-space: nowrap; font-variant-numeric: tabular-nums; opacity: .9; }
+.v53-foot { margin-top: 8px; font-size: .85rem; opacity: .75; }
+.v53-stop, .v53-go, .v53-small { margin-top: 8px; padding: 8px 14px; border-radius: 10px; border: 0; background: #7c3aed; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.v53-stop { background: rgba(255, 255, 255, .12); }
+.v53-small { margin-top: 0; background: rgba(255, 255, 255, .12); }
+.v53-compose { right: 70px; bottom: 12px; width: min(340px, calc(100vw - 90px)); padding: 12px; display: none; flex-direction: column; gap: 8px; z-index: 9410; }
+.v53-compose.open { display: flex; }
+@media (min-width: 1100px) { body.chatOpen .v53-compose { right: 382px; } }
+.v53-chead { display: flex; justify-content: space-between; align-items: center; padding-right: 36px; }
+.v53-compose input, .v53-compose select { width: 100%; box-sizing: border-box; padding: 9px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .08); color: #fff; font: inherit; font-size: 14px; margin: 0; }
+.v53-crow { display: flex; gap: 8px; align-items: center; }
+.v53-crow select { flex: 1; }
+.v53-warn { min-height: 16px; font-size: 12px; color: #fca5a5; }
+.v53-note { font-size: .78rem; opacity: .7; }
+#dockPoll { position: relative; }
+@keyframes v53-up { from { opacity: 0; transform: translate(-50%, 14px) } to { opacity: 1; transform: translate(-50%, 0) } }
+@media (prefers-reduced-motion: reduce) { .v53-poll { animation: none } .v53-bar, .v53-opt { transition: none } }
+
+/* ---- ⌨️ pastilles des raccourcis de réponse ---- */
+button.answer[data-v53k] { position: relative; }
+button.answer[data-v53k]::before { content: attr(data-v53k); position: absolute; top: 6px; left: 8px; min-width: 20px; height: 20px; padding: 0 4px; box-sizing: border-box; border-radius: 6px; background: rgba(255, 255, 255, .18); color: inherit; font-size: 12px; font-weight: 900; line-height: 20px; text-align: center; opacity: .75; pointer-events: none; }
+@media (hover: none) { button.answer[data-v53k]::before { display: none; } }

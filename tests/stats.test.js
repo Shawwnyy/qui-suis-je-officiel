@@ -245,5 +245,38 @@ const stSrc = require("fs").readFileSync(__dirname + "/../js/stats/stats.js", "u
 t("code de la salle : noté au lancement, envoyé dans l'en-tête, relu côté joueur", /live = \{[\s\S]{0,400}?rc: String\(typeof roomCode/.test(stSrc) && /head: \{[^}]*rc: live\.rc/.test(stSrc) && /A\.normalize\(\{[^}]*rc: d\.head\.rc/.test(stSrc));
 t("onglet Classement : image avec code, flèches, filigrane géré par K.markOn", /ranking: buildRanking/.test(stSrc) && /Code de la salle/.test(stSrc) && /K\.watermark\(ctx, RK_W, H/.test(stSrc) && /drawRanking\(log, view\.rk, K\.markOn\(\)\)/.test(stSrc));
 
+/* ---- Trophées ---- */
+const rawAw = { id: "aw", at: 1, qt: 20, P: [{ i: "a", n: "Léa", a: "🦊", h: 1 }, { i: "b", n: "Tom", a: "🐻" }, { i: "c", n: "Max", a: "🐸" }], R: [
+  { q: "a", c: "x", d: "facile", m: 0, r: [[1, 3.2, 800], [1, 5.5, 700], [2, 9, 0]] },
+  { q: "b", c: "y", d: "difficile", m: 1, r: [[1, 2, 1900], [2, 6, 0], [3, 0, 0]] },
+  { q: "c", c: "z", d: "difficile", m: 0, r: [[2, 7, 1900], [1, 4, 600], [1, 6, 500]] },
+  { q: "d", c: "x", d: "facile", m: 0, r: [[1, 1.5, 2600], [1, 2, 1500], [1, 8, 1900]] }], C: [] };
+const lg = A.normalize(rawAw), aw = A.awards(lg), awBy = k => aw.find(a => a.key === k);
+t("trophées : champion = Léa (2 600 pts)", awBy("champion") && A.awardNames(awBy("champion")) === "Léa" && awBy("champion").detail === "2 600 pts".replace(" ", "\u202f"));
+t("trophées : Éclair = Léa, 1,5 s", awBy("fast") && awBy("fast").detail === "1,5 s" && awBy("fast").holders[0].name === "Léa");
+t("trophées : le plus précis = Léa et Tom à égalité (75 %)", awBy("precise") && A.awardNames(awBy("precise")) === "Léa et Tom" && awBy("precise").detail === "75 %");
+t("trophées : gros coup = Max (+1 400)", awBy("gain") && awBy("gain").holders[0].name === "Max");
+t("trophées : le plus réfléchi = Max (temps moyen le plus long)", awBy("thinker") && awBy("thinker").holders[0].name === "Max");
+t("trophées : roi de la partie = Léa (4 questions en tête)", awBy("king") && awBy("king").holders[0].name === "Léa" && /4 questions/.test(awBy("king").detail));
+t("trophées : pas de « briseur de difficile » quand tout le monde est à égalité", !awBy("hard"));
+t("trophées : pas de série en or sous 3 bonnes réponses d'affilée", !awBy("streak"));
+t("trophées : aucun gagnant fantôme (chaque trophée a au moins un détenteur nommé)", aw.every(a => a.holders.length >= 1 && a.holders.every(h => typeof h.name === "string" && h.name)));
+const rawRun = JSON.parse(JSON.stringify(rawAw)); rawRun.R.push({ q: "e", c: "x", d: "facile", m: 0, r: [[1, 2, 3000], [1, 3, 2000], [1, 4, 2400]] }); rawRun.R.push({ q: "f", c: "x", d: "facile", m: 0, r: [[1, 2, 3400], [1, 3, 2500], [2, 4, 2400]] });
+const awR = A.awards(A.normalize(rawRun));
+t("trophées : série en or dès 3 d'affilée (Tom : questions 3 à 6)", awR.find(a => a.key === "streak") && awR.find(a => a.key === "streak").holders[0].name === "Tom" && awR.find(a => a.key === "streak").detail === "4 d’affilée");
+const rawBack = { id: "bk", P: [{ n: "A" }, { n: "B" }, { n: "C" }], R: [
+  { q: "1", c: "x", d: "facile", m: 0, r: [[1, 2, 900], [1, 3, 600], [2, 3, 0]] }, { q: "2", c: "x", d: "facile", m: 0, r: [[1, 2, 1800], [1, 3, 1200], [2, 3, 0]] },
+  { q: "3", c: "x", d: "facile", m: 0, r: [[2, 2, 1800], [2, 3, 1200], [1, 3, 1500]] }, { q: "4", c: "x", d: "facile", m: 0, r: [[2, 2, 1800], [2, 3, 1200], [1, 3, 3200]] }] };
+const awB = A.awards(A.normalize(rawBack)).find(a => a.key === "comeback");
+t("trophées : remontada = C (3e → 1er, +2 places)", awB && awB.holders[0].name === "C" && awB.detail === "+2 places gagnées");
+const solo = A.awards(A.normalize({ id: "s", P: [{ n: "Seul" }], R: [{ q: "Q", c: "x", d: "facile", m: 0, r: [[1, 2, 500]] }] }));
+t("trophées : partie solo = pas de champion ni de roi, mais Éclair possible", !solo.find(a => a.key === "champion") && !solo.find(a => a.key === "king") && !!solo.find(a => a.key === "fast"));
+t("trophées : journal vide, nul ou sans réponse → liste vide, sans erreur", A.awards(null).length === 0 && A.awards({}).length === 0 && A.awards(A.normalize({ id: "z", P: [{ n: "A" }], R: [] })) .length === 0);
+t("trophées : « mes trophées » retrouvés par le prénom, casse ignorée", A.myAwards(aw, " léa ").length >= 4 && A.myAwards(aw, "personne").length === 0 && A.myAwards(aw, "").length === 0 && A.myAwards(null, "Léa").length === 0);
+t("trophées : plus de 3 gagnants → « et N autres »", A.awardNames({ holders: [{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }, { name: "E" }] }, 3) === "A, B, C et 2 autres" && A.awardNames({ holders: [{ name: "A" }, { name: "B" }, { name: "C" }, { name: "D" }] }, 3) === "A, B, C et 1 autre");
+t("trophées : le récap texte les résume (sans le champion, déjà dans le classement)", /🏅 Trophées : ⚡ Éclair — Léa/.test(A.recapText(lg, "x")) && !/Trophées : 🥇/.test(A.recapText(lg, "x")));
+const stSrc2 = require("fs").readFileSync(require("path").join(__dirname, "../js/stats/stats.js"), "utf8");
+t("trophées : onglet 🏆 et bloc sur l'écran de fin de partie, rendu par textContent (pas d'innerHTML)", /\["trophies", "🏆 Trophées"\]/.test(stSrc2) && /trophies: buildTrophies/.test(stSrc2) && /paintAwards\(\)/.test(stSrc2) && !/innerHTML[^;]*awards|awards[^;]*innerHTML/i.test(stSrc2));
+
 console.log("Stats : " + ok + " OK, " + ko + " échec(s)");
 process.exit(ko ? 1 : 0);

@@ -310,7 +310,7 @@
     refreshTimer = setTimeout(function () { if (isOpen()) render(true); }, 120);
   }
 
-  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["ranking", "🏁 Classement"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["records", "🏅 Mes records"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
+  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["ranking", "🏁 Classement"], ["trophies", "🏆 Trophées"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["records", "🏅 Mes records"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
 
   function render(keepScroll) {
     var log = currentLog();
@@ -350,7 +350,7 @@
       else if (!log || !log.R.length) main.appendChild(emptyState(log));
       else {
         if (!liveDone && log === live) main.appendChild(el("p", { "class": "v40s-note", text: "⏳ Partie en cours : les chiffres sont à jour jusqu’à la dernière question terminée (" + log.R.length + (typeof totalRounds === "number" && totalRounds ? "/" + totalRounds : "") + ")." }));
-        var fn = { overview: buildOverview, players: buildPlayers, ranking: buildRanking, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, records: buildRecords, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
+        var fn = { overview: buildOverview, players: buildPlayers, ranking: buildRanking, trophies: buildTrophies, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, records: buildRecords, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
         fn(main, log);
       }
     } catch (e) {
@@ -485,6 +485,40 @@
     }
     try { navigator.clipboard.writeText(txt).then(function () { done("✓ Récap copié"); }, fallback); } catch (e) { fallback(); }
   }
+  /* ---------- Trophées : prix décernés d'après la partie ---------- */
+  function buildTrophies(main, log) {
+    var list = A.awards(log), me = (typeof myName === "string" ? myName : "").trim(), mine = A.myAwards(list, me);
+    if (!list.length) { main.appendChild(el("p", { "class": "v40s-note", text: "Pas encore de trophée : il faut au moins une question jouée." })); return; }
+    main.appendChild(el("p", { "class": "v40s-note", text: mine.length ? "🏅 Tes trophées : " + mine.map(function (a) { return a.emoji + " " + a.title; }).join(" · ") : (me ? "Pas de trophée pour toi cette fois-ci. Chaque partie en décerne de nouveaux : série de bonnes réponses, rapidité, remontée au classement…" : "Les trophées récompensent les meilleurs moments de la partie.") }));
+    main.appendChild(el("div", { "class": "v40s-tiles" }, list.map(function (a) {
+      return tile(a.emoji + " " + A.awardNames(a, 3), a.title, (a.detail ? a.detail + " · " : "") + a.desc);
+    })));
+  }
+  /* Bloc « Trophées » directement sur l'écran de fin de partie */
+  function paintAwards() {
+    var res = $("resultsScreen"), box = $("v53Awards");
+    if (!res || !res.classList.contains("active")) return;
+    var L = live && liveDone ? live : null, list = L && L.R.length ? A.awards(L) : [];
+    if (!list.length) { if (box) box.style.display = "none"; return; }
+    var me = (typeof myName === "string" ? myName : "").trim(), sig = L.id + "|" + me + "|" + list.map(function (a) { return a.key + ":" + A.awardNames(a, 9); }).join(";");
+    if (box && box.getAttribute("data-sig") === sig) { box.style.display = ""; return; }
+    if (!box) {
+      box = el("div", { id: "v53Awards", "class": "v53-awards" });
+      var pod = $("podium"); if (pod && pod.parentNode) pod.parentNode.insertBefore(box, pod.nextSibling); else (res.querySelector(".card") || res).appendChild(box);
+    }
+    box.setAttribute("data-sig", sig); box.style.display = ""; box.textContent = "";
+    var mine = A.myAwards(list, me);
+    box.appendChild(el("div", { "class": "v53-aw-title", text: "🏅 Trophées de la partie" }));
+    if (mine.length) box.appendChild(el("div", { "class": "v53-aw-mine", text: "Tes trophées : " + mine.map(function (a) { return a.emoji + " " + a.title; }).join(" · ") }));
+    var grid = el("div", { "class": "v53-aw-grid" });
+    list.slice(0, 8).forEach(function (a) {
+      var chip = el("button", { type: "button", "class": "v53-aw" + (mine.indexOf(a) >= 0 ? " mine" : ""), title: a.desc, onclick: function () { view.src = "live"; open("trophies"); } },
+        [el("span", { "class": "e", text: a.emoji }), el("b", { text: a.title }), el("span", { "class": "w", text: A.awardNames(a, 2) }), a.detail ? el("small", { text: a.detail }) : null]);
+      grid.appendChild(chip);
+    });
+    box.appendChild(grid);
+  }
+
   /* ---------- Mes records (parties enregistrées sur cet appareil, retrouvées grâce au prénom) ---------- */
   function buildRecords(main, log) {
     var me = (typeof myName === "string" ? myName : "").trim(), list = history.slice();
@@ -1264,6 +1298,7 @@
       var hb = el("button", { id: "v40sHomeBtn", type: "button", "class": "btn btn-secondary v40s-open v40s-home", text: "📊 Mes statistiques", onclick: function () { open(history.length && !live ? "history" : "overview"); } });
       hc.appendChild(hb);
     }
+    try { paintAwards(); } catch (e) { if (window.console) console.error("V40Stats", e); }
     refreshEntryPoints();
   }
   function refreshEntryPoints() {

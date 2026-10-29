@@ -40,6 +40,13 @@ t("l'hôte peut déplacer un joueur même quand les équipes sont verrouillées 
 t("choix refusé : équipe inexistante, vide, pas du texte (pas de création d'équipe fantôme)", !T.checkPick(env(), "a", "Pirate").ok && !T.checkPick(env(), "a", "").ok && !T.checkPick(env(), "a", 5).ok && !T.checkPick(env(), "a", { x: 1 }).ok && !T.checkPick(env(), "a").ok);
 t("choix refusé : noms spéciaux du prototype", !T.checkPick(env(), "a", "__proto__").ok && !T.checkPick(env(), "a", "constructor").ok);
 
+/* ---- identifiants réservés du langage : jamais traités comme des joueurs (pas de pollution du prototype) ---- */
+const PRO = ["__proto__", "constructor", "toString", "hasOwnProperty", "valueOf"];
+t("demande d'équipe d'un identifiant réservé : refusée", PRO.every(id => !T.checkPick(env(), id, "Équipe 1").ok && !T.checkPick(env(), id, "Équipe 1", true).ok));
+t("message d'équipe d'un identifiant réservé : refusé, rien distribué", (() => { const r = relayEnv(); const rl = T.relayFactory(r.env); return PRO.every(id => rl({ playerId: id, id: "x" + id, text: "salut" }).why === "unknown") && r.sent.length === 0; })());
+t("aucune propriété ajoutée à Object.prototype", !("team" in {}) && !("name" in Object.prototype));
+t("arrivée d'un joueur nommé __proto__ ou non textuel : ignorée avant le jeu", /isHost && data && data\.type === "join" && data\.player && \(typeof data\.player\.id !== "string" \|\| \/\^\(__proto__\|constructor/.test(rd("js/patches/044-v52-equipes.js")));
+
 /* ---- messages d'équipe reçus ---- */
 const ev = { type: "v52Chat", id: "t1-abc", playerId: "a", name: "Léa", team: "Équipe 1", text: "  salut   l'équipe ", time: "12:01:02" };
 const c1 = T.cleanChat(ev, "Équipe 1", false);

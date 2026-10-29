@@ -252,6 +252,18 @@ var V40Pdf = (function () {
       ], halfRows);
     }
 
+    /* ----- Trophées de la partie ----- */
+    var trophies = A.awards(log);
+    if (trophies.length) {
+      y += 8;
+      title("Troph\u00e9es de la partie", 16 * Math.min(trophies.length + 1, 14));
+      table([
+        { h: "Troph\u00e9e", w: 20, f: function (a) { return a.title; }, bold: function () { return true; } },
+        { h: "Gagnant(e)", w: 26, f: function (a) { return A.awardNames(a, 3); } },
+        { h: "D\u00e9tail", w: 24, f: function (a) { return a.detail || ""; } }
+      ], trophies);
+    }
+
     /* ----- Couleur d'un joueur : la même dans tous les graphiques (selon son rang final) ----- */
     var series = A.scoreSeries(log), order = ranked.slice(0, SERIES.length), colorOf = {};
     order.forEach(function (r, i) { colorOf[r.idx] = SERIES[i]; });

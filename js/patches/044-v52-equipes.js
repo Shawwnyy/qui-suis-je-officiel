@@ -14,6 +14,7 @@ var V52Teams = (function () {
   var MAX_TEXT = 140, MAX_NAME = 30, KEEP = 100;
   function str(x, n) { return typeof x === "string" ? x.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, n) : ""; }
   function names(teams) { return Object.keys(teams || {}).filter(Boolean); }
+  function has(o, k) { return !!o && Object.prototype.hasOwnProperty.call(o, k); }
   function members(players, team) { return Object.keys(players || {}).filter(function (id) { return players[id] && team && players[id].team === team; }); }
   function counts(players, tn) {
     var c = {}; tn.forEach(function (t) { c[t] = 0; });
@@ -54,7 +55,7 @@ var V52Teams = (function () {
   }
   /* Demande de changement d'équipe reçue d'un joueur : vérifie tout (mode, moment, verrou, équipe existante) */
   function checkPick(env, pid, team, byHost) {
-    var p = env.players()[pid];
+    var p = has(env.players(), pid) ? env.players()[pid] : null;
     if (!p) return { ok: false, message: "" };
     if (!env.teamsOn()) return { ok: false, message: "Le mode équipes n'est pas actif." };
     if (env.started()) return { ok: false, message: "La partie a commencé : les équipes ne changent plus." };
@@ -81,7 +82,7 @@ var V52Teams = (function () {
     var hist = {}, seen = {};
     return function relay(raw) {
       raw = raw || {};
-      var pid = String(raw.playerId || ""), p = env.players()[pid];
+      var pid = String(raw.playerId || ""), p = has(env.players(), pid) ? env.players()[pid] : null;
       if (!p) return { ok: false, why: "unknown" };
       if (!env.teamsOn()) return { ok: false, why: "off", message: "Le chat d'équipe n'est pas actif." };
       if (!p.team) return { ok: false, why: "noteam", message: "Choisis d'abord une équipe." };
@@ -340,6 +341,8 @@ if (typeof module !== "undefined" && module.exports) module.exports = V52Teams;
   };
   var baseHandle = handleData;
   handleData = function (data) {
+    /* identifiant de joueur réservé du langage (__proto__…) : refusé, il corromprait la liste des joueurs de tout le jeu */
+    if (isHost && data && data.type === "join" && data.player && (typeof data.player.id !== "string" || /^(__proto__|constructor|prototype|toString|valueOf|hasOwnProperty)$/.test(data.player.id))) return;
     if (data && data.type === "v52Chat") { if (isHost) hostRelay(data); else receive(data); return; }
     if (data && data.type === "v52Reject") { if (!isHost) warn(V52Teams.str(data.message, 200)); return; }
     if (data && data.type === "v52Cfg") { if (!isHost) { S.locked = !!data.locked; renderGuest(); } return; }

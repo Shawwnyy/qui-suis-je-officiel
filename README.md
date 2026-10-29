@@ -322,6 +322,8 @@ C'est l'heure **de l'appareil de chaque joueur** (pas une heure serveur : si l'h
 - Le classement après **n'importe quelle question** reste disponible en image dans l'onglet **🏁 Classement** des statistiques.
 - Tests : `node tests/half.test.js`.
 node tests/teams.test.js                 # équipes : répartition, choix, chat d'équipe (relais, modération, anti-spam), bouton classement de l'hôte
+node tests/poll.test.js                  # sondage éclair : brouillon, vote unique, résultats, données reçues, branchement
+node tests/keys.test.js                  # raccourcis clavier de réponse
 
 ## 🏁 Montrer le classement à tous, quand l'hôte veut (`js/patches/043-v51-mi-partie.js`, `044-v52-equipes.js`)
 - Pendant la partie, l'hôte a un bouton **🏁** dans la colonne de boutons à droite : un clic affiche le **classement du moment à tous les joueurs** (1er, 2e, 3e… avec ▲▼ depuis la dernière question, plus le classement des équipes en mode Équipes).
@@ -335,6 +337,23 @@ S'appuie sur le mode de jeu **👥 Équipes** (`window.v9GameMode === "teams"`).
 - **Sécurité** : l'identité de l'expéditeur vient de la **connexion réseau**, jamais du contenu du message (avant, un invité pouvait déplacer n'importe quel joueur en se faisant passer pour lui) ; une équipe qui n'existe pas ne peut plus être créée par une demande ; tout ce qui est reçu est borné et affiché avec `textContent`.
 - **Bug corrigé** : les listes déroulantes et le bouton ✏️ de l'ancien gestionnaire d'équipes de l'hôte ne marchaient pas (guillemets cassés dans leur HTML, « Unexpected end of input »). Ils sont remplacés par le panneau ci-dessus, l'ancien bloc est masqué.
 - Tests : `node tests/teams.test.js`.
+
+## 🏆 Trophées de fin de partie (`js/stats/analysis.js` → `awards`, onglet « 🏆 Trophées », bloc sur l'écran de fin)
+- Des prix décernés d'après le journal de la partie, calculés chez chaque joueur : 🥇 Champion, ⚡ Éclair (bonne réponse la plus rapide), 🎯 Le plus précis, 🔥 Série en or (3 bonnes réponses d'affilée ou plus), 💥 Gros coup (plus gros gain sur une question), ✨ Sans faute, 🧗 Briseur de difficile, 🧐 Le plus réfléchi, 👑 Roi de la partie (le plus longtemps en tête), 🎢 Remontada (+2 places ou plus).
+- Un trophée à égalité est partagé ; il n'est pas décerné quand il ne distingue personne (tout le monde à égalité, ou personne n'a assez joué). Le champion et le roi n'existent qu'à partir de 2 joueurs.
+- L'écran de fin affiche les trophées et **« Tes trophées »** (retrouvés par ton prénom) ; un clic ouvre l'onglet détaillé. Ils sont aussi dans le **📋 Récap** copiable et dans les **PDF**.
+
+## 🗳️ Sondage éclair de l'hôte (`js/patches/045-v53-sondage.js`, `css/v53.css`)
+- Bouton **🗳️** de l'hôte : une question (3 à 100 caractères), 2 à 4 choix, durée 15 / 30 / 60 s, bouton « 👍 Oui / Non » pour aller vite.
+- **Tout le monde vote d'un clic** (on peut changer d'avis jusqu'à la fin) et voit les barres bouger en direct. Résultats **anonymes** : on voit les totaux, jamais qui a voté quoi. L'hôte peut le terminer avant l'heure ; un joueur qui arrive en cours le reçoit avec le temps restant.
+- Un joueur = un vote : l'identité vient de la **connexion réseau**, pas du message ; le vote d'un joueur parti ne compte plus ; au plus 4 mises à jour par seconde ; 3 s minimum entre deux sondages ; texte contrôlé par le filtre d'insultes ; tout est affiché en `textContent`.
+- Tests : `node tests/poll.test.js`.
+
+## ⌨️ Raccourcis clavier pour répondre (`js/patches/046-v53-raccourcis.js`)
+Touches **1 2 3 4** (rangée du haut, pavé numérique, y compris clavier AZERTY sans Maj) ou **A B C D**. Une pastille rappelle la touche sur chaque réponse (masquée sur écran tactile). Rien ne se passe quand tu écris dans un champ (chat, sondage…), quand une fenêtre est ouverte, avec Ctrl / Alt / ⌘ ou touche maintenue. Tests : `node tests/keys.test.js`.
+
+## 🔒 Corrections de sécurité de cette version
+- Un joueur dont l'identifiant réseau est un mot réservé du langage (`__proto__`, `constructor`…) pouvait corrompre la liste des joueurs de tout le jeu : son arrivée est désormais ignorée, et le sondage comme les équipes ne reconnaissent un joueur que s'il existe vraiment dans la liste.
 
 ## 🎡 Roue des bonus et malus (`js/wheel/wheel.js`)
 Une roue tourne **entre deux questions**. **L'hôte choisit dans le salon d'attente (« 🎡 Roue des bonus / malus »)** : **moments fixes** (après la 3e, la 6e, la 9e… manche, par défaut), **moments aléatoires** (de 1 à 6 roues à des manches tirées au sort au début de la partie, non annoncées, jamais avant la 2e manche ni après la dernière, jamais deux de suite) ou **désactivée**. Le choix est gardé dans le navigateur de l'hôte et figé au début de la partie ; les joueurs le subissent comme le reste des réglages de l'hôte. Jamais après la dernière manche ; pas de roue dans une partie de 3 manches ou moins en mode fixe. **Chaque joueur tire sa propre case en même temps** : l'hôte tire au sort (8 cases, toutes équiprobables : la taille d'une case est sa vraie probabilité) puis diffuse le résultat ; chacun voit la roue s'arrêter sur SA case, puis la liste des résultats de tous. La question suivante démarre juste après (≈ 9,5 s).
