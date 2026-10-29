@@ -68,7 +68,7 @@
     rememberHosted(live.id);
     Object.keys(players).forEach(function (id) { addPlayer(live, players[id]); });
     refreshEntryPoints();
-    broadcast({ type: "v40Entry", kind: "begin", head: { id: live.id, at: live.at, qt: live.qt, mode: live.mode, rc: live.rc, P: live.P } });
+    shareStats({ type: "v40Entry", kind: "begin", head: { id: live.id, at: live.at, qt: live.qt, mode: live.mode, rc: live.rc, P: live.P } });
   }
   function clampSeconds(t) {
     var qt = Number(questionTime) || 0, left = Number(t);
@@ -93,7 +93,7 @@
     });
     live.R[qi] = A.normalizeRound(entry, live.P.length);
     buf = {};
-    broadcast({ type: "v40Entry", kind: "round", id: live.id, n: qi, e: live.R[qi], gone: gone, P: grew ? live.P : undefined });
+    shareStats({ type: "v40Entry", kind: "round", id: live.id, n: qi, e: live.R[qi], gone: gone, P: grew ? live.P : undefined });
     refreshOpen();
   }
   /* Met à jour les scores de la dernière question terminée (bonus / malus choisis ensuite). */
@@ -105,6 +105,8 @@
 
   /* Le lancement passe par des fonctions mémorisées par d'anciens correctifs (js/patches/031-v32-stable-script.js appelle
      sendNextQuestion « à l'ancienne ») : on surveille donc les messages envoyés plutôt que cette fonction. */
+  /* Très grandes salles : pas de diffusion des statistiques (une manche pèserait des milliers d'entrées par invité) ; l'hôte garde tout. */
+  function shareStats(msg) { if (live && live.P && live.P.length > A.VIEW_PLAYERS) return; broadcast(msg); }
   var baseBroadcast = broadcast;
   broadcast = function (data) {
     if (isHost && data && typeof data === "object") {
@@ -147,7 +149,7 @@
         syncScores(); liveDone = true; finalFor = live.id;
         var nc = A.normalizeChat(live.Ch); if (nc) live.Ch = nc; else delete live.Ch;
         saveHistory(live);
-        broadcast({ type: "v40Final", log: live });
+        shareStats({ type: "v40Final", log: live });
         refreshEntryPoints(); refreshOpen();
       } catch (e) {}
     }
@@ -163,7 +165,7 @@
     var lvl = c.level === "kick" ? 3 : c.level === "malus" ? 2 : 1;
     live.C.push([k, Math.max(1, Math.min(99, Number(c.count) || 1)), lvl, Math.max(1, Number(c.round) || (live.R.length + 1))]);
     if (lvl === 3) live.P[k].x = 1;
-    broadcast({ type: "v40Entry", kind: "cheats", id: live.id, C: live.C });
+    shareStats({ type: "v40Entry", kind: "cheats", id: live.id, C: live.C });
     refreshOpen();
   }
 
@@ -178,7 +180,7 @@
     var ch = ev.choice === "malus" ? 2 : 1, kind = String(ev.kind || "").replace(/[^a-zA-Z0-9_\-]/g, "").slice(0, 16) || "x";
     var lab = A.powerName([0, 0, 0, ch, kind, 0, 0, ""]) === kind ? String(ev.label || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/[+\u2212-]?\d+/g, "").trim().slice(0, 30) : "";
     live.B.push([Math.max(1, live.R.length), gi, ch === 2 ? ti : -1, ch, kind, Math.max(0, Math.round(Number(ev.amount) || 0)), (ev.blocked ? 1 : 0) | (ev.reflected ? 2 : 0), lab]);
-    broadcast({ type: "v40Entry", kind: "powers", id: live.id, B: live.B });
+    shareStats({ type: "v40Entry", kind: "powers", id: live.id, B: live.B });
     refreshOpen();
   }
 
@@ -196,7 +198,7 @@
       live.B.push([Math.max(1, live.R.length), pi, ch === 2 ? pi : -1, ch, kind, Math.max(0, Math.round(Number(r.amount) || 0)), r.blocked ? 1 : 0, ""]); added++;
     });
     if (!added) return;
-    broadcast({ type: "v40Entry", kind: "powers", id: live.id, B: live.B });
+    shareStats({ type: "v40Entry", kind: "powers", id: live.id, B: live.B });
     refreshOpen();
   }
 
@@ -257,10 +259,19 @@
 
   /* ===================================================================== Tableau de bord */
   var root = null, lastFocus = null;
-  function currentLog() {
-    if (view.src !== "live") { var g = history.filter(function (x) { return x.id === view.src; })[0]; if (g) return g; }
-    return live || history[0] || null;
+  /* Grandes salles : l'affichage porte sur les meilleurs joueurs (voir A.limitPlayers) ; résultat gardé tant que la partie ne change pas. */
+  var cut = { src: null, n: -1, out: null };
+  function limited(g) {
+    if (!g || !g.P || g.P.length <= A.VIEW_PLAYERS) return g;
+    if (cut.src === g && cut.n === g.R.length) return cut.out;
+    cut = { src: g, n: g.R.length, out: A.limitPlayers(g, A.VIEW_PLAYERS) };
+    return cut.out;
   }
+  function currentLog() {
+    if (view.src !== "live") { var g = history.filter(function (x) { return x.id === view.src; })[0]; if (g) return limited(g); }
+    return limited(live || history[0] || null);
+  }
+  function isLiveLog(l) { return !!(l && live && l.id === live.id); }
   K.setMarkGate(function () { return iHosted(currentLog()); });
   function dateLabel(ts) {
     if (!ts) return "date inconnue";
@@ -310,7 +321,7 @@
     refreshTimer = setTimeout(function () { if (isOpen()) render(true); }, 120);
   }
 
-  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["ranking", "🏁 Classement"], ["trophies", "🏆 Trophées"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["records", "🏅 Mes records"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
+  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["ranking", "🏁 Classement"], ["trophies", "🏆 Trophées"], ["duels", "🤝 Duels"], ["facts", "📌 Faits marquants"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["records", "🏅 Mes records"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
 
   function render(keepScroll) {
     var log = currentLog();
@@ -349,8 +360,9 @@
       if (view.tab === "history") buildHistory(main);
       else if (!log || !log.R.length) main.appendChild(emptyState(log));
       else {
-        if (!liveDone && log === live) main.appendChild(el("p", { "class": "v40s-note", text: "⏳ Partie en cours : les chiffres sont à jour jusqu’à la dernière question terminée (" + log.R.length + (typeof totalRounds === "number" && totalRounds ? "/" + totalRounds : "") + ")." }));
-        var fn = { overview: buildOverview, players: buildPlayers, ranking: buildRanking, trophies: buildTrophies, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, records: buildRecords, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
+        if (!liveDone && isLiveLog(log)) main.appendChild(el("p", { "class": "v40s-note", text: "⏳ Partie en cours : les chiffres sont à jour jusqu’à la dernière question terminée (" + log.R.length + (typeof totalRounds === "number" && totalRounds ? "/" + totalRounds : "") + ")." }));
+        var fn = { overview: buildOverview, players: buildPlayers, ranking: buildRanking, trophies: buildTrophies, duels: buildDuels, facts: buildFacts, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, records: buildRecords, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
+        if (log.of) main.appendChild(el("p", { "class": "v40s-note", text: "👥 Grande salle : " + fmt.int(log.of) + " joueurs. Les statistiques montrent les " + fmt.int(log.P.length) + " meilleurs au classement final." }));
         fn(main, log);
       }
     } catch (e) {
@@ -486,6 +498,37 @@
     try { navigator.clipboard.writeText(txt).then(function () { done("✓ Récap copié"); }, fallback); } catch (e) { fallback(); }
   }
   /* ---------- Trophées : prix décernés d'après la partie ---------- */
+  /* ---------- 🤝 Duels : qui devance qui ---------- */
+  function who(p) { return (p.avatar ? p.avatar + " " : "") + p.name; }
+  function buildDuels(main, log) {
+    var D = A.duels(log), me = (typeof myName === "string" ? myName : "").trim().toLowerCase();
+    if (D.n < 2) { main.appendChild(el("p", { "class": "v40s-note", text: "Les duels demandent au moins deux joueurs." })); return; }
+    main.appendChild(el("p", { "class": "v40s-note", text: "Sur chaque question, un joueur devance un autre s’il a juste et que l’autre se trompe ou ne répond pas, ou s’ils ont juste tous les deux mais qu’il est plus rapide. Un joueur absent à une question ne dispute pas ce duel." }));
+    var tiles = [];
+    var rv = D.rivalry, cr = D.crush;
+    tiles.push(rv ? tile(who(D.players[rv.a]) + " ⚔️ " + who(D.players[rv.b]), "Plus belle rivalité", rv.aWins + " – " + rv.bWins + (rv.ties ? " (" + rv.ties + " égalité" + (rv.ties > 1 ? "s" : "") + ")" : "")) : tile("—", "Plus belle rivalité", "Pas de duel serré (3 questions décisives minimum)"));
+    tiles.push(cr ? tile(who(D.players[cr.winner]) + " 💥 " + who(D.players[cr.loser]), "Plus grosse domination", cr.wins + " – " + cr.losses) : tile("—", "Plus grosse domination", "Aucun écart net (2 victoires d’avance sur au moins 3 duels décisifs)"));
+    var byRate = D.players.filter(function (p) { return p.rate !== null; }).sort(function (a, b) { return b.rate - a.rate || b.wins - a.wins || a.idx - b.idx; });
+    if (byRate.length) tiles.push(tile(who(byRate[0]), "Le plus souvent devant", fmt.pct(byRate[0].rate) + " de duels gagnés"));
+    main.appendChild(el("div", { "class": "v40s-tiles" }, tiles));
+    var rows = byRate.map(function (p) {
+      function rel(r, verb) { return r ? who(r) + " (" + (verb === "n" ? r.theirs + " – " + r.mine : r.mine + " – " + r.theirs) + ")" : "—"; }
+      return [(p.name.toLowerCase() === me ? "⭐ " : "") + who(p), p.wins + " V · " + p.ties + " N · " + p.losses + " D", fmt.pct(p.rate), rel(p.nemesis, "n"), rel(p.victim, "v")];
+    });
+    main.appendChild(K.table(["Joueur", "Bilan des duels", "Duels gagnés", "Bête noire", "Souffre-douleur"], rows, "Bilan des duels de chaque joueur"));
+    if (D.n <= 12) {
+      var head = ["Ligne ↓ contre colonne →"].concat(D.players.map(who));
+      var mrows = D.players.map(function (a) { return [who(a)].concat(D.players.map(function (b) { return a.idx === b.idx ? "·" : D.w[a.idx][b.idx] + " – " + D.w[b.idx][a.idx]; })); });
+      main.appendChild(K.table(head, mrows, "Face à face : chaque case donne les victoires de la ligne puis celles de la colonne"));
+    } else main.appendChild(el("p", { "class": "v40s-note", text: "Le tableau face à face est affiché jusqu’à 12 joueurs." }));
+  }
+
+  /* ---------- 📌 Faits marquants ---------- */
+  function buildFacts(main, log) {
+    var list = A.facts(log);
+    if (!list.length) { main.appendChild(el("p", { "class": "v40s-note", text: "Pas encore de fait marquant : il faut au moins une question jouée." })); return; }
+    main.appendChild(el("div", { "class": "v40s-tiles" }, list.map(function (f) { return tile(f.icon, f.title, f.text); })));
+  }
   function buildTrophies(main, log) {
     var list = A.awards(log), me = (typeof myName === "string" ? myName : "").trim(), mine = A.myAwards(list, me);
     if (!list.length) { main.appendChild(el("p", { "class": "v40s-note", text: "Pas encore de trophée : il faut au moins une question jouée." })); return; }
@@ -680,7 +723,7 @@
     }));
     var ranked = rows.slice().sort(function (a, b) { return a.rank - b.rank || a.idx - b.idx; });
     main.appendChild(K.card({
-      title: (liveDone || log !== live) ? "Classement final" : "Classement actuel", desc: "Score de chaque joueur.",
+      title: (liveDone || !isLiveLog(log)) ? "Classement final" : "Classement actuel", desc: "Score de chaque joueur.",
       draw: function (host) {
         K.hbars(host, { rows: ranked.map(function (r) {
           return { label: label(r), avatar: r.avatar, value: Math.max(0, r.final), color: colorFor(r.idx), text: fmt.int(r.final),

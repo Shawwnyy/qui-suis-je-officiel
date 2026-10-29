@@ -15,7 +15,7 @@
    ============================================================================= */
 var V40Analysis = (function () {
   "use strict";
-  var MAX_PLAYERS = 100, MAX_ROUNDS = 300, MAX_CHEATS = 400, MAX_POWERS = 600, SCORE_LIMIT = 9999999;
+  var MAX_PLAYERS = 9999, MAX_ROUNDS = 300, MAX_CHEATS = 400, MAX_POWERS = 600, SCORE_LIMIT = 9999999;
   var DIFFS = ["facile", "moyen", "difficile", "impossible"];
 
   function str(x, n) { return typeof x === "string" ? x.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, n) : ""; }
@@ -69,6 +69,33 @@ var V40Analysis = (function () {
       log.B.push([int(b[0], 1, MAX_ROUNDS, 1), gi, ch === 2 ? ti : -1, ch, kind, int(b[5], 0, SCORE_LIMIT, 0), int(b[6], 0, 3, 0), str(b[7], 30)]);
     });
     return log;
+  }
+
+
+  /* Au-delà de VIEW_PLAYERS joueurs (salles jusqu'à 9 999), les écrans ne montrent que les meilleurs : on en garde les `max`
+     premiers au classement final (égalité : le plus ancien), dans leur ordre d'arrivée, et le journal reste cohérent
+     (réponses, triche, bonus/malus remappés ; un malus visant un joueur écarté devient « sans cible »). `of` = effectif d'origine. */
+  var VIEW_PLAYERS = 200;
+  function limitPlayers(log, max) {
+    max = int(max, 1, MAX_PLAYERS, VIEW_PLAYERS);
+    if (!log || !Array.isArray(log.P) || !Array.isArray(log.R) || log.P.length <= max) return log;
+    var n = log.P.length, last = log.R.length ? log.R[log.R.length - 1].r : [];
+    var order = [], k;
+    for (k = 0; k < n; k++) order.push({ k: k, f: last[k] ? Number(last[k][2]) || 0 : 0 });
+    order.sort(function (a, b) { return b.f - a.f || a.k - b.k; });
+    var keep = order.slice(0, max).map(function (o) { return o.k; }).sort(function (a, b) { return a - b; });
+    var map = {}; keep.forEach(function (old, i) { map[old] = i; });
+    var out = {}; Object.keys(log).forEach(function (key) { out[key] = log[key]; });
+    out.P = keep.map(function (old) { return log.P[old]; });
+    out.R = log.R.map(function (rd) {
+      var c = {}; Object.keys(rd).forEach(function (key) { c[key] = rd[key]; });
+      c.r = keep.map(function (old) { return rd.r[old] || [0, 0, 0]; });
+      return c;
+    });
+    out.C = (log.C || []).filter(function (c) { return map[c[0]] !== undefined; }).map(function (c) { var d = c.slice(); d[0] = map[c[0]]; return d; });
+    out.B = (log.B || []).filter(function (b) { return map[b[1]] !== undefined; }).map(function (b) { var d = b.slice(); d[1] = map[b[1]]; d[2] = map[b[2]] !== undefined ? map[b[2]] : -1; return d; });
+    out.of = n;
+    return out;
   }
 
 
@@ -597,6 +624,110 @@ var V40Analysis = (function () {
     return out;
   }
 
+  /* ---------- Duels : qui devance qui, question après question ---------- */
+  /* Sur une question, A devance B si A a juste et que B n'a pas juste (erreur ou pas de réponse), ou si les deux ont juste et A plus vite.
+     Un joueur absent à la question (état 0) ne dispute aucun duel ; deux bonnes réponses au même temps = égalité. */
+  function duels(log) {
+    var n = log.P.length, w = [], t = [], i, j;
+    for (i = 0; i < n; i++) { var a0 = [], a1 = []; for (j = 0; j < n; j++) { a0.push(0); a1.push(0); } w.push(a0); t.push(a1); }
+    log.R.forEach(function (R) {
+      var pres = [], key = [];
+      for (i = 0; i < n; i++) { var e = R.r[i]; pres.push(!!e && e[0] >= 1 && e[0] <= 3); key.push(e && e[0] === 1 ? (Number(e[1]) || 0) : Infinity); }
+      for (i = 0; i < n; i++) {
+        if (!pres[i] || key[i] === Infinity) continue;
+        for (j = 0; j < n; j++) {
+          if (i === j || !pres[j]) continue;
+          if (key[i] < key[j]) w[i][j]++;
+          else if (key[i] === key[j] && i < j) { t[i][j]++; t[j][i]++; }
+        }
+      }
+    });
+    var players = log.P.map(function (p, idx) {
+      var wins = 0, losses = 0, ties = 0, nem = -1, nemNet = 0, vic = -1, vicNet = 0;
+      for (var k = 0; k < n; k++) {
+        if (k === idx) continue;
+        wins += w[idx][k]; losses += w[k][idx]; ties += t[idx][k];
+        var net = w[idx][k] - w[k][idx];
+        if (-net > nemNet) { nemNet = -net; nem = k; }
+        if (net > vicNet) { vicNet = net; vic = k; }
+      }
+      var tot = wins + losses + ties;
+      function ref(k) { return k < 0 ? null : { idx: k, name: log.P[k].n, avatar: log.P[k].a, theirs: w[k][idx], mine: w[idx][k] }; }
+      return { idx: idx, name: p.n, avatar: p.a, wins: wins, losses: losses, ties: ties, duels: tot, rate: tot ? wins / tot : null, nemesis: ref(nem), victim: ref(vic) };
+    });
+    var rivalry = null, crush = null;
+    for (i = 0; i < n; i++) for (j = i + 1; j < n; j++) {
+      var a = w[i][j], b = w[j][i], dec = a + b;
+      if (dec < 3) continue;
+      if (a >= 1 && b >= 1) {
+        var d = Math.abs(a - b);
+        if (!rivalry || d < rivalry._d || (d === rivalry._d && dec > rivalry._dec)) rivalry = { _d: d, _dec: dec, a: i, b: j, aName: log.P[i].n, bName: log.P[j].n, aWins: a, bWins: b, ties: t[i][j] };
+      }
+      [[i, j, a, b], [j, i, b, a]].forEach(function (o) {
+        var diff = o[2] - o[3];
+        if (diff >= 2 && (!crush || diff > crush._d || (diff === crush._d && o[2] > crush.wins))) crush = { _d: diff, winner: o[0], loser: o[1], winnerName: log.P[o[0]].n, loserName: log.P[o[1]].n, wins: o[2], losses: o[3] };
+      });
+    }
+    if (rivalry) { delete rivalry._d; delete rivalry._dec; }
+    if (crush) delete crush._d;
+    return { n: n, w: w, t: t, players: players, rivalry: rivalry, crush: crush };
+  }
+
+  /* ---------- Faits marquants : de courtes phrases sur le déroulé de la partie ---------- */
+  function trunc(text, max) { var a = Array.from(String(text == null ? "" : text)); return a.length > max ? a.slice(0, max - 1).join("") + "…" : a.join(""); }
+  function facts(log) {
+    var out = [], n = log && log.R ? log.R.length : 0, np = log && log.P ? log.P.length : 0;
+    if (!n || !np) return out;
+    function add(key, icon, title, text) { out.push({ key: key, icon: icon, title: title, text: text }); }
+    var rows = perPlayer(log), sc = scoreSeries(log), q, k;
+    /* tête de course après chaque question : null s'il y a égalité en tête */
+    var leaders = [null];
+    for (q = 1; q <= n; q++) {
+      var best = -Infinity, who = -1, tie = false;
+      for (k = 0; k < sc.length; k++) { var v = sc[k].values[q]; if (v === null || v === undefined) continue; if (v > best) { best = v; who = k; tie = false; } else if (v === best) tie = true; }
+      leaders.push(who >= 0 && !tie ? who : null);
+    }
+    var top = rows.filter(function (r) { return r.rank === 1; }), winner = top.length === 1 ? top[0].idx : -1;
+    if (np >= 2 && winner >= 0 && n >= 2) {
+      if (leaders[n] === winner && leaders[n - 1] !== null && leaders[n - 1] !== winner) add("finish", "🏁", "Victoire au finish", log.P[winner].n + " s’empare de la tête à la toute dernière question.");
+      else if (leaders[n] === winner && leaders[n - 1] === null) add("finish", "🏁", "Départagés à la dernière", "Égalité en tête avant la dernière question : " + log.P[winner].n + " fait la différence.");
+      else if (n >= 3) { var wire = true; for (q = 1; q <= n; q++) if (leaders[q] !== winner) { wire = false; break; } if (wire) add("wire", "👑", "Du début à la fin", log.P[winner].n + " n’a jamais quitté la tête."); }
+    }
+    if (np >= 2) {
+      var prev = null, changes = 0;
+      for (q = 1; q <= n; q++) { var l = leaders[q]; if (l === null) continue; if (prev !== null && l !== prev) changes++; prev = l; }
+      if (changes >= 1) add("changes", "🔄", "Suspense", "La tête a changé " + (changes === 1 ? "une fois" : changes + " fois") + " pendant la partie.");
+      var ord = rows.slice().sort(function (a, b) { return b.final - a.final || a.idx - b.idx; });
+      if (top.length >= 2) add("gap", "🤝", "Égalité en tête", top.slice(0, 3).map(function (r) { return r.name; }).join(", ") + (top.length > 3 ? " et " + (top.length - 3) + " autre" + (top.length > 4 ? "s" : "") : "") + " terminent à " + nfr(top[0].final) + " pts.");
+      else if (ord.length >= 2) add("gap", "📏", "Écart au sommet", ord[0].name + " devance " + ord[1].name + " de " + nfr(ord[0].final - ord[1].final) + " pt" + (ord[0].final - ord[1].final > 1 ? "s" : "") + ".");
+    }
+    var minAns = np >= 2 ? 2 : 1;
+    var st = roundStats(log).filter(function (r) { return r.answers >= minAns; });
+    function qtxt(r) { return "Question " + r.round + " « " + trunc(r.q, 70) + " »"; }
+    function pct(r) { return Math.round(r.rate * 100) + " %"; }
+    if (st.length) {
+      var hard = st.slice().sort(function (a, b) { return a.rate - b.rate || b.answers - a.answers || a.round - b.round; })[0];
+      var easy = st.slice().sort(function (a, b) { return b.rate - a.rate || b.answers - a.answers || a.round - b.round; })[0];
+      if (hard.round !== easy.round && hard.rate < easy.rate) {
+        add("hardQ", "🪤", "Question la plus piégeuse", qtxt(hard) + " : " + pct(hard) + " de réussite.");
+        add("easyQ", "🍀", "Question la plus facile", qtxt(easy) + " : " + pct(easy) + " de réussite.");
+      }
+      var all = st.filter(function (r) { return r.rate === 1; }).length, none = st.filter(function (r) { return r.rate === 0; }).length;
+      if (all && np >= 2) add("unanimous", "🙌", "Unanimité", all + " question" + (all > 1 ? "s" : "") + " réussie" + (all > 1 ? "s" : "") + " par tous ceux qui ont répondu.");
+      if (none) add("blank", "🕳️", "Trou noir", none + " question" + (none > 1 ? "s" : "") + " où personne n’a trouvé.");
+      var timed = st.filter(function (r) { return r.avgTime !== null; });
+      if (timed.length >= 2) {
+        var fast = timed.slice().sort(function (a, b) { return a.avgTime - b.avgTime || a.round - b.round; })[0];
+        var slow = timed.slice().sort(function (a, b) { return b.avgTime - a.avgTime || a.round - b.round; })[0];
+        if (fast.round !== slow.round && fast.avgTime < slow.avgTime) {
+          add("fastQ", "⚡", "Réponses les plus rapides", qtxt(fast) + " : " + secFr(fast.avgTime) + " en moyenne.");
+          add("slowQ", "🐢", "Réponses les plus lentes", qtxt(slow) + " : " + secFr(slow.avgTime) + " en moyenne.");
+        }
+      }
+    }
+    return out;
+  }
+
   /* ---------- Historique ---------- */
   function summarize(log) {
     var rows = perPlayer(log), t = totals(log);
@@ -677,7 +808,7 @@ var V40Analysis = (function () {
     return out;
   }
 
-  return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
+  return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, VIEW_PLAYERS: VIEW_PLAYERS, limitPlayers: limitPlayers, duels: duels, facts: facts, trunc: trunc, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
     byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, questionInsights: questionInsights, rankingAt: rankingAt, rankingMoments: rankingMoments, rankingTitle: rankingTitle, ordinal: ordinal, recapText: recapText, awards: awards, myAwards: myAwards, myCard: myCard, awardNames: awardNames, myRecords: myRecords, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell,
     tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats, textReport: textReport, textReportTxt: textReportTxt, reactionStats: reactionStats, quantile: quantile };

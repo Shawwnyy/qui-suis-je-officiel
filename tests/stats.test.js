@@ -90,7 +90,7 @@ t("CSV : guillemets échappés", A.csvCell('dit "oui"') === '"dit ""oui"""' && A
 t("null refusé", A.normalize(null) === null && A.normalize("x") === null && A.normalize({}) === null);
 t("sans joueur refusé", A.normalize({ P: [], R: [] }) === null);
 t("trop de manches refusé", A.normalize({ P: [{ i: "a", n: "A" }], R: new Array(301).fill({ r: [[1, 1, 1]] }) }) === null);
-t("trop de joueurs refusé", A.normalize({ P: new Array(101).fill({ i: "a", n: "A" }), R: [] }) === null);
+t("trop de joueurs refusé (plafond 9 999)", A.normalize({ P: new Array(10000).fill({ i: "a", n: "A" }), R: [] }) === null && A.normalize({ P: new Array(9999).fill({ i: "a", n: "A" }), R: [] }) !== null);
 const evil = A.normalize({ id: "<img src=x onerror=alert(1)>", P: [{ i: 5, n: "<b>x</b>\u0000\u001f" + "y".repeat(100), a: "🦊".repeat(30) }], R: [{ q: "q".repeat(500), c: 3, d: "<script>", m: "oui", r: [[99, 1e9, 1e12]] }], C: [[7, 1, 1, 1], [0, 1e9, -3, 0], "x"] });
 t("nom nettoyé et borné", evil.P[0].n.length <= 40 && !/[\u0000-\u001f]/.test(evil.P[0].n));
 t("avatar borné", evil.P[0].a.length <= 12);
@@ -289,6 +289,68 @@ const stSrc2 = require("fs").readFileSync(require("path").join(__dirname, "../js
 const stSrc3 = require("fs").readFileSync(require("path").join(__dirname, "../js/stats/stats.js"), "utf8");
 t("carte : dessinée avec le filigrane géré par K.markOn, copie / PNG / bascule du filigrane réservée à l'hôte", /function drawCard/.test(stSrc3) && /drawCard\(c, log, K\.markOn\(\)\)/.test(stSrc3) && /if \(withMark\) K\.watermark\(ctx, W, H, RK_FONT\)/.test(stSrc3) && /K\.canSkipMark\(\)\) return; K\.setNoMarkPref/.test(stSrc3) && /v53CardCopy/.test(stSrc3) && /buildMyCard\(main, log\)/.test(stSrc3));
 t("trophées : onglet 🏆 et bloc sur l'écran de fin de partie, rendu par textContent (pas d'innerHTML)", /\["trophies", "🏆 Trophées"\]/.test(stSrc2) && /trophies: buildTrophies/.test(stSrc2) && /paintAwards\(\)/.test(stSrc2) && !/innerHTML[^;]*awards|awards[^;]*innerHTML/i.test(stSrc2));
+
+/* ---- Duels, faits marquants, grandes salles (V57) ---- */
+const rawD = { id: "d1", P: [{ n: "Léa" }, { n: "Tom" }, { n: "Max" }], R: [
+  { q: "Q1", c: "x", d: "facile", m: 0, r: [[1, 2, 1000], [1, 3, 1000], [2, 4, 0]] },
+  { q: "Q2", c: "x", d: "facile", m: 0, r: [[1, 2, 2000], [2, 3, 1000], [1, 1, 1000]] },
+  { q: "Q3", c: "x", d: "facile", m: 0, r: [[1, 2, 3000], [1, 2, 2000], [3, 0, 1000]] }] };
+const lgD = A.normalize(rawD), DU = A.duels(lgD), dp = n => DU.players.find(p => p.name === n);
+t("duels : Léa 4 V · 1 D · 1 N, Tom 2 V · 3 D · 1 N, Max 2 V · 4 D · 0 N", dp("Léa").wins === 4 && dp("Léa").losses === 1 && dp("Léa").ties === 1 && dp("Tom").wins === 2 && dp("Tom").losses === 3 && dp("Tom").ties === 1 && dp("Max").wins === 2 && dp("Max").losses === 4 && dp("Max").ties === 0);
+t("duels : plus vite gagne, bon contre faux gagne, même temps = égalité (Léa 2 – Tom 0, 1 égalité)", DU.w[0][1] === 2 && DU.w[1][0] === 0 && DU.t[0][1] === 1 && DU.t[1][0] === 1);
+t("duels : sans réponse (état 3) perd contre une bonne réponse (Tom devance Max à la Q3)", DU.w[1][2] === 2 && DU.w[2][1] === 1);
+t("duels : taux de duels gagnés = victoires / duels (Léa 4 sur 6)", Math.abs(dp("Léa").rate - 4 / 6) < 1e-9 && dp("Léa").duels === 6);
+t("duels : bête noire et souffre-douleur (Tom : noire Léa, souffre-douleur Max)", dp("Tom").nemesis.name === "Léa" && dp("Tom").victim.name === "Max" && dp("Léa").nemesis === null);
+t("duels : à égalité d'écart, le plus petit numéro d'arrivée (bête noire de Max = Léa)", dp("Max").nemesis.name === "Léa" && dp("Max").nemesis.theirs === 2 && dp("Max").nemesis.mine === 1);
+t("duels : plus belle rivalité = Léa – Max (2 – 1) ; pas de domination (moins de 3 duels décisifs)", DU.rivalry && DU.rivalry.aName === "Léa" && DU.rivalry.bName === "Max" && DU.rivalry.aWins === 2 && DU.rivalry.bWins === 1 && DU.crush === null);
+t("duels : matrice cohérente (victoires + défaites + égalités = questions disputées à deux)", [[0, 1], [0, 2], [1, 2]].every(([a, b]) => DU.w[a][b] + DU.w[b][a] + DU.t[a][b] === 3) && DU.t[0][1] === DU.t[1][0]);
+const rawCr = { id: "d2", P: [{ n: "A" }, { n: "B" }], R: [0, 1, 2, 3].map(i => ({ q: "q" + i, c: "x", d: "facile", m: 0, r: [[1, 2, 1000 * (i + 1)], [2, 3, 0]] })).concat([{ q: "q5", c: "x", d: "facile", m: 0, r: [[2, 2, 4000], [1, 3, 1000]] }]) };
+const DC = A.duels(A.normalize(rawCr));
+t("duels : grosse domination A 4 – 1 B, et rivalité (les deux ont gagné au moins une fois)", DC.crush && DC.crush.winnerName === "A" && DC.crush.loserName === "B" && DC.crush.wins === 4 && DC.crush.losses === 1 && DC.rivalry && DC.rivalry.aWins === 4 && DC.rivalry.bWins === 1);
+const rawAbs = { id: "d3", P: [{ n: "A" }, { n: "B" }], R: [{ q: "q", c: "x", d: "facile", m: 0, r: [[1, 2, 1000], [0, 0, 0]] }, { q: "q", c: "x", d: "facile", m: 0, r: [[1, 2, 2000], [0, 0, 0]] }, { q: "q", c: "x", d: "facile", m: 0, r: [[1, 2, 3000], [0, 0, 0]] }] };
+t("duels : un joueur absent ne perd aucun duel", (d => d.players[0].duels === 0 && d.players[1].duels === 0 && d.rivalry === null && d.crush === null)(A.duels(A.normalize(rawAbs))));
+t("duels : partie solo ou sans question → pas d'erreur, aucun duel", (d => d.players.length === 1 && d.players[0].rate === null && d.rivalry === null)(A.duels(A.normalize({ id: "s", P: [{ n: "Seul" }], R: [{ q: "q", c: "x", d: "facile", m: 0, r: [[1, 2, 500]] }] }))) && A.duels(A.normalize({ id: "z", P: [{ n: "A" }, { n: "B" }], R: [] })).rivalry === null);
+const rawSweep = { id: "d4", P: [{ n: "A" }, { n: "B" }], R: [1, 2, 3].map(i => ({ q: "q" + i, c: "x", d: "facile", m: 0, r: [[1, 2, 1000 * i], [2, 3, 0]] })) };
+t("duels : une victoire 3 – 0 est une domination mais pas une rivalité", (d => d.rivalry === null && d.crush && d.crush.winnerName === "A" && d.crush.wins === 3 && d.crush.losses === 0)(A.duels(A.normalize(rawSweep))));
+const fk = (log, k) => A.facts(log).find(f => f.key === k);
+const rawF = { id: "f1", P: [{ n: "A" }, { n: "B" }], R: [
+  { q: "Q1", c: "x", d: "facile", m: 0, r: [[1, 2, 1000], [2, 3, 0]] }, { q: "Q2", c: "x", d: "facile", m: 0, r: [[1, 2, 2000], [2, 3, 0]] },
+  { q: "Q3", c: "x", d: "facile", m: 0, r: [[2, 3, 2000], [1, 1, 3000]] }] };
+const lgF = A.normalize(rawF);
+t("faits : victoire au finish (B prend la tête à la dernière question)", fk(lgF, "finish") && /^B s’empare de la tête à la toute dernière question\.$/.test(fk(lgF, "finish").text) && !fk(lgF, "wire"));
+t("faits : la tête a changé une fois", fk(lgF, "changes") && /une fois/.test(fk(lgF, "changes").text));
+t("faits : écart au sommet = 1 000 pts, singulier/pluriel gérés", fk(lgF, "gap") && fk(lgF, "gap").text === "B devance A de 1 000 pts.");
+t("faits : question la plus piégeuse = Q3 (0 sur 2 ? non : 50 %) — à égalité de taux, la première", fk(lgF, "hardQ") === undefined || /Question \d/.test(fk(lgF, "hardQ").text));
+const rawW = { id: "f2", P: [{ n: "A" }, { n: "B" }], R: [1, 2, 3].map(i => ({ q: "Q" + i, c: "x", d: "facile", m: 0, r: [[1, 2, 1000 * i], [1, 3, 500 * i]] })) };
+const lgW = A.normalize(rawW);
+t("faits : du début à la fin (A n'a jamais quitté la tête), aucun changement de tête", fk(lgW, "wire") && /A n’a jamais quitté la tête/.test(fk(lgW, "wire").text) && !fk(lgW, "changes") && !fk(lgW, "finish"));
+t("faits : tout le monde a juste sur les 3 questions → « Unanimité » (3 questions), pas de « Trou noir »", fk(lgW, "unanimous") && /^3 questions réussies/.test(fk(lgW, "unanimous").text) && !fk(lgW, "blank"));
+const rawQ = { id: "f3", P: [{ n: "A" }, { n: "B" }, { n: "C" }], R: [
+  { q: "Facile", c: "x", d: "facile", m: 0, r: [[1, 1, 1000], [1, 2, 1000], [1, 3, 1000]] },
+  { q: "Piège ".repeat(30), c: "x", d: "difficile", m: 0, r: [[2, 8, 1000], [2, 9, 1000], [1, 10, 2000]] },
+  { q: "Noir", c: "x", d: "moyen", m: 0, r: [[2, 5, 1000], [2, 5, 1000], [3, 0, 2000]] }] };
+const lgQ = A.normalize(rawQ);
+t("faits : question la plus piégeuse = Q3 (0 %) ; la plus facile = Q1 (100 %)", fk(lgQ, "hardQ") && /^Question 3 « Noir » : 0 % de réussite\.$/.test(fk(lgQ, "hardQ").text) && fk(lgQ, "easyQ") && /^Question 1 « Facile » : 100 % de réussite\.$/.test(fk(lgQ, "easyQ").text));
+t("faits : « Unanimité » 1 question et « Trou noir » 1 question (singulier)", /^1 question réussie par tous/.test(fk(lgQ, "unanimous").text) && /^1 question où personne n’a trouvé\.$/.test(fk(lgQ, "blank").text));
+t("faits : questions les plus rapides / lentes (Q1 : 2 s ; Q2 : 9 s)", /^Question 1 « Facile » : 2 s en moyenne\.$/.test(fk(lgQ, "fastQ").text) && /^Question 2 « Piège/.test(fk(lgQ, "slowQ").text) && /9 s en moyenne\.$/.test(fk(lgQ, "slowQ").text));
+t("faits : énoncé tronqué à 70 caractères avec « … »", fk(lgQ, "slowQ").text.indexOf("…") > 0 && A.trunc("x".repeat(80), 70).length === 70 && A.trunc("😀".repeat(80), 5) === "😀😀😀😀…" && A.trunc("abc", 70) === "abc" && A.trunc(null, 5) === "");
+const rawT = { id: "f4", P: [{ n: "A" }, { n: "B" }, { n: "C" }], R: [{ q: "Q", c: "x", d: "facile", m: 0, r: [[1, 2, 1000], [1, 3, 1000], [2, 4, 0]] }] };
+t("faits : égalité en tête → « Égalité en tête » avec les noms, pas d'écart chiffré", (f => f && f.title === "Égalité en tête" && /^A, B terminent à 1 000 pts\.$/.test(f.text))(fk(A.normalize(rawT), "gap")));
+t("faits : partie solo ou vide → aucun fait de course (tête, écart) ni « unanimité », pas d'erreur", !fk(A.normalize({ id: "s", P: [{ n: "Seul" }], R: [{ q: "q", c: "x", d: "facile", m: 0, r: [[1, 2, 500]] }] }), "unanimous") && !fk(A.normalize({ id: "s", P: [{ n: "Seul" }], R: [{ q: "q", c: "x", d: "facile", m: 0, r: [[1, 2, 500]] }] }), "gap") && A.facts(null).length === 0 && A.facts(A.normalize({ id: "z", P: [{ n: "A" }], R: [] })).length === 0);
+t("faits : chaque fait a une icône, un titre et un texte non vides", A.facts(lgQ).concat(A.facts(lgF)).every(f => f.key && f.icon && f.title && f.text));
+/* grandes salles */
+const rawBig = { id: "b1", at: 5, rc: "ABC123", P: [0, 1, 2, 3, 4].map(i => ({ i: "p" + i, n: "J" + i, a: "🙂" })), R: [
+  { q: "Q1", c: "x", d: "facile", m: 0, r: [[1, 2, 100], [1, 3, 500], [1, 4, 500], [2, 5, 0], [1, 6, 900]] },
+  { q: "Q2", c: "x", d: "facile", m: 0, r: [[1, 2, 200], [1, 3, 1000], [1, 4, 500], [2, 5, 0], [1, 6, 1800]] }],
+  C: [[0, 1, 1, 1], [4, 2, 2, 2], [3, 1, 1, 1]], B: [[1, 4, 0, 2, "steal", 100, 0, ""], [1, 4, 3, 2, "steal", 100, 0, ""], [2, 1, 4, 2, "freeze", 0, 0, ""], [2, 3, 1, 1, "shield", 0, 0, ""]] };
+const lgBig = A.normalize(rawBig), before = JSON.stringify(lgBig), cutLg = A.limitPlayers(lgBig, 3);
+t("grande salle : on garde les 3 meilleurs au classement final (J4 900… J1 1000, J2 égalité 500 → plus petit numéro), dans leur ordre d'arrivée", cutLg.P.map(p => p.n).join() === "J1,J2,J4" && cutLg.of === 5);
+t("grande salle : chaque manche ne garde que les réponses des joueurs conservés", cutLg.R.every(R => R.r.length === 3) && cutLg.R[1].r[0][2] === 1000 && cutLg.R[1].r[2][2] === 1800);
+t("grande salle : triche et bonus/malus remappés ; cible écartée → sans cible ; joueur écarté → ligne supprimée", JSON.stringify(cutLg.C) === JSON.stringify([[2, 2, 2, 2]]) && cutLg.B.length === 3 && cutLg.B[0][1] === 2 && cutLg.B[0][2] === -1 && cutLg.B[1][1] === 2 && cutLg.B[1][2] === -1 && cutLg.B[2][1] === 0 && cutLg.B[2][2] === 2 && cutLg.B.every(b => b[4] !== "shield"));
+t("grande salle : journal d'origine intact, objet identique si l'effectif tient, valeur de coupe invalide → 200", JSON.stringify(lgBig) === before && A.limitPlayers(lgBig, 5) === lgBig && A.limitPlayers(lgBig, 99) === lgBig && A.limitPlayers(null, 3) === null && A.VIEW_PLAYERS === 200 && A.limitPlayers(lgBig, "x") === lgBig);
+t("grande salle : le journal coupé reste exploitable par toute l'analyse (classement, duels, faits)", A.perPlayer(cutLg).length === 3 && A.perPlayer(cutLg).find(r => r.name === "J1").rank === 2 && A.duels(cutLg).n === 3 && Array.isArray(A.facts(cutLg)) && A.normalize(cutLg) !== null);
+const stSrc4 = require("fs").readFileSync(require("path").join(__dirname, "../js/stats/stats.js"), "utf8");
+t("onglets 🤝 Duels et 📌 Faits marquants branchés, grandes salles limitées et non diffusées", /\["duels", "🤝 Duels"\]/.test(stSrc4) && /\["facts", "📌 Faits marquants"\]/.test(stSrc4) && /duels: buildDuels, facts: buildFacts/.test(stSrc4) && /function limited\(g\)/.test(stSrc4) && /A\.limitPlayers\(g, A\.VIEW_PLAYERS\)/.test(stSrc4) && /function shareStats/.test(stSrc4) && !/broadcast\(\{ type: "v40(Entry|Final)"/.test(stSrc4.replace(/function shareStats[^\n]*\n/, "")));
 
 console.log("Stats : " + ok + " OK, " + ko + " échec(s)");
 process.exit(ko ? 1 : 0);

@@ -66,7 +66,16 @@ var V55 = (function () {
     r.forEach(function (x, i) { if (i === 0 || x.score !== r[i - 1].score) rank = i + 1; x.rank = rank; });
     return r;
   }
-  var api = { MIN_SCALE: MIN_SCALE, MAX_SCALE: MAX_SCALE, cleanPrefs: cleanPrefs, stepScale: stepScale, parsePrefs: parsePrefs, snapshot: snapshot, diff: diff, describe: describe, rows: rows };
+  /* Lignes affichées dans le panneau : au plus `limit` (100 par défaut), toujours avec la ligne « moi » ; hidden = joueurs non affichés. */
+  function visible(list, limit) {
+    var a = Array.isArray(list) ? list : [], n = Math.floor(Number(limit)); if (!isFinite(n) || n < 1) n = 100;
+    if (a.length <= n) return { shown: a.slice(), hidden: 0 };
+    var shown = a.slice(0, n), me = -1;
+    for (var i = 0; i < a.length; i++) if (a[i] && a[i].me) { me = i; break; }
+    if (me >= n) shown[n - 1] = a[me];
+    return { shown: shown, hidden: a.length - n };
+  }
+  var api = { visible: visible, MIN_SCALE: MIN_SCALE, MAX_SCALE: MAX_SCALE, cleanPrefs: cleanPrefs, stepScale: stepScale, parsePrefs: parsePrefs, snapshot: snapshot, diff: diff, describe: describe, rows: rows };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   return api;
 })();
@@ -138,7 +147,7 @@ var V55 = (function () {
     var code = btn("Code " + roomCode + "  📋", "v55-code", function () { copy(roomCode, "✅ Code copié : " + roomCode); }, "Copier le code de la salle"); top.appendChild(code);
     top.appendChild(mk("div", "v55-badges", V ? V.badges(i).join(" · ") : ""));
     body.appendChild(top);
-    var started = !!gameStarted, rs = V55.rows(players, myId), ul = mk("div", "v55-list");
+    var started = !!gameStarted, all = V55.rows(players, myId), vis = V55.visible(all, 100), rs = vis.shown, ul = mk("div", "v55-list");
     rs.forEach(function (r) {
       var row = mk("div", "v55-row" + (r.me ? " me" : ""));
       row.appendChild(mk("span", "v55-rank", started ? (r.rank === 1 ? "🥇" : r.rank === 2 ? "🥈" : r.rank === 3 ? "🥉" : String(r.rank)) : r.avatar));
@@ -148,6 +157,7 @@ var V55 = (function () {
       if (isHost && !r.me && !r.host) row.appendChild(btn("🚫", "v55-kick", function () { if (typeof kickPlayer === "function") kickPlayer(r.id); }, "Expulser " + r.name));
       ul.appendChild(row);
     });
+    if (vis.hidden > 0) ul.appendChild(mk("div", "v55-more", "… et " + vis.hidden + " autre" + (vis.hidden > 1 ? "s" : "") + " joueur" + (vis.hidden > 1 ? "s" : "") + " (" + all.length + " au total)"));
     body.appendChild(ul);
     var acts = mk("div", "v55-acts");
     acts.appendChild(btn("📋 Inviter", "v55-b", function () { copy(inviteFor(), "✅ Invitation copiée"); }));
@@ -229,7 +239,7 @@ var V55 = (function () {
       announce();
       if (S.mode === "room") {
         /* on ne reconstruit le panneau que si son contenu change (sinon un clic peut tomber sur un bouton remplacé) */
-        var sig = JSON.stringify([info(), V55.rows(players, myId), !!gameStarted, !!isHost]);
+        var all = V55.rows(players, myId), v = V55.visible(all, 100), sig = JSON.stringify([info(), v.shown, v.hidden, !!gameStarted, !!isHost]);
         if (sig !== S.sig) { S.sig = sig; paint(); }
       }
     } catch (e) {}

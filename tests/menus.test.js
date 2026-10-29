@@ -56,5 +56,16 @@ t("colonne de boutons : sur écran bas, passe sur plusieurs colonnes au lieu de 
 t("places illimitées : la limite de 8 du cœur est remplacée par celle des salles", /typeof window\.v54PlayerCap\s*===\s*"function"\s*\?\s*window\.v54PlayerCap\(\)\s*:\s*8/.test(core) && /window\.v54PlayerCap = function \(\) \{ return R\.HARD_CAP; \}/.test(rooms));
 t("index.html : feuille v55 et script 048 après 047, avant le mode révision", html.includes("css/v55.css") && html.indexOf("047-v54-salles.js") < html.indexOf("048-v55-menus.js") && html.indexOf("048-v55-menus.js") < html.indexOf("review/review.js"));
 
+/* ---- grandes salles : liste du panneau bornée ---- */
+const many = Array.from({ length: 300 }, (_, i) => ({ id: "p" + i, name: "J" + i, me: i === 250 }));
+const vis = M.visible(many, 100);
+t("liste bornée : 100 lignes affichées, 200 masquées sur 300", vis.shown.length === 100 && vis.hidden === 200 && vis.shown[0].id === "p0");
+t("liste bornée : « moi » reste affiché même loin dans le classement (dernière ligne remplacée)", vis.shown[99].id === "p250" && vis.shown.filter(r => r.me).length === 1 && vis.shown[98].id === "p98");
+t("liste bornée : sous la limite tout est affiché, rien de masqué ; valeur de coupe invalide → 100", (v => v.shown.length === 3 && v.hidden === 0)(M.visible(many.slice(0, 3), 100)) && M.visible(many, "x").shown.length === 100 && M.visible(many, 0).shown.length === 100 && M.visible(many).hidden === 200);
+t("liste bornée : entrée invalide → liste vide, la liste d'origine n'est pas modifiée", (v => v.shown.length === 0 && v.hidden === 0)(M.visible(null, 5)) && many[99].id === "p99" && many.length === 300);
+t("liste bornée : « moi » dans les premières lignes → aucune ligne déplacée", M.visible(many.map((r, i) => Object.assign({}, r, { me: i === 3 })), 100).shown[99].id === "p99");
+const mSrc = rd("js/patches/048-v55-menus.js");
+t("panneau Ma salle : liste bornée à 100 lignes avec « … et N autres joueurs », signature de rafraîchissement bornée", /V55\.visible\(all, 100\)/.test(mSrc) && /v55-more/.test(mSrc) && /sig = JSON\.stringify\(\[info\(\), v\.shown, v\.hidden/.test(mSrc) && /\.v55-more/.test(rd("css/v55.css")));
+
 console.log("Menus : " + ok + " OK, " + bad + " échec(s)");
 process.exit(bad ? 1 : 0);

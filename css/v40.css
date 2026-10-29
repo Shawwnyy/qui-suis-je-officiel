@@ -179,3 +179,4 @@ html.v40s-lock,html.v40s-lock body{overflow:hidden!important}
 .v40s-cardhead{flex-direction:column;align-items:flex-start;justify-content:flex-start;flex-wrap:nowrap;gap:10px}
 .v40s-cardhead>div:first-child{min-width:0;max-width:100%}
 .v40s-cardctl{justify-content:flex-start;width:100%}
+.v40s-tile .v{overflow-wrap:anywhere}

@@ -45,3 +45,4 @@ body.v55-calm *, body.v55-calm *::before, body.v55-calm *::after { animation-dur
 body.v55-calm .v50-flash { animation: v50-fade 1.4s ease-out forwards !important; }
 body.v55-calm .v50-flash * { animation: none !important; }
 body.v55-nokeys button.answer[data-v53k]::before { display: none !important; }
+.v55-more { text-align: center; opacity: .75; font-size: .85rem; padding: 6px 0; }

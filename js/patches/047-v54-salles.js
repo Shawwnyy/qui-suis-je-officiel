@@ -11,7 +11,7 @@
    ============================================================================= */
 var V54Rooms = (function () {
   "use strict";
-  var MAX_NAME = 24, MIN_PASS = 4, MAX_PASS = 16, MIN_PLAYERS = 1, HARD_CAP = 100, DEFAULT_MAX = 8, UNLIMITED = 0;
+  var MAX_NAME = 24, MIN_PASS = 4, MAX_PASS = 16, MIN_PLAYERS = 1, HARD_CAP = 9999, DEFAULT_MAX = 8, UNLIMITED = 0;
   var FAIL_WINDOW = 60000, FAIL_LIMIT = 6, LAST_TTL = 3 * 3600 * 1000;
   var CTRL = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g;
   var RESERVED = { "__proto__": 1, "constructor": 1, "prototype": 1, "tostring": 1, "valueof": 1, "hasownproperty": 1 };
@@ -46,7 +46,7 @@ var V54Rooms = (function () {
     if (n < MIN_PASS || n > MAX_PASS) return { ok: false, error: "Mot de passe : " + MIN_PASS + " à " + MAX_PASS + " caractères." };
     return { ok: true, pass: s };
   }
-  /* Nombre de places (hôte compris) : de 1 (partie solo) à 100, ou 0 = illimité (jusqu'au plafond technique de 100),
+  /* Nombre de places (hôte compris) : de 1 (partie solo) à 9 999, ou 0 = illimité (jusqu'au plafond technique de 9 999),
      jamais en dessous du nombre de joueurs déjà présents. */
   function wantsUnlimited(n) {
     return n === UNLIMITED || n === Infinity || (typeof n === "string" && /^\s*(0|∞|inf|infini|illimit[a-zéèêë]*)\s*$/i.test(n));
@@ -437,17 +437,24 @@ var V54Rooms = (function () {
   function applyMax() {
     var f = $("v54Max"); if (!f) return;
     if (String(f.value).trim() === "") { paintHost(); return; }
+    /* Entrée déclenche à la fois « keydown » et « change » : la 2ᵉ passe ne doit pas effacer l'explication de la 1ʳᵉ (ex. 12000 → 9999) */
+    if (S.st.max !== R.UNLIMITED && String(f.value).trim() === String(S.st.max)) return;
     setMax(Number(f.value));
+    f.value = S.st.max === R.UNLIMITED ? "" : String(S.st.max);          /* le champ garde le focus : on y affiche la valeur réellement retenue (ex. 12000 → 9999) */
   }
-  /* Places : 1 (partie solo) à 100, ou ∞ (illimité, plafond technique de 100). */
+  /* Places : 1 (partie solo) à 9 999, ou ∞ (illimité, plafond technique de 9 999). */
+  function fmtN(n) { return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f"); }
   function setMax(want) {
     var v = R.clampMax(want, count());
     S.st.max = v;
-    var note;
-    if (v === R.UNLIMITED) note = "∞ Places illimitées (plafond technique : " + R.HARD_CAP + " joueurs).";
-    else if (v !== want) note = "Il y a déjà " + count() + " joueurs : places portées à " + v + ".";
-    else note = v === 1 ? "✅ 1 place : partie solo, personne ne peut rejoindre." : "✅ " + v + " places.";
-    if (v === R.UNLIMITED || v > 30) note += " ⚠️ Au-delà d'une trentaine de joueurs, la partie peut ralentir sur ton appareil.";
+    var note, asked = (want === "" || want == null) ? NaN : Math.floor(Number(want));
+    if (v === R.UNLIMITED) note = "∞ Places illimitées (plafond technique : " + fmtN(R.HARD_CAP) + " joueurs).";
+    else if (isFinite(asked) && asked > R.HARD_CAP) note = "Maximum " + fmtN(R.HARD_CAP) + " places : réglé à " + fmtN(v) + ".";
+    else if (v !== want) note = "Il y a déjà " + count() + " joueurs : places portées à " + fmtN(v) + ".";
+    else note = v === 1 ? "✅ 1 place : partie solo, personne ne peut rejoindre." : "✅ " + fmtN(v) + " places.";
+    var big = v === R.UNLIMITED ? R.HARD_CAP : v;
+    if (big > 200) note += " ⚠️ Une salle de plusieurs centaines de joueurs dépend entièrement de ta connexion et de ton appareil (chaque joueur est une connexion directe vers toi) : commence plus petit pour tester.";
+    else if (big > 30) note += " ⚠️ Au-delà d'une trentaine de joueurs, la partie peut ralentir sur ton appareil.";
     say(note, true); syncInfo(true); paintHost();
   }
   function applyPass() {
