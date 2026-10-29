@@ -426,15 +426,26 @@ Une carte « ✨ Outils de l'hôte » s'affiche sous « Ta partie en un coup d'�
 - **Barre d'onglets** : elle revenait toute à gauche à chaque clic, et l'onglet choisi (Catégories, Profils…) disparaissait hors de l'écran ; elle garde maintenant sa position et amène l'onglet choisi en vue. Le contenu du nouvel onglet s'ouvre toujours tout en haut.
 - Tests : `node tests/e2e/stats.e2e.js` (graphiques réels, changement de joueur, mémoire du choix, barre d'onglets en fenêtre étroite — mutations vérifiées).
 
-## ✉️ Recevoir les statistiques par e-mail, sans serveur (`js/stats/mail.js`, bouton « ✉️ E-mail » des statistiques)
-Le jeu n'a **aucun serveur** et n'envoie rien lui-même : il prépare le message et c'est **toi qui appuies sur « Envoyer »**.
-- **📧 Mon application de messagerie** : ouvre un lien `mailto:` avec le sujet (« 🏆 Statistiques de la partie — date · N joueurs ») et le message déjà écrit : **ton bilan perso** (rang, score, réussite, meilleure série, trophées ; si ton prénom est dans la partie) puis le **récap du groupe** (podium, série, rapidité, trophées, code de salle).
-- **Gmail** et **Outlook** : ouvrent la page « nouveau message » préremplie dans un nouvel onglet (https, `noopener`).
-- **📎 Avec le PDF joint** : sur téléphone (et les navigateurs qui savent partager un fichier), le menu de partage s'ouvre avec le PDF des statistiques : choisis ta messagerie, le fichier est déjà joint. Sur ordinateur, le PDF est téléchargé et l'e-mail est préparé avec la consigne de le joindre.
-- **📋 Copier le message** et **👀 Voir le message** (aperçu).
-- **Adresse facultative** : une seule adresse, sans espace ni virgule ni `? & # = : /` (impossible de glisser un destinataire ou un champ en plus dans le lien). « Retenir cette adresse sur cet appareil » la garde dans le navigateur, nulle part ailleurs.
-- **Liens longs** : un lien `mailto:` est limité à ≈ 2 000 caractères (les émojis comptent double). Si le message est trop long, la ligne « trophées du groupe » puis la fin du récap sautent, **ton bilan perso reste en haut**, et le **message complet est copié** dans le presse-papiers.
-- Tests : `node tests/mail.test.js` (adresses, liens, longueur, absence de tout appel réseau — mutations vérifiées) et, avec Playwright, `node tests/e2e/mail.e2e.js` (vraie fenêtre, messagerie, Gmail, Outlook, PDF, adresse retenue, **aucune requête réseau faite par le jeu**).
+## ✉️ Envoyer les statistiques par e-mail (`js/stats/mail.js`, `js/stats/mail-config.js`, bouton « ✉️ E-mail » des statistiques)
+Le jeu n'a **aucun serveur à lui** : deux façons de faire arriver les stats dans une boîte e-mail.
+
+### 📨 « Envoyer maintenant » : le message arrive directement chez la personne
+La page appelle le service d'envoi gratuit **EmailJS** (`https://api.emailjs.com`, 200 e-mails par mois dans l'offre gratuite) : tu saisis l'adresse, tu appuies sur le bouton, **le message arrive dans sa boîte** (sans ouvrir de messagerie). C'est la seule requête réseau du module, faite uniquement au clic ; seuls l'adresse et le message de statistiques sont transmis à EmailJS. Le message est **complet** (bilan perso, récap du groupe, trophées, code de salle) et n'a pas la limite de longueur d'un lien `mailto:`. Le PDF n'est pas joint (pièces jointes payantes chez EmailJS) : utilise « 📎 Avec le PDF joint ».
+
+**Réglage, une seule fois (≈ 5 minutes, par l'organisateur du site)** — je ne peux pas créer le compte à ta place :
+1. Crée un compte gratuit sur **emailjs.com**.
+2. **Email Services → Add New Service** (Gmail, Outlook…) : connecte ta boîte (les e-mails partiront de cette adresse) ; note le **Service ID**.
+3. **Email Templates → Create New Template** : *Subject* = `{{subject}}` · *To Email* = `{{to_email}}` · *Reply To* = `{{reply_to}}` · *From Name* = `{{from_name}}` · *Content* (mode HTML) = `<div style="font-family:Arial,sans-serif;line-height:1.5">{{{message_html}}}</div>` (trois accolades : le HTML est déjà échappé par le jeu). Note le **Template ID**.
+4. **Account → General** : copie la **Public Key**. **Account → Security → Allowed origins** : n'autorise que le site (`shawwnyy.github.io`) pour que personne d'autre n'use ton quota.
+5. Ouvre `js/stats/mail-config.js` sur GitHub et colle les 3 valeurs (`serviceId`, `templateId`, `publicKey`). Elles sont publiques par conception. Tous les joueurs peuvent alors utiliser « 📨 Envoyer maintenant ». Pour essayer avant, tu peux aussi les coller dans la fenêtre (« ⚙️ Activer l'envoi direct ») : elles sont alors gardées **sur cet appareil seulement**.
+
+Garde-fous : une seule adresse (sans espace, virgule ni `? & # = : /`), au plus **1 envoi toutes les 20 s et 6 par heure et par appareil** (le quota gratuit est partagé), seul le message fabriqué par le jeu part (le joueur ne tape que l'adresse), HTML échappé, délai de 15 s, messages d'erreur clairs (clé, service ou modèle introuvable, site non autorisé, compte à reconnecter, quota, pas de connexion).
+
+### Sans réglage : ta messagerie, Gmail, Outlook, partage du PDF
+- **📧 Mon application de messagerie** : lien `mailto:` avec le message déjà écrit (**ton bilan perso** en premier, puis le récap du groupe) ; **Gmail** et **Outlook** : page « nouveau message » préremplie ; **📎 Avec le PDF joint** : menu de partage du téléphone avec le PDF (sur ordinateur : PDF téléchargé + e-mail préparé) ; **📋 Copier le message**, **👀 Voir le message**.
+- Un lien `mailto:` est limité à ≈ 2 000 caractères (les émojis comptent double) : si le message est trop long, la ligne « trophées du groupe » puis la fin du récap sautent, ton bilan perso reste en haut, et le message complet est copié.
+- « Retenir cette adresse sur cet appareil » (facultatif) la garde dans le navigateur, nulle part ailleurs.
+- Tests : `node tests/mail.test.js` (adresses, liens, longueur, requête EmailJS, limites, messages d'erreur ; **le code n'appelle qu'`api.emailjs.com`** — mutations vérifiées) et, avec Playwright, `node tests/e2e/mail.e2e.js` (vraie fenêtre avec un faux service d'envoi : réglage, envoi, erreurs, limite, panne réseau, messagerie, Gmail, Outlook, PDF ; aucune requête hors EmailJS). L'envoi réel n'a pas pu être essayé sans ton compte EmailJS.
 
 ## 🔒 Corrections de sécurité de cette version
 - Un joueur dont l'identifiant réseau est un mot réservé du langage (`__proto__`, `constructor`…) pouvait corrompre la liste des joueurs de tout le jeu : son arrivée est désormais ignorée, et le sondage comme les équipes ne reconnaissent un joueur que s'il existe vraiment dans la liste.

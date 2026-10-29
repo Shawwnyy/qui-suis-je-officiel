@@ -1,8 +1,10 @@
 /* =============================================================================
    V61 — ✉️ Recevoir les statistiques par e-mail, SANS serveur.
-   Le jeu n'envoie rien lui-même : il prépare le message (récap + bilan perso) et ouvre ton application de messagerie
-   (lien « mailto: »), Gmail ou Outlook (page « nouveau message » préremplie), ou le menu de partage du téléphone avec le PDF en pièce jointe.
-   C'est toi qui appuies sur « Envoyer ».
+   Le jeu n'a AUCUN serveur à lui. Deux façons de recevoir les statistiques :
+   • 📨 « Envoyer » : la page appelle directement le service d'envoi gratuit EmailJS (https://api.emailjs.com), qui livre le message
+     dans la boîte de l'adresse saisie. Il faut que l'organisateur ait rempli js/stats/mail-config.js (3 identifiants, une fois).
+   • Sans réglage : le jeu prépare le message et ouvre ta messagerie (« mailto: »), Gmail ou Outlook (page préremplie), ou le menu de
+     partage du téléphone avec le PDF en pièce jointe ; c'est toi qui appuies sur « Envoyer ».
    La logique est pure (V61Mail, testée par tests/mail.test.js) ; la fenêtre est la colle navigateur (V61MailUI).
    ============================================================================= */
 var V61Mail = (function () {
@@ -66,8 +68,39 @@ var V61Mail = (function () {
     var one = make(NOTE);
     return { url: one.length <= MAX_URL ? one : make(""), truncated: true, body: NOTE };
   }
+  /* ---------- envoi direct (EmailJS) ---------- */
+  var EMAILJS_URL = "https://api.emailjs.com/api/v1.0/email/send", MIN_GAP = 20000, MAX_HOUR = 6, MAX_MESSAGE = 8000;
+  function validId(s) { return /^[A-Za-z0-9_\-]{3,64}$/.test(String(s == null ? "" : s).trim()); }
+  function validConfig(c) { return !!c && typeof c === "object" && validId(c.serviceId) && validId(c.templateId) && validId(c.publicKey); }
+  function escapeHtml(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (ch) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]; }); }
+  function html(text) { return escapeHtml(clean(text)).replace(/\n/g, "<br>"); }
+  /* corps de la requête EmailJS ; null si la configuration ou l'adresse sont invalides. Seul le message FABRIQUÉ par le jeu part : l'utilisateur ne tape que l'adresse. */
+  function emailjsPayload(cfg, f) {
+    if (!validConfig(cfg) || !f || !validEmail(f.to)) return null;
+    var to = String(f.to).trim(), msg = clean(f.message).slice(0, MAX_MESSAGE), from = oneLine(f.fromName || "").slice(0, 60) || "Qui suis-je ?";
+    return { service_id: String(cfg.serviceId).trim(), template_id: String(cfg.templateId).trim(), user_id: String(cfg.publicKey).trim(),
+      template_params: { to_email: to, reply_to: to, subject: oneLine(f.subject).slice(0, 200), message: msg, message_html: html(msg), from_name: from } };
+  }
+  /* au plus 1 envoi toutes les 20 s et 6 par heure et par appareil (le quota gratuit est partagé entre tous les joueurs) */
+  function sendLimit(history, now) {
+    var h = (Array.isArray(history) ? history : []).filter(function (t) { return typeof t === "number" && isFinite(t) && t <= now + 1000 && now - t < 3600000; }).sort(function (a, b) { return a - b; });
+    if (h.length && now - h[h.length - 1] < MIN_GAP) return { ok: false, wait: MIN_GAP - (now - h[h.length - 1]), why: "gap" };
+    if (h.length >= MAX_HOUR) return { ok: false, wait: 3600000 - (now - h[0]), why: "hour" };
+    return { ok: true, wait: 0, why: "" };
+  }
+  function statusMessage(status, text) {
+    var t = String(text == null ? "" : text).replace(/[<>\u0000-\u001f]/g, " ").trim().slice(0, 80);
+    if (status === 0) return t === "timeout" ? "⚠️ Le service d'envoi ne répond pas. Réessaie dans un instant, ou utilise ta messagerie." : "⚠️ Pas de connexion Internet : l'envoi n'a pas pu partir. Réessaie, ou utilise ta messagerie.";
+    if (status === 400) return /public key|user[_ ]?id|account/i.test(t) ? "⚠️ La clé publique EmailJS est refusée : vérifie-la dans js/stats/mail-config.js." : /service/i.test(t) ? "⚠️ Identifiant de service EmailJS introuvable : vérifie « serviceId »." : /template/i.test(t) ? "⚠️ Identifiant de modèle EmailJS introuvable : vérifie « templateId »." : "⚠️ EmailJS a refusé la demande (" + (t || "400") + ").";
+    if (status === 401 || status === 403) return "⚠️ Envoi refusé par EmailJS : vérifie la clé publique et que l'adresse de ce site est dans « Allowed origins ».";
+    if (status === 412) return "⚠️ Le compte e-mail relié à EmailJS (Gmail…) doit être reconnecté dans « Email Services ».";
+    if (status === 422) return "⚠️ Adresse refusée : dans le modèle EmailJS, le champ « To Email » doit contenir {{to_email}}.";
+    if (status === 429) return "⚠️ Trop d'envois pour le moment (quota EmailJS). Réessaie plus tard, ou utilise ta messagerie.";
+    if (status >= 500) return "⚠️ Le service d'envoi est indisponible pour l'instant. Réessaie, ou utilise ta messagerie.";
+    return "⚠️ L'envoi a échoué (code " + status + ").";
+  }
   function fileName(ts, dark) { var d = new Date(Number(ts) || Date.now()); return "qui-suis-je-statistiques-" + (isNaN(d) ? "partie" : d.toISOString().slice(0, 10)) + (dark ? "-sombre" : "") + ".pdf"; }
-  var api = { validEmail: validEmail, subject: subject, personal: personal, message: message, url: url, fileName: fileName, clean: clean, MAX_URL: MAX_URL };
+  var api = { EMAILJS_URL: EMAILJS_URL, MIN_GAP: MIN_GAP, MAX_HOUR: MAX_HOUR, validId: validId, validConfig: validConfig, html: html, emailjsPayload: emailjsPayload, sendLimit: sendLimit, statusMessage: statusMessage, validEmail: validEmail, subject: subject, personal: personal, message: message, url: url, fileName: fileName, clean: clean, MAX_URL: MAX_URL };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   return api;
 })();
@@ -76,10 +109,26 @@ var V61Mail = (function () {
 (function () {
   "use strict";
   if (typeof window === "undefined" || typeof document === "undefined") return;
-  var KEY = "quizV61MailTo", M = V61Mail, box = null, lastFocus = null;
+  var KEY = "quizV61MailTo", CFG = "quizV61EmailJs", SENT = "quizV61Sent", M = V61Mail, box = null, lastFocus = null;
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function loadTo() { try { var v = localStorage.getItem(KEY); return M.validEmail(v) ? v : ""; } catch (e) { return ""; } }
   function saveTo(v) { try { if (v) localStorage.setItem(KEY, v); else localStorage.removeItem(KEY); } catch (e) {} }
+  /* identifiants EmailJS : le fichier js/stats/mail-config.js d'abord (valable pour tous les joueurs), sinon ceux enregistrés sur cet appareil */
+  function getConfig() {
+    var f = window.V61MailConfig; if (M.validConfig(f)) return { serviceId: String(f.serviceId).trim(), templateId: String(f.templateId).trim(), publicKey: String(f.publicKey).trim(), from: "file" };
+    try { var c = JSON.parse(localStorage.getItem(CFG) || "null"); if (M.validConfig(c)) return { serviceId: c.serviceId, templateId: c.templateId, publicKey: c.publicKey, from: "device" }; } catch (e) {}
+    return null;
+  }
+  function loadSent() { try { var a = JSON.parse(localStorage.getItem(SENT) || "[]"); return Array.isArray(a) ? a.filter(function (x) { return typeof x === "number"; }).slice(-20) : []; } catch (e) { return []; } }
+  function noteSent(t) { try { var a = loadSent(); a.push(t); localStorage.setItem(SENT, JSON.stringify(a.slice(-20))); } catch (e) {} }
+  /* seule requête réseau du module : vers api.emailjs.com, et seulement quand on appuie sur « Envoyer » */
+  function post(payload) {
+    var ctl = typeof AbortController === "function" ? new AbortController() : null, timer = setTimeout(function () { if (ctl) ctl.abort(); }, 15000);
+    return window.fetch(M.EMAILJS_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: ctl ? ctl.signal : undefined, credentials: "omit", referrerPolicy: "origin" })
+      .then(function (r) { return r.text().then(function (t) { return { ok: r.ok, status: r.status, text: t }; }, function () { return { ok: r.ok, status: r.status, text: "" }; }); },
+        function (e) { return { ok: false, status: 0, text: e && e.name === "AbortError" ? "timeout" : "network" }; })
+      .then(function (res) { clearTimeout(timer); return res; });
+  }
   function close() {
     if (!box) return; var b = box; box = null; b.remove(); document.removeEventListener("keydown", onKey, true);
     try { if (lastFocus && lastFocus.focus) lastFocus.focus(); } catch (e) {}
@@ -94,8 +143,8 @@ var V61Mail = (function () {
     box = el("div", "v61-mail"); box.id = "v61Mail"; box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true"); box.setAttribute("aria-labelledby", "v61Title");
     var card = el("div", "v61-card"); box.appendChild(card);
     card.appendChild(el("h3", "", "✉️ Recevoir les stats par e-mail")).id = "v61Title";
-    card.appendChild(el("p", "v61-note", "Aucun serveur : le jeu n'envoie rien lui-même. Ton application de messagerie (ou Gmail, Outlook) s'ouvre avec le message déjà écrit, et c'est toi qui l'envoies."));
-    var lab = el("label", "v61-lab", "Adresse e-mail (facultatif)"); lab.setAttribute("for", "v61To"); card.appendChild(lab);
+    card.appendChild(el("p", "v61-note", "📨 « Envoyer » livre le message dans la boîte de l'adresse saisie, sans ouvrir de messagerie (via le service d'envoi gratuit EmailJS : seuls l'adresse et le message de statistiques lui sont transmis). Sans réglage, utilise ta messagerie, Gmail ou Outlook : le message s'ouvre déjà écrit."));
+    var lab = el("label", "v61-lab", "Adresse e-mail de la personne qui reçoit les stats"); lab.setAttribute("for", "v61To"); card.appendChild(lab);
     var to = el("input", "v61-input"); to.type = "email"; to.id = "v61To"; to.autocomplete = "email"; to.inputMode = "email"; to.maxLength = 254; to.placeholder = "toi@exemple.fr"; to.value = loadTo(); card.appendChild(to);
     var keepRow = el("label", "v61-check"), keep = el("input"); keep.type = "checkbox"; keep.id = "v61Keep"; keep.checked = !!loadTo();
     keepRow.appendChild(keep); keepRow.appendChild(el("span", "", "Retenir cette adresse sur cet appareil (rien n'est envoyé ailleurs)")); card.appendChild(keepRow);
@@ -121,9 +170,53 @@ var V61Mail = (function () {
       else window.open(r.url, "_blank", "noopener,noreferrer");
       say(kind === "mailto" ? "✉️ Ton application de messagerie s'ouvre" + (r.truncated ? " (résumé raccourci, message complet copié)" : "") + ". Si rien ne s'ouvre, choisis Gmail ou Outlook, ou copie le message." : "✉️ La page « nouveau message » s'ouvre dans un nouvel onglet" + (r.truncated ? " (résumé raccourci, message complet copié)" : "") + ".");
     }
+    var sendRow = el("div", "v61-row"); card.appendChild(sendRow);
+    var sendB = el("button", "btn btn-primary v61-b v61-send", "📨 Envoyer maintenant"); sendB.type = "button"; sendB.id = "v61Send"; sendRow.appendChild(sendB);
+    card.appendChild(msg);
+    /* ---- réglage de l'envoi direct (organisateur, une fois) ---- */
+    var setup = el("details", "v61-setup"); setup.id = "v61Setup"; setup.appendChild(el("summary", "", "⚙️ Activer l'envoi direct (organisateur, 5 minutes)"));
+    var steps = el("ol", "v61-steps");
+    ["Crée un compte gratuit sur emailjs.com (200 e-mails par mois).", "« Email Services » → Add New Service (Gmail, Outlook…) → note le Service ID.",
+      "« Email Templates » → Create New Template : Subject = {{subject}} · To Email = {{to_email}} · Reply To = {{reply_to}} · Content (HTML) = <div style=\"font-family:Arial,sans-serif;line-height:1.5\">{{{message_html}}}</div> → note le Template ID.",
+      "« Account » → General → copie la Public Key. Dans « Security », limite le domaine autorisé à celui de ce site.",
+      "Colle les 3 valeurs ci-dessous (gardées sur cet appareil). Pour que tous tes joueurs puissent envoyer, copie-les aussi dans js/stats/mail-config.js sur GitHub."].forEach(function (x) { steps.appendChild(el("li", "", x)); });
+    setup.appendChild(steps);
+    function cfgField(id, label, ph) { var l = el("label", "v61-lab", label); l.setAttribute("for", id); var i = el("input", "v61-input"); i.type = "text"; i.id = id; i.placeholder = ph; i.autocomplete = "off"; i.spellcheck = false; i.maxLength = 64; setup.appendChild(l); setup.appendChild(i); return i; }
+    var cur = getConfig(), fS = cfgField("v61CfgService", "Service ID", "service_xxxxxxx"), fT = cfgField("v61CfgTemplate", "Template ID", "template_xxxxxxx"), fK = cfgField("v61CfgKey", "Public Key", "clé publique");
+    if (cur && cur.from === "device") { fS.value = cur.serviceId; fT.value = cur.templateId; fK.value = cur.publicKey; }
+    var cfgRow = el("div", "v61-row"); setup.appendChild(cfgRow);
+    var saveC = el("button", "btn btn-secondary v61-b", "💾 Enregistrer sur cet appareil"); saveC.type = "button"; saveC.id = "v61CfgSave";
+    saveC.addEventListener("click", function () {
+      var c = { serviceId: fS.value.trim(), templateId: fT.value.trim(), publicKey: fK.value.trim() };
+      if (!M.validConfig(c)) { say("⚠️ Les 3 valeurs sont nécessaires (lettres, chiffres, « _ » et « - » seulement).", true); return; }
+      try { localStorage.setItem(CFG, JSON.stringify(c)); say("✅ Enregistré sur cet appareil. Saisis une adresse puis appuie sur « Envoyer maintenant »."); setup.open = false; refreshSend(); } catch (e) { say("⚠️ Le navigateur refuse d'enregistrer ici.", true); }
+    });
+    var clearC = el("button", "btn btn-secondary v61-b", "🗑️ Effacer"); clearC.type = "button"; clearC.id = "v61CfgClear";
+    clearC.addEventListener("click", function () { try { localStorage.removeItem(CFG); } catch (e) {} fS.value = fT.value = fK.value = ""; say("Réglage effacé de cet appareil."); refreshSend(); });
+    cfgRow.appendChild(saveC); cfgRow.appendChild(clearC);
+    card.appendChild(setup);
+    function refreshSend() { var ok = !!getConfig(); sendB.classList.toggle("v61-off", !ok); sendB.title = ok ? "Envoie le message directement dans la boîte de l'adresse saisie" : "L'envoi direct n'est pas encore activé : voir « Activer l'envoi direct »"; }
+    refreshSend();
+    sendB.addEventListener("click", function () {
+      var v = email(); if (v === null) return;
+      if (!v) { say("⚠️ Saisis l'adresse de la personne qui doit recevoir le message.", true); to.focus(); return; }
+      var cfg = getConfig();
+      if (!cfg) { setup.open = true; say("⚙️ L'envoi direct n'est pas encore activé sur ce site : suis les 5 étapes ci-dessous (une seule fois), ou utilise ta messagerie / Gmail / Outlook.", true); try { setup.scrollIntoView({ block: "nearest" }); } catch (e) {} return; }
+      var lim = M.sendLimit(loadSent(), Date.now());
+      if (!lim.ok) { say(lim.why === "gap" ? "⏳ Patiente " + Math.ceil(lim.wait / 1000) + " s avant un nouvel envoi." : "⏳ Limite atteinte (" + M.MAX_HOUR + " envois par heure sur cet appareil). Réessaie dans " + Math.ceil(lim.wait / 60000) + " min, ou utilise ta messagerie.", true); return; }
+      var payload = M.emailjsPayload(cfg, { to: v, subject: subj, message: text(), fromName: ctx.fromName });
+      if (!payload) { say("⚠️ Réglage ou adresse invalide.", true); return; }
+      api.lastKind = "emailjs"; api.lastTo = v; sendB.disabled = true; sendB.textContent = "📨 Envoi en cours…"; say("📨 Envoi en cours…"); msg.className = "v61-msg";
+      post(payload).then(function (res) {
+        sendB.disabled = false; sendB.textContent = "📨 Envoyer maintenant";
+        if (res.ok) { noteSent(Date.now()); api.sentCount++; say("✅ Envoyé à " + v + " : il arrive en général en quelques secondes (regarde aussi les courriers indésirables)."); }
+        else say(M.statusMessage(res.status, res.text), true);
+      });
+    });
+    card.appendChild(el("div", "v61-or", "ou ouvre ta messagerie :"));
     var row = el("div", "v61-row"); card.appendChild(row);
     function btn(id, label, fn, primary) { var b = el("button", "btn " + (primary ? "btn-primary" : "btn-secondary") + " v61-b", label); b.type = "button"; b.id = id; b.addEventListener("click", fn); row.appendChild(b); return b; }
-    btn("v61Mailto", "📧 Mon application de messagerie", function () { go("mailto"); }, true);
+    btn("v61Mailto", "📧 Mon application de messagerie", function () { go("mailto"); });
     btn("v61Gmail", "Gmail", function () { go("gmail"); });
     btn("v61Outlook", "Outlook", function () { go("outlook"); });
     btn("v61Pdf", "📎 Avec le PDF joint", function () {
@@ -145,7 +238,6 @@ var V61Mail = (function () {
     btn("v61Copy", "📋 Copier le message", function () {
       copy(text()).then(function (ok) { say(ok ? "✓ Message copié : colle-le dans ton e-mail." : "✗ Copie impossible : sélectionne le texte à la main.", !ok); });
     });
-    card.appendChild(msg);
     var prevH = el("details", "v61-prev"); prevH.appendChild(el("summary", "", "👀 Voir le message"));
     var pre = el("pre", "v61-pre"); prevH.appendChild(pre); prevH.addEventListener("toggle", function () { if (prevH.open) pre.textContent = subj + "\n\n" + text(); }); card.appendChild(prevH);
     var closeB = el("button", "btn btn-secondary v61-close", "Fermer"); closeB.type = "button"; closeB.addEventListener("click", close); card.appendChild(closeB);
@@ -154,6 +246,6 @@ var V61Mail = (function () {
     (ctx.host || document.body).appendChild(box);
     setTimeout(function () { try { to.focus(); } catch (e) {} }, 30);
   }
-  var api = { open: open, close: close, lastUrl: "", lastKind: "", isOpen: function () { return !!box; } };
+  var api = { open: open, close: close, lastUrl: "", lastKind: "", lastTo: "", sentCount: 0, config: getConfig, isOpen: function () { return !!box; } };
   window.V61MailUI = api;
 })();

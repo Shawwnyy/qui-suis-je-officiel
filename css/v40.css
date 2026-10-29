@@ -203,3 +203,11 @@ html.v40s-lock,html.v40s-lock body{overflow:hidden!important}
 .v61-prev{margin:6px 0 10px;font-size:.88rem}
 .v61-pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:200px;overflow:auto;margin:6px 0 0;padding:10px;border-radius:10px;background:#161615;font:inherit;font-size:.85rem}
 .v61-close{width:100%;min-height:44px}
+
+.v61-send{flex:1 1 100%;min-height:50px;font-size:1.02rem}
+.v61-send.v61-off{opacity:.8;background:linear-gradient(135deg,#4b5563,#6b7280)}
+.v61-or{margin:12px 0 0;font-size:.82rem;font-weight:700;color:#a8a79f}
+.v61-setup{margin:8px 0 4px;font-size:.86rem}
+.v61-setup summary{cursor:pointer;font-weight:800;color:#fcd34d}
+.v61-steps{margin:8px 0 8px 18px;padding:0;line-height:1.45;color:#c3c2b7}
+.v61-steps li{margin:4px 0;overflow-wrap:anywhere}

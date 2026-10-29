@@ -17,7 +17,7 @@ function t(label, cond) { if (cond) ok++; else { bad++; console.log("ÉCHEC :", 
     await N.ev(H, `V40Stats.open()`); await H.waitForTimeout(600);
     t("le bouton « ✉️ E-mail » est dans l'en-tête des statistiques et actif", (await H.locator("#v40sMail").count()) === 1 && await H.locator("#v40sMail").isEnabled());
     await H.locator("#v40sMail").click(); await H.waitForTimeout(300);
-    t("la fenêtre s'ouvre : explication « aucun serveur », champ adresse, 4 actions", await H.evaluate(() => { const b = document.getElementById("v61Mail"); return !!b && /Aucun serveur/.test(b.textContent) && !!b.querySelector("#v61To") && ["v61Mailto", "v61Gmail", "v61Outlook", "v61Pdf", "v61Copy"].every(i => !!b.querySelector("#" + i)); }));
+    t("la fenêtre s'ouvre : explication de l'envoi, champ adresse, 4 actions", await H.evaluate(() => { const b = document.getElementById("v61Mail"); return !!b && /Envoyer/.test(b.textContent) && /EmailJS/.test(b.textContent) && !!b.querySelector("#v61To") && ["v61Send", "v61Mailto", "v61Gmail", "v61Outlook", "v61Pdf", "v61Copy", "v61Setup"].every(i => !!b.querySelector("#" + i)); }));
     if (process.env.SHOTS) await H.screenshot({ path: process.env.SHOTS + "/mail.png" });
     t("les cases à cocher sont visibles (24 × 24 px)", await H.evaluate(() => ["v61Keep", "v61Perso"].every(i => { const r = document.getElementById(i).getBoundingClientRect(); return r.width >= 20 && r.height >= 20; })));
     t("le focus est dans le champ adresse", await H.evaluate(() => document.activeElement && document.activeElement.id === "v61To"));
@@ -53,8 +53,46 @@ function t(label, cond) { if (cond) ok++; else { bad++; console.log("ÉCHEC :", 
     const kind = await N.ev(H, `V61MailUI.lastKind`);
     t("PDF : un fichier .pdf est téléchargé, ou le menu de partage est ouvert", (d && /^qui-suis-je-statistiques-.*\.pdf$/.test(d.suggestedFilename())) || kind === "share");
     t("PDF (sans partage) : l'e-mail est préparé avec la consigne de joindre le fichier", kind === "share" || (kind === "mailto-pdf" && /joindre/.test(decodeURIComponent((await N.ev(H, `V61MailUI.lastUrl`)).replace(/\+/g, " ")))));
+    if (process.env.SHOTS) await H.screenshot({ path: process.env.SHOTS + "/mail.png" });
+    /* ---- 📨 envoi direct (EmailJS) : requêtes interceptées, rien ne part pour de vrai ---- */
+    t("jusqu'ici (ouvrir, messagerie, Gmail, Outlook, PDF, copie) : aucune requête réseau faite par le jeu", reqs.length === 0);
+    const posted = []; let reply = { status: 200, body: "OK" };
+    const cors = { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "POST, OPTIONS" };
+    await H.route("https://api.emailjs.com/**", route => { const rq = route.request(); if (rq.method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors }); posted.push({ url: rq.url(), method: rq.method(), body: rq.postData(), type: rq.headers()["content-type"] }); return route.fulfill({ status: reply.status, body: reply.body, headers: { ...cors, "content-type": "text/plain" } }); });
+    t("le bouton « 📨 Envoyer maintenant » est le premier bouton d'action", await H.evaluate(() => { const b = document.querySelector("#v61Mail .v61-row .v61-b"); return !!b && b.id === "v61Send"; }));
+    await H.fill("#v61To", "ami@exemple.fr"); await H.locator("#v61Send").click(); await H.waitForTimeout(300);
+    t("pas encore réglé : l'explication s'ouvre (5 étapes, 3 champs), rien n'est envoyé", (await H.evaluate(() => document.getElementById("v61Setup").open)) && /pas encore activé/.test(await H.textContent("#v61Msg")) && (await H.locator("#v61Setup ol li").count()) === 5 && (await H.locator("#v61Setup input").count()) === 3 && posted.length === 0);
+    await H.fill("#v61CfgService", "service ab"); await H.fill("#v61CfgTemplate", "template_x1y2z3w"); await H.fill("#v61CfgKey", "AbCdEfGhIjKlMnOpQ"); await H.locator("#v61CfgSave").click(); await H.waitForTimeout(200);
+    t("réglage invalide (espace dans un identifiant) : refusé, rien n'est gardé", /3 valeurs sont nécessaires/.test(await H.textContent("#v61Msg")) && (await H.evaluate(() => localStorage.getItem("quizV61EmailJs"))) === null);
+    await H.fill("#v61CfgService", "service_ab12cd3"); await H.locator("#v61CfgSave").click(); await H.waitForTimeout(200);
+    t("réglage valide : gardé sur cet appareil, l'explication se referme", (await H.evaluate(() => JSON.parse(localStorage.getItem("quizV61EmailJs")).serviceId)) === "service_ab12cd3" && !(await H.evaluate(() => document.getElementById("v61Setup").open)));
+    await H.fill("#v61To", ""); await H.locator("#v61Send").click(); await H.waitForTimeout(200);
+    t("sans adresse : message d'erreur, rien n'est envoyé", /Saisis l'adresse/.test(await H.textContent("#v61Msg")) && posted.length === 0);
+    await H.fill("#v61To", "a@b.fr, c@d.fr"); await H.locator("#v61Send").click(); await H.waitForTimeout(200);
+    t("deux adresses : refusé, rien n'est envoyé", /n'a pas l'air valide/.test(await H.textContent("#v61Msg")) && posted.length === 0);
+    await H.fill("#v61To", "ami@exemple.fr"); await H.locator("#v61Send").click(); await H.waitForFunction(() => /Envoyé à/.test(document.getElementById("v61Msg").textContent), null, { timeout: 8000 }).catch(() => {});
+    t("envoi : message de succès « Envoyé à ami@exemple.fr »", /✅ Envoyé à ami@exemple\.fr/.test(await H.textContent("#v61Msg")) && /ok/.test(await H.getAttribute("#v61Msg", "class")));
+    const body = posted[0] && JSON.parse(posted[0].body);
+    t("envoi : UNE requête POST JSON vers api.emailjs.com avec les 3 identifiants", posted.length === 1 && posted[0].method === "POST" && posted[0].url === "https://api.emailjs.com/api/v1.0/email/send" && /application\/json/.test(posted[0].type) && body.service_id === "service_ab12cd3" && body.template_id === "template_x1y2z3w" && body.user_id === "AbCdEfGhIjKlMnOpQ");
+    const tp = body && body.template_params;
+    t("envoi : destinataire, sujet, expéditeur, message texte et HTML (bilan de Léa + récap + code de salle)", tp && tp.to_email === "ami@exemple.fr" && /Statistiques de la partie/.test(tp.subject) && tp.from_name === "Léa" && /Mon bilan — 🦊 Léa/.test(tp.message) && /Récap de la partie/.test(tp.message) && /Code de la salle : ABCD/.test(tp.message) && /<br>/.test(tp.message_html) && !/<(script|b|i)>/.test(tp.message_html));
+    t("envoi : le message COMPLET part (pas de coupure à 2 000 caractères comme pour mailto)", tp && tp.message.length > 400 && /qui-suis-je-officiel/.test(tp.message) && /Trophées/.test(tp.message));
+    t("envoi : le bouton redevient utilisable", await H.isEnabled("#v61Send"));
+    await H.locator("#v61Send").click(); await H.waitForTimeout(300);
+    t("2ᵉ envoi tout de suite : « Patiente … s », aucune 2ᵉ requête", /Patiente \d+ s/.test(await H.textContent("#v61Msg")) && posted.length === 1);
+    await H.evaluate(() => localStorage.removeItem("quizV61Sent")); reply = { status: 400, body: "The template ID not found" };
+    await H.locator("#v61Send").click(); await H.waitForFunction(() => /modèle/.test(document.getElementById("v61Msg").textContent), null, { timeout: 8000 }).catch(() => {});
+    t("erreur du service (400 modèle introuvable) : message clair en rouge, pas de faux « Envoyé »", /Identifiant de modèle EmailJS introuvable/.test(await H.textContent("#v61Msg")) && /bad/.test(await H.getAttribute("#v61Msg", "class")) && posted.length === 2);
+    await H.evaluate(() => localStorage.removeItem("quizV61Sent")); await H.unroute("https://api.emailjs.com/**"); await H.route("https://api.emailjs.com/**", route => route.abort("failed"));
+    await H.locator("#v61Send").click(); await H.waitForFunction(() => /connexion/.test(document.getElementById("v61Msg").textContent), null, { timeout: 8000 }).catch(() => {});
+    t("pas de connexion : message clair, le bouton redevient utilisable", /Pas de connexion Internet/.test(await H.textContent("#v61Msg")) && await H.isEnabled("#v61Send"));
+    await H.evaluate(() => localStorage.setItem("quizV61Sent", JSON.stringify([1, 2, 3, 4, 5, 6].map(k => Date.now() - 60000 * 10 - k)))); await H.locator("#v61Send").click(); await H.waitForTimeout(300);
+    t("6 envois dans l'heure : limite atteinte, message clair", /Limite atteinte/.test(await H.textContent("#v61Msg")));
+    await H.evaluate(() => localStorage.removeItem("quizV61Sent"));
+    t("seules des requêtes vers api.emailjs.com ont été faites, et seulement après un clic sur « Envoyer »", reqs.every(u => u.startsWith("https://api.emailjs.com/")) && reqs.length >= 3);
+    if (process.env.SHOTS) { await H.evaluate(() => { document.getElementById("v61Setup").open = true; }); await H.screenshot({ path: process.env.SHOTS + "/mail-setup.png" }); await H.evaluate(() => { document.getElementById("v61Setup").open = false; }); }
     /* retenir l'adresse */
-    await H.locator("#v61Keep").check(); await H.locator("#v61Mailto").click(); await H.waitForTimeout(200);
+    await H.fill("#v61To", "moi@mail.fr"); await H.locator("#v61Keep").check(); await H.locator("#v61Mailto").click(); await H.waitForTimeout(200);
     t("« Retenir cette adresse » : gardée dans le navigateur", (await H.evaluate(() => localStorage.getItem("quizV61MailTo"))) === "moi@mail.fr");
     /* la fenêtre résiste à une mise à jour des statistiques, se ferme avec Échap, et la fenêtre des stats reste ouverte */
     await N.ev(H, `V40Stats.open()`); await H.waitForTimeout(300);
@@ -67,8 +105,6 @@ function t(label, cond) { if (cond) ok++; else { bad++; console.log("ÉCHEC :", 
     t("décocher « Retenir » efface l'adresse gardée", (await H.evaluate(() => localStorage.getItem("quizV61MailTo"))) === null);
     await H.locator(".v61-close").click(); await H.waitForTimeout(200);
     t("« Fermer » ferme la fenêtre", (await H.locator("#v61Mail").count()) === 0);
-    t("AUCUNE requête réseau faite par le jeu pour préparer les e-mails", reqs.length === 0);
-    if (reqs.length) console.log(reqs.join("\n"));
     t("aucune erreur JavaScript pendant tout l'essai", N.errs.filter(e => !/peer-unavailable|dialog|qcm\.php/.test(e)).length === 0);
     if (N.errs.length) console.log(N.errs.filter(e => !/dialog|qcm\.php/.test(e)).join("\n"));
   } catch (e) { bad++; console.log("ÉCHEC : exception", e && e.stack || e); }
