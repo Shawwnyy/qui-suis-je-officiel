@@ -82,6 +82,17 @@ f = P.flashFor("⚠️ Léa t'a lancé 🦠 Virus : ses gains −15 %.", "#fca5a
 t("rouge : malus", f && f.kind === "bad" && f.title === "MALUS !" && f.emoji === "⚠️");
 f = P.flashFor("🛡️ Ton bouclier a bloqué le malus de Tom !", "#86efac");
 t("vert : malus bloqué = « BLOQUÉ ! »", f.kind === "good" && f.title === "BLOQUÉ !" && f.emoji === "🛡️");
+f = P.flashFor("🛡️ Armure : annule un malus et protège ta série !", "#86efac");
+t("un bonus « Armure » (texte qui commence par 🛡️) reste un BONUS, pas un blocage", f.kind === "good" && f.title === "BONUS !");
+f = P.flashFor("🛡️ Bob a bloqué ton 🦠 Virus !", "#86efac");
+t("un vrai blocage reste « BLOQUÉ ! »", f.kind === "good" && f.title === "BLOQUÉ !" && f.emoji === "🛡️");
+f = P.flashFor("🧱 Léa subit déjà 2 malus : 🦠 Virus est sans effet.", "#86efac");
+t("limite de 2 malus : « BLOQUÉ ! » avec la brique", f.title === "BLOQUÉ !" && f.emoji === "🧱");
+f = P.flashFor("🪞 Ton Miroir a renvoyé 🦠 Virus à Tom !", "#fca5a5");
+t("Miroir (côté cible, texte rouge) : écran VERT « RENVOYÉ ! » car c'est bon pour toi", f.kind === "good" && f.title === "RENVOYÉ !" && f.emoji === "🪞");
+f = P.flashFor("🪞 Léa avait un Miroir : 🦠 Virus te revient !", "#facc15");
+t("Miroir (côté lanceur, texte jaune) : écran ROUGE « RENVOYÉ SUR TOI ! » car c'est mauvais pour toi", f.kind === "bad" && f.title === "RENVOYÉ SUR TOI !");
+t("jaune sans renvoi : toujours pas d'écran ; vert « Miroir » sans « renvoyé » : bonus normal", P.flashFor("💥 Malus donné à Tom", "#facc15") === null && P.flashFor("🪞 Miroir : renvoie le prochain malus !", "#86efac").title === "BONUS !");
 t("jaune (ce que tu lances) : pas d'écran", P.flashFor("💥 Malus donné à Tom : -200 points !", "#facc15") === null);
 t("couleur inconnue / absente : pas d'écran", P.flashFor("x", "#fff") === null && P.flashFor("x") === null);
 t("couleur en majuscules acceptée", P.flashFor("🎁 ok", "#86EFAC").kind === "good");

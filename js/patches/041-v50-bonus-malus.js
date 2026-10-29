@@ -104,11 +104,14 @@ var V50Powers = (function () {
   function flashFor(text, color) {
     text = String(text == null ? "" : text);
     var c = String(color || "").toLowerCase();
+    /* Miroir : le malus que tu as lancé te revient (jaune côté lanceur, mais c'est mauvais pour toi) / ton Miroir renvoie un malus (rouge côté cible, mais c'est bon pour toi) */
+    if (c === "#facc15" && /te revient/i.test(text)) return { kind: "bad", title: "RENVOYÉ SUR TOI !", emoji: "🪞", sub: text };
+    if (c === BAD && /miroir a renvoy/i.test(text)) return { kind: "good", title: "RENVOYÉ !", emoji: "🪞", sub: text };
     if (c !== GOOD && c !== BAD) return null;                 /* jaune = ce que tu as lancé aux autres : pas d'écran */
     var m = /^((?:\p{Extended_Pictographic}️?(?:‍\p{Extended_Pictographic}️?)*))/u.exec(text);
     var emoji = m ? m[1] : "";
     if (c === BAD) return { kind: "bad", title: "MALUS !", emoji: emoji || "💥", sub: text };
-    if (/^🛡️?/u.test(text) || /bloqu|annul/i.test(text)) return { kind: "good", title: "BLOQUÉ !", emoji: "🛡️", sub: text };
+    if (/a bloqu[ée]|sans effet/i.test(text)) return { kind: "good", title: "BLOQUÉ !", emoji: /^🧱/u.test(text) ? "🧱" : "🛡️", sub: text };     /* un bonus « Armure » commence aussi par 🛡️ : ce n'est pas un blocage */
     return { kind: "good", title: "BONUS !", emoji: emoji || "🎁", sub: text };
   }
 

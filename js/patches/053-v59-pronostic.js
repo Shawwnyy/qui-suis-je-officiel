@@ -143,6 +143,24 @@ var V59Predict = (function () {
     return r;
   };
 
+  /* écran plein vert / rouge (V50Flash) pour le résultat d'une question piège */
+  function flash(f) { try { if (window.V50Flash && typeof window.V50Flash.show === "function") window.V50Flash.show(f); } catch (e) {} }
+  if (typeof showQuestionResult === "function") {
+    var baseResult = showQuestionResult;
+    showQuestionResult = function (data) {
+      try { return baseResult.apply(this, arguments); }
+      finally {
+        try {
+          if (currentQuestion && currentQuestion.trap === true && data && typeof data.correct === "number") {
+            var good = typeof myAnswerForQuestion !== "undefined" && myAnswerForQuestion === data.correct;
+            flash(good ? { kind: "good", title: "PIÈGE DÉJOUÉ !", emoji: "🕳️", sub: "Bonne réponse : tes points comptent ×5 !" }
+                       : { kind: "bad", title: "PIÈGE !", emoji: "🕳️", sub: "Mauvaise réponse : −" + V.TRAP_PENALTY + " pts" });
+          }
+        } catch (e) {}
+      }
+    };
+  }
+
   /* ---------- 🔮 fenêtre de pari (hôte et invités) ---------- */
   function hideOverlay() { var o = $("v59Overlay"); if (o) o.remove(); clearInterval(S.tick); }
   function showChip() {
@@ -255,6 +273,8 @@ var V59Predict = (function () {
       tbl.appendChild(line);
     });
     box.appendChild(tbl);
+    if (mine) flash(mine.ok ? { kind: "good", title: "PRONOSTIC JUSTE !", emoji: "🔮", sub: "Ton score ×2 : " + nfr(mine.before) + " → " + nfr(mine.after) }
+                            : { kind: "bad", title: "PRONOSTIC RATÉ", emoji: "🔮", sub: "Ton score ÷2 : " + nfr(mine.before) + " → " + nfr(mine.after) });
     if (res.length > shown.length) box.appendChild(mk("p", "v59-sub", "… et " + (res.length - shown.length) + " autre(s) pari(s)."));
   }
 

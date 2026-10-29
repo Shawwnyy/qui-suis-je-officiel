@@ -60,7 +60,7 @@ const SHOTS = process.env.SHOTS || "";
     t("tout est déjà joué : la partie reste jouable avec tout le lot", full[1] > 0 && full[1] >= full[0]);
     /* oublier */
     await H.evaluate(() => { try { document.querySelectorAll(".modal.show").forEach(m => m.classList.remove("show")); } catch (e) {} });
-    await H.evaluate(() => document.getElementById("v58Reset").click()); await H.waitForTimeout(400);
+    await H.evaluate(() => document.getElementById("v58Reset").click()); await H.waitForTimeout(2600); /* plus long qu'un tick de la mémoire : la partie en cours ne doit pas re-remplir l'historique */
     t("« Oublier les questions jouées » : mémoire vide et message", (await H.evaluate(() => JSON.parse(localStorage.getItem("quizV58Seen")).length)) === 0 && /Historique effacé/.test(await H.textContent("#v58Msg")));
     t("après l'oubli, la question revient dans le tirage", (await inPool()) === true);
     if (SHOTS) { await H.evaluate(() => { document.getElementById("v58Extras").scrollIntoView(); }); await H.screenshot({ path: SHOTS + "/extras.png" }); }

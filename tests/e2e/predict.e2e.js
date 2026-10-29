@@ -45,6 +45,8 @@ const SHOTS = process.env.SHOTS || "";
     /* règlement : scores imposés pour un résultat connu (Alice 1000 = 1re, Bob 400 = 2e) */
     await N.ev(H, `players['${hid}'].score = 1000; players['${gid}'].score = 400; finishGame(); 0`);
     await H.waitForTimeout(1500);
+    const fl = async P => P.evaluate(() => { const e = document.getElementById("v50Flash"); return e ? e.className.replace(/\s+/g, " ") + "|" + e.querySelector(".v50-title").textContent : "AUCUN"; });
+    t("écran VERT « PRONOSTIC JUSTE ! » chez Alice (pari exact) et écran ROUGE « PRONOSTIC RATÉ » chez Bob", /v50-good\|PRONOSTIC JUSTE/.test(await fl(H)) && /v50-bad\|PRONOSTIC RATÉ/.test(await fl(G)));
     t("résultat affiché chez l'hôte et chez l'invité", /Résultat des pronostics/.test(await H.textContent("#v59Overlay")) && /Résultat des pronostics/.test(await G.textContent("#v59Overlay")));
     t("Alice (pari 1, 1re) : ✅ score ×2 = 2000 ; Bob (pari 1, 2e) : ❌ score ÷2 = 200", (await N.ev(H, `players['${hid}'].score + '/' + players['${gid}'].score`)) === "2000/200");
     t("l'invité voit les mêmes scores", (await N.ev(G, `players['${hid}'].score + '/' + players['${gid}'].score`)) === "2000/200");
@@ -69,6 +71,28 @@ const SHOTS = process.env.SHOTS || "";
     const [g1, g5, aft, mal, w2] = trap.split("/").map(Number);
     t("piège : bonne réponse = exactement ×5 les points d'une question normale", g1 > 0 && g5 === g1 * 5);
     t("piège : mauvaise réponse = −300 pts (1000 → 700), comptés en malus ; question normale : aucun retrait", aft === 700 && mal === 300 && w2 === 1000);
+    /* écrans vert / rouge : piège, Miroir, Armure, Série en fusion, Roue multiplicatrice */
+    const clear = () => H.evaluate(() => { const e = document.getElementById("v50Flash"); if (e) e.remove(); });
+    const flashNow = () => fl(H);
+    await clear();
+    await N.ev(H, `currentQuestion = { trap:true, correct:0, answers:['a','b'], question:'q', difficulty:'facile', category:'T' }; myAnswerForQuestion = 0; showQuestionResult({ correct:0, answer:'x', players: cleanPlayers() }); 0`); await H.waitForTimeout(300);
+    t("piège réussi : écran VERT « PIÈGE DÉJOUÉ ! »", /v50-good\|PIÈGE DÉJOUÉ/.test(await flashNow())); await clear();
+    await N.ev(H, `myAnswerForQuestion = 1; showQuestionResult({ correct:0, answer:'x', players: cleanPlayers() }); 0`); await H.waitForTimeout(300);
+    t("piège raté : écran ROUGE « PIÈGE ! »", /v50-bad\|PIÈGE !/.test(await flashNow())); await clear();
+    await N.ev(H, `currentQuestion = { trap:false, correct:0, answers:['a','b'], question:'q', difficulty:'facile', category:'T' }; myAnswerForQuestion = 1; showQuestionResult({ correct:0, answer:'x', players: cleanPlayers() }); 0`); await H.waitForTimeout(300);
+    t("question normale : pas d'écran de piège", (await flashNow()) === "AUCUN"); await clear();
+    const scene = async code => { await clear(); await N.ev(H, code); await H.waitForTimeout(1600); const r = await flashNow(); await clear(); return r; };
+    const setup = `const me = players[myId]; const foe = { id:'foe', name:'Bob', score:3000, combo:3, fx:{}, used:[] }; players.foe = foe; me.fx = {}; me.shield = false; me.score = 1000; foe.fx = {}; foe.shield = false;`;
+    t("bonus Armure : écran VERT « BONUS ! » (et non « BLOQUÉ ! »)", /v50-good\|BONUS !/.test(await scene(`(function(){ ${setup} const ext = applyExtPower(me, null, 'armure', 2); showExtResult({ playerId: myId, targetId: null, choice:'bonus', kind:'armure', ext, players: cleanPlayers() }); delete players.foe; })()`)));
+    t("bonus Série en fusion : écran VERT « BONUS ! »", /v50-good\|BONUS !/.test(await scene(`(function(){ ${setup} const ext = applyExtPower(me, null, 'fusion', 4); showExtResult({ playerId: myId, targetId: null, choice:'bonus', kind:'fusion', ext, players: cleanPlayers() }); delete players.foe; })()`)));
+    t("malus reçu : écran ROUGE « MALUS ! »", /v50-bad\|MALUS !/.test(await scene(`(function(){ ${setup} const ext = applyExtPower(foe, me, 'virus', 2); showExtResult({ playerId:'foe', targetId: myId, choice:'malus', kind:'virus', ext, players: cleanPlayers() }); delete players.foe; })()`)));
+    t("bouclier qui bloque : écran VERT « BLOQUÉ ! »", /v50-good\|BLOQUÉ !/.test(await scene(`(function(){ ${setup} me.shield = true; const ext = applyExtPower(foe, me, 'virus', 2); showExtResult({ playerId:'foe', targetId: myId, choice:'malus', kind:'virus', ext, players: cleanPlayers() }); delete players.foe; })()`)));
+    t("ton Miroir renvoie un malus : écran VERT « RENVOYÉ ! »", /v50-good\|RENVOYÉ !/.test(await scene(`(function(){ ${setup} me.fx.miroir = { left: 3 }; const ext = applyExtPower(foe, me, 'amende', 2); showExtResult({ playerId:'foe', targetId: myId, choice:'malus', kind:'amende', ext, players: cleanPlayers() }); delete players.foe; })()`)));
+    t("ton malus revient sur toi (Miroir adverse) : écran ROUGE « RENVOYÉ SUR TOI ! »", /v50-bad\|RENVOYÉ SUR TOI/.test(await scene(`(function(){ ${setup} foe.fx.miroir = { left: 3 }; const ext = applyExtPower(me, foe, 'amende', 2); showExtResult({ playerId: myId, targetId:'foe', choice:'malus', kind:'amende', ext, players: cleanPlayers() }); delete players.foe; })()`)));
+    t("malus que tu lances sans retour : toujours pas d'écran (c'est ton action)", (await scene(`(function(){ ${setup} const ext = applyExtPower(me, foe, 'virus', 2); showExtResult({ playerId: myId, targetId:'foe', choice:'malus', kind:'virus', ext, players: cleanPlayers() }); delete players.foe; })()`)) === "AUCUN");
+    await clear(); await N.ev(H, `(function(){ showExtResult({ playerId: myId, targetId: null, choice:'bonus', kind:'multiplicateur', ext:{ id:'multiplicateur', wheel:3, msgSelf:'🎡 La roue a choisi ×3 pour ta prochaine bonne réponse !' }, players: cleanPlayers() }); })()`);
+    let wheelFlash = "AUCUN"; for (let i = 0; i < 16 && wheelFlash === "AUCUN"; i++) { await H.waitForTimeout(500); wheelFlash = await flashNow(); }
+    t("Roue multiplicatrice : écran VERT « BONUS ! » après le tirage de la roue", /v50-good\|BONUS !/.test(wheelFlash));
     /* nouveaux pouvoirs dans les listes du jeu */
     const lists = await N.ev(H, `['cadeau','machine','radar','rente','rattrapage','magicien','treve'].every(i=>EXT_POWERS[i] && EXT_IDS.bonus.includes(i) && POWER_KINDS.bonus.includes(i)) && ['mine','deval','montagnes','brouillard','faucheuse','vampire'].every(i=>EXT_POWERS[i] && EXT_IDS.malus.includes(i) && POWER_KINDS.malus.includes(i)) && ['mine','deval','brouillard'].every(i=>NEG_FX.includes(i)) && ['radar','rente','magicien','treve'].every(i=>POS_FX.includes(i))`);
     t("les 13 nouveaux pouvoirs sont dans les listes du jeu (tirage, effets, limite de malus, purification)", lists === true);

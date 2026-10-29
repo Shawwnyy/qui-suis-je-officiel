@@ -125,10 +125,12 @@ var V58 = (function () {
     };
   }
   /* ---- mémoire : une question compte comme « jouée » dès qu'elle a été posée (côté hôte) ---- */
+  var forgot = { arr: null, upto: -1 };
   function remember() {
     if (typeof isHost === "undefined" || !isHost || typeof gameStarted === "undefined" || !gameStarted || !Array.isArray(usedQuestions)) return;
     var upto = Math.min(usedQuestions.length - 1, Number(currentQuestionIndex) || 0), keys = [];
-    for (var i = 0; i <= upto; i++) if (usedQuestions[i] && usedQuestions[i].v58k) keys.push(usedQuestions[i].v58k);
+    var from = forgot.arr === usedQuestions ? forgot.upto + 1 : 0; /* « Oublier » en pleine partie : les questions déjà posées restent oubliées */
+    for (var i = from; i <= upto; i++) if (usedQuestions[i] && usedQuestions[i].v58k) keys.push(usedQuestions[i].v58k);
     var r = V58.addSeen(S.seen, keys);
     if (r.added) { S.seen = r.list; save(K_SEEN, S.seen); S.sig = ""; }
   }
@@ -171,7 +173,7 @@ var V58 = (function () {
     var info = mk("div", "v58-note"); info.id = "v58Info"; info.setAttribute("role", "status"); card.appendChild(info);
     var row = mk("div", "v58-row");
     function btn(id, text, fn) { var b = mk("button", "btn btn-secondary v58-b", text); b.type = "button"; b.id = id; b.addEventListener("click", fn); row.appendChild(b); return b; }
-    btn("v58Reset", "🧹 Oublier les questions jouées", function () { S.seen = []; save(K_SEEN, S.seen); S.sig = ""; paint(); say("🧹 Historique effacé : toutes les questions sont de nouveau « jamais jouées »."); });
+    btn("v58Reset", "🧹 Oublier les questions jouées", function () { S.seen = []; save(K_SEEN, S.seen); try { forgot = (typeof isHost !== "undefined" && isHost && typeof gameStarted !== "undefined" && gameStarted && Array.isArray(usedQuestions)) ? { arr: usedQuestions, upto: Number(currentQuestionIndex) || 0 } : { arr: null, upto: -1 }; } catch (e) { forgot = { arr: null, upto: -1 }; } S.sig = ""; paint(); say("🧹 Historique effacé : toutes les questions sont de nouveau « jamais jouées »."); });
     card.appendChild(row);
     card.appendChild(mk("div", "setting-title v58-sub", "⭐ Thèmes"));
     var row2 = mk("div", "v58-row"); var save2 = mk("button", "btn btn-secondary v58-b", "💾 Enregistrer ma sélection"), load2 = mk("button", "btn btn-secondary v58-b", "⭐ Mes favoris"), inv = mk("button", "btn btn-secondary v58-b", "↔ Inverser");
