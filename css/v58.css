@@ -1,0 +1,13 @@
+/* ✨ Outils de l'hôte : jamais jouées, difficulté progressive, thèmes favoris (js/patches/051-v58-extras.js) */
+.v58-card { margin: 0 0 14px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .14); }
+.v58-sub { margin-top: 12px; }
+.v58-opt { display: block; margin-top: 8px; font-size: .92rem; cursor: pointer; }
+.v58-note { margin-top: 8px; font-size: .82rem; opacity: .8; }
+.v58-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+.v58-row .v58-b { width: auto; flex: 0 1 auto; margin: 0; padding: 8px 14px; font-size: .9rem; }
+.v58-msg { min-height: 18px; margin-top: 8px; font-size: .85rem; color: #86efac; }
+.v58-opt { display: flex; align-items: center; gap: 10px; }
+.v58-opt input[type=checkbox] { -webkit-appearance: none; appearance: none; flex: 0 0 auto; display: inline-grid; place-content: center; width: 24px; height: 24px; min-width: 24px; margin: 0; padding: 0; border-radius: 7px; background: rgba(255, 255, 255, .08); border: 2px solid rgba(255, 255, 255, .45); cursor: pointer; }
+.v58-opt input[type=checkbox]:checked { background: #7c3aed; border-color: #c4b5fd; }
+.v58-opt input[type=checkbox]:checked::after { content: "✓"; color: #fff; font-weight: 900; font-size: 16px; line-height: 1; }
+.v58-opt input[type=checkbox]:focus-visible { outline: 3px solid rgba(168, 85, 247, .7); outline-offset: 2px; }

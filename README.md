@@ -37,6 +37,7 @@ css/
   qcm.css               styles de la fenêtre « QCM depuis un cours »
   v40.css               anti-triche, questions avec média, statistiques
   v57.css               écran de configuration : résumé, difficulté, code à partager
+  v58.css               outils de l'hôte : jamais jouées, difficulté progressive, thèmes favoris
   v43.css               voix off (réglages), justification de la réponse, horloge permanente et roue des bonus / malus
   voicechat.css         bouton et panneau du chat vocal
 js/
@@ -394,6 +395,13 @@ Touches **1 2 3 4** (rangée du haut, pavé numérique, y compris clavier AZERTY
 - Chaque graphique a sa version Tableau, l'infobulle, la copie en image et le PNG comme les autres, et les mêmes graphiques sont dans l'**export PDF**.
 - Tests : `node tests/stats.test.js` (calculs, mutations vérifiées), `node tests/pdf.test.js` (un équivalent PDF pour chaque graphique d'écran) et, avec Playwright, `node tests/e2e/stats.e2e.js`.
 
+## ✨ Outils de l'hôte : jamais jouées, difficulté progressive, thèmes favoris (`js/patches/051-v58-extras.js`, `css/v58.css`)
+Une carte « ✨ Outils de l'hôte » s'affiche sous « Ta partie en un coup d'œil ».
+- **🆕 Questions jamais jouées d'abord** : l'appareil de l'hôte retient les questions déjà posées (une question compte dès qu'elle est affichée, pas toute la partie en avance). Si assez de nouvelles questions existent pour la partie, seules elles sont tirées ; sinon (ou si tout a été joué) le lot complet est gardé, la partie reste jouable. La carte annonce « N déjà jouées · M jamais jouées sur T dans les thèmes cochés ». Bouton **🧹 Oublier les questions jouées**. La mémoire est plafonnée aux 40 000 questions les plus récentes et ne contient que des clés courtes (pas de texte).
+- **📈 Difficulté progressive** : les questions de la partie sont rangées du plus facile au plus difficile (ordre aléatoire à l'intérieur de chaque niveau). Le rangement se fait au tirage, avant la première question.
+- **⭐ Thèmes favoris** : **💾 Enregistrer ma sélection**, **⭐ Mes favoris** (recoche exactement ces thèmes, ceux qui n'existent plus sont ignorés) et **↔ Inverser** (coche les thèmes décochés et inversement).
+- Les réglages et favoris sont gardés dans le navigateur. Tests : `node tests/extras.test.js` (clés, mémoire, tirage, tri, favoris — mutations vérifiées) et, avec Playwright, `node tests/e2e/extras.e2e.js` (vraie partie en 20 questions, mémoire des questions posées, tirage, oubli, favoris, inversion).
+
 ## 🔒 Corrections de sécurité de cette version
 - Un joueur dont l'identifiant réseau est un mot réservé du langage (`__proto__`, `constructor`…) pouvait corrompre la liste des joueurs de tout le jeu : son arrivée est désormais ignorée, et le sondage comme les équipes ne reconnaissent un joueur que s'il existe vraiment dans la liste.
 - **Usurpation d'identité** : l'hôte croyait l'identité écrite dans chaque message, donc n'importe quel invité pouvait répondre, écrire dans le chat, choisir un pouvoir ou accepter les règles **au nom d'un autre joueur**, ou envoyer une fiche truquée (`host: true`, « règles acceptées », score). Désormais l'identité vient **de la connexion réseau** pour tous les messages d'un invité, et la fiche du joueur est **reconstruite par l'hôte**.
@@ -474,10 +482,12 @@ node tests/rooms.test.js                 # salles : décisions d'entrée, mot de
 node tests/menus.test.js                 # menus : réglages bornés, annonces d'arrivée / départ, classement des joueurs du panneau
 node tests/presets.test.js               # préréglages : valeur la plus proche, tirage sans remise, configuration mémorisée nettoyée
 node tests/config.test.js                # écran de configuration : code QSJ1, filtre de difficulté, durée estimée, résumé
+node tests/extras.test.js                # outils de l'hôte : questions jamais jouées, tri progressif, thèmes favoris et inversion
 node tests/e2e/menus.e2e.js              # (facultatif, Playwright) menus et préréglages de bout en bout
 node tests/e2e/bigroom.e2e.js            # (facultatif, Playwright) places jusqu'à 9 999, panneau borné, onglets Duels / Faits marquants, journal de 300 joueurs
 node tests/e2e/config.e2e.js             # (facultatif, Playwright) résumé, auto-réparation des listes, difficulté sur une vraie partie, code de config, anglais
 node tests/e2e/stats.e2e.js              # (facultatif, Playwright) onglets Catégories et Profils avec une partie de démonstration
+node tests/e2e/extras.e2e.js             # (facultatif, Playwright) vraie partie : difficulté progressive, mémoire des questions, favoris
 node tests/e2e/rooms.e2e.js              # (facultatif, Playwright) salles de bout en bout dans deux navigateurs avec réseau simulé
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)
 ```
