@@ -1,0 +1,28 @@
+/* 🏁 Classement à la moitié des questions (js/patches/043-v51-mi-partie.js) */
+.v51-half { position: fixed; inset: 0; z-index: 9500; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(6, 6, 12, .72); backdrop-filter: blur(3px); animation: v51-in .35s ease-out both; }
+.v51-card { position: relative; width: min(560px, 100%); max-height: 92vh; overflow: auto; padding: 20px 18px 16px; border-radius: 18px; background: #17171f; color: #f3f3f7; border: 1px solid rgba(255, 255, 255, .14); box-shadow: 0 18px 60px rgba(0, 0, 0, .55); font-family: inherit; }
+.v51-x { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .2); background: transparent; color: inherit; font-size: 16px; cursor: pointer; }
+.v51-title { font-size: 1.35rem; font-weight: 900; padding-right: 40px; }
+.v51-sub { opacity: .75; margin: 2px 0 12px; font-size: .95rem; }
+.v51-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.v51-row { display: grid; grid-template-columns: 76px 34px minmax(0, 1fr) 78px 84px 48px; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, .05); animation: v51-row .5s ease-out both; }
+.v51-row:nth-child(2) { animation-delay: .08s } .v51-row:nth-child(3) { animation-delay: .16s } .v51-row:nth-child(4) { animation-delay: .24s } .v51-row:nth-child(n+5) { animation-delay: .32s }
+.v51-me { outline: 2px solid #7c5cff; background: rgba(124, 92, 255, .16); }
+.v51-rank { font-weight: 900; white-space: nowrap; }
+.v51-top1 .v51-rank { color: #f5c518 } .v51-top2 .v51-rank { color: #c0c7d1 } .v51-top3 .v51-rank { color: #cd7f32 }
+.v51-av { font-size: 1.4rem; text-align: center; }
+.v51-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v51-bar { display: block; height: 10px; border-radius: 6px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.v51-bar i { display: block; height: 100%; background: #3987e5; border-radius: 6px; }
+.v51-top1 .v51-bar i { background: #f5c518 } .v51-top2 .v51-bar i { background: #c0c7d1 } .v51-top3 .v51-bar i { background: #cd7f32 }
+.v51-pts { font-weight: 800; text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.v51-mv { font-weight: 800; text-align: right; opacity: .6; white-space: nowrap; }
+.v51-mv.up { color: #3ddc84; opacity: 1 } .v51-mv.down { color: #ff6b6b; opacity: 1 }
+.v51-more { margin-top: 8px; opacity: .7; font-size: .9rem; }
+.v51-timer { margin-top: 14px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+.v51-timer i { display: block; height: 100%; width: 100%; background: #7c5cff; transform-origin: left; animation: v51-timer linear both; }
+@keyframes v51-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes v51-row { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+@keyframes v51-timer { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+@media (max-width: 520px) { .v51-row { grid-template-columns: 62px 28px minmax(0, 1fr) 70px 40px; } .v51-bar { display: none; } }
+@media (prefers-reduced-motion: reduce) { .v51-half, .v51-row { animation: none } .v51-timer i { animation: none; transform: none } }

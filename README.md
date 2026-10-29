@@ -314,6 +314,14 @@ C'est l'heure **de l'appareil de chaque joueur** (pas une heure serveur : si l'h
 - **Règlement détaillé** (`js/patches/042-v50-reglement.js`) : 13 articles en français, anglais et espagnol (déroulement, scores, séries, difficultés, pouvoirs, boucliers, roue, tricherie, chat et voix, filigrane…), construits à partir des vrais noms des pouvoirs.
 - Tests : `node tests/v50.test.js`.
 
+## 🏁 Classement à la moitié des questions (`js/patches/043-v51-mi-partie.js`, `css/v51.css`)
+- À la **moitié des questions** (après la question ⌈n/2⌉ : 2 sur 4, 3 sur 5 ou 6, 5 sur 10, dès **4 questions**), le classement s'affiche **à tous les joueurs** : **1er, 2e, 3e, 4e…** avec médailles, barres de score, points et **flèches ▲ ▼** (places gagnées ou perdues depuis la question précédente) ; chacun voit sa ligne en violet (« toi »). Les égalités partagent le même rang (1er, 2e, 2e, 4e).
+- Comme la roue, il s'intercale **entre deux questions** : l'hôte diffuse l'évènement `v51Half`, attend **7 secondes** (barre de temps), puis lance la question suivante. Un joueur peut le fermer (✕) pour lui seul ; il disparaît aussi tout seul. Une seule fois par partie, y compris pour une partie à plusieurs à partir d'un cours.
+- **L'hôte choisit dans le salon d'attente** : « 🏁 Classement à la moitié » — *Affiché à tous (recommandé)* ou *Désactivé*.
+- Les données reçues par le réseau sont **nettoyées** (taille, bornes, caractères de contrôle ; l'étiquette 1er / 2e est recalculée, jamais reprise) et affichées avec `textContent`, jamais en HTML. Le mouvement réduit (`prefers-reduced-motion`) est respecté.
+- Le classement après **n'importe quelle question** reste disponible en image dans l'onglet **🏁 Classement** des statistiques.
+- Tests : `node tests/half.test.js`.
+
 ## 🎡 Roue des bonus et malus (`js/wheel/wheel.js`)
 Une roue tourne **entre deux questions**. **L'hôte choisit dans le salon d'attente (« 🎡 Roue des bonus / malus »)** : **moments fixes** (après la 3e, la 6e, la 9e… manche, par défaut), **moments aléatoires** (de 1 à 6 roues à des manches tirées au sort au début de la partie, non annoncées, jamais avant la 2e manche ni après la dernière, jamais deux de suite) ou **désactivée**. Le choix est gardé dans le navigateur de l'hôte et figé au début de la partie ; les joueurs le subissent comme le reste des réglages de l'hôte. Jamais après la dernière manche ; pas de roue dans une partie de 3 manches ou moins en mode fixe. **Chaque joueur tire sa propre case en même temps** : l'hôte tire au sort (8 cases, toutes équiprobables : la taille d'une case est sa vraie probabilité) puis diffuse le résultat ; chacun voit la roue s'arrêter sur SA case, puis la liste des résultats de tous. La question suivante démarre juste après (≈ 9,5 s).
 
@@ -370,6 +378,7 @@ node tests/chat.test.js                  # chat : messages d'une seule lettre su
 node tests/watermark.test.js             # filigrane des images de graphiques : forcé pour les joueurs, au choix pour l'hôte
 node tests/v50.test.js                   # 16 nouveaux pouvoirs (effets exacts, bouclier, plafonds), écrans vert / rouge, règlement FR / EN / ES
 node tests/v50img.test.js                # 8 thèmes en images de plus : chaque réponse relue dans le SVG (heure, angles, symétrie, fractions, coordonnées…)
+node tests/half.test.js                  # classement à la moitié : moment, rangs et égalités, flèches, données reçues, enchaînement de l'hôte (minuteries simulées)
 node tests/mix.test.js                   # images dans tous les thèmes : chaque réponse est recalculée en relisant le dessin
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 node tests/pdf.test.js                   # export PDF clair / sombre : structure du fichier, métriques, caractères, pagination, un équivalent PDF pour chaque graphique d'écran
