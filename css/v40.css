@@ -180,3 +180,6 @@ html.v40s-lock,html.v40s-lock body{overflow:hidden!important}
 .v40s-cardhead>div:first-child{min-width:0;max-width:100%}
 .v40s-cardctl{justify-content:flex-start;width:100%}
 .v40s-tile .v{overflow-wrap:anywhere}
+
+.v40s-forcelab{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:13px;font-weight:700;color:#c3c2b7}
+.v40s-forcepick{max-width:100%;min-height:36px;padding:4px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:#262625;color:#f0efec;font:inherit}

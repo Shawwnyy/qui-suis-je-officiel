@@ -569,8 +569,9 @@ var V40Charts = (function () {
     b.setAttribute("aria-pressed", String(skip));
     b.title = "Réservé à l’hôte : les images copiées ou téléchargées par les joueurs ont toujours le filigrane « " + BRAND + " ». Cliquer pour " + (skip ? "l’ajouter aussi à tes images." : "l’enlever de tes images.");
   }
+  var CARD_VIEWS = {};      /* « Graphique » ou « Tableau » retenu pour chaque carte : on le retrouve en changeant d'onglet ou à chaque mise à jour */
   function card(o) {
-    var view = "chart";
+    var view = CARD_VIEWS[o.title] === "table" ? "table" : "chart";
     var body = el("div", { "class": "v40s-body" });
     var legendHost = el("div", { "class": "v40s-legendhost" });
     var bChart = el("button", { type: "button", "class": "on", "aria-pressed": "true", text: "📈 Graphique" });
@@ -627,8 +628,8 @@ var V40Charts = (function () {
       setNoMarkPref(!noMarkPref());
       [].forEach.call(document.querySelectorAll("button.v40s-mark"), paintMark);   /* toutes les cartes suivent le même choix */
     });
-    bChart.addEventListener("click", function () { view = "chart"; redraw(); });
-    bTable.addEventListener("click", function () { view = "table"; redraw(); });
+    bChart.addEventListener("click", function () { view = "chart"; CARD_VIEWS[o.title] = view; redraw(); });
+    bTable.addEventListener("click", function () { view = "table"; CARD_VIEWS[o.title] = view; redraw(); });
     node.__redraw = redraw;      /* le premier dessin est lancé par l'appelant, une fois la carte dans le DOM (largeur réelle) */
     return node;
   }

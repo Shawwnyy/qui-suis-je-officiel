@@ -325,7 +325,7 @@
 
   function render(keepScroll) {
     var log = currentLog();
-    var scroller = root.querySelector(".v40s-scroll"), top = scroller ? scroller.scrollTop : 0;
+    var scroller = root.querySelector(".v40s-scroll"), top = scroller ? scroller.scrollTop : 0, oldTabs = root.querySelector(".v40s-tabs"), tabsLeft = oldTabs ? oldTabs.scrollLeft : 0;
     while (root.firstChild) root.removeChild(root.firstChild);
     var wrap = el("div", { "class": "v40s-wrap" });
     /* ---- en-tête ---- */
@@ -371,6 +371,12 @@
     }
     wrap.appendChild(scroll);
     root.appendChild(wrap);
+    /* la barre d'onglets garde sa position, et l'onglet choisi reste visible (sinon elle revenait tout à gauche et l'onglet disparaissait) */
+    try {
+      tabs.scrollLeft = tabsLeft;
+      var onTab = tabs.querySelector("button.on");
+      if (onTab) { var ta = onTab.getBoundingClientRect(), tc = tabs.getBoundingClientRect(); if (ta.left < tc.left + 8 || ta.right > tc.right - 8) tabs.scrollLeft += (ta.left + ta.width / 2) - (tc.left + tc.width / 2); }
+    } catch (e) {}
     [].forEach.call(root.querySelectorAll(".v40s-card"), function (c) { if (c.__redraw) { try { c.__redraw(); } catch (e) { if (window.console) console.error("V40Stats", e); } } });   /* dessiné une fois dans le DOM : largeur réelle connue */
     if (keepScroll) scroll.scrollTop = top;
   }
@@ -568,24 +574,53 @@
     /* carte des forces : joueurs × catégories */
     var rows = A.perPlayer(log).sort(function (a, b) { return a.rank - b.rank || a.idx - b.idx; }), MAXP = 30, shown = rows.slice(0, MAXP);
     var prof = {}; C.players.forEach(function (p) { prof[p.idx] = p; });
-    var tbl = el("table", { "class": "v40s-table v40s-heat" }), hr = el("tr", null, [el("th", { scope: "col", text: "Joueur" })].concat(C.cats.map(function (g) { return el("th", { scope: "col", text: g.label }); })));
-    tbl.appendChild(el("thead", null, [hr]));
-    tbl.appendChild(el("tbody", null, shown.map(function (r) {
-      var pr = prof[r.idx] || {};
-      return el("tr", null, [el("th", { scope: "row", text: who(r) })].concat(C.cats.map(function (g) {
-        var c = g.cells[r.idx], isBest = pr.best && pr.best.label === g.label, isWorst = pr.worst && pr.worst.label === g.label;
-        if (!c || c.rate === null) return el("td", { text: "·", title: "Pas de réponse dans cette catégorie" });
-        return el("td", { text: Math.round(c.rate * 100) + " %" + (isBest ? " ★" : isWorst ? " ▼" : ""), style: "background:" + heatColor(c.rate), title: c.correct + " bonne" + (c.correct > 1 ? "s" : "") + " sur " + c.answers + (isBest ? " · point fort" : isWorst ? " · point faible" : "") });
+    function heatTable() {
+      var tbl = el("table", { "class": "v40s-table v40s-heat" }), hr = el("tr", null, [el("th", { scope: "col", text: "Joueur" })].concat(C.cats.map(function (g) { return el("th", { scope: "col", text: g.label }); })));
+      tbl.appendChild(el("thead", null, [hr]));
+      tbl.appendChild(el("tbody", null, shown.map(function (r) {
+        var pr = prof[r.idx] || {};
+        return el("tr", null, [el("th", { scope: "row", text: who(r) })].concat(C.cats.map(function (g) {
+          var c = g.cells[r.idx], isBest = pr.best && pr.best.label === g.label, isWorst = pr.worst && pr.worst.label === g.label;
+          if (!c || c.rate === null) return el("td", { text: "·", title: "Pas de réponse dans cette catégorie" });
+          return el("td", { text: Math.round(c.rate * 100) + " %" + (isBest ? " ★" : isWorst ? " ▼" : ""), style: "background:" + heatColor(c.rate), title: c.correct + " bonne" + (c.correct > 1 ? "s" : "") + " sur " + c.answers + (isBest ? " · point fort" : isWorst ? " · point faible" : "") });
+        })));
       })));
-    })));
-    main.appendChild(el("section", { "class": "v40s-card" }, [
-      el("div", { "class": "v40s-cardhead" }, [el("div", null, [el("h3", { text: "Carte des forces" }), el("p", { text: "Réussite de chaque joueur dans chaque catégorie (vert = bien maîtrisé, rouge = difficile). ★ = point fort, ▼ = point faible (2 réponses minimum)." })])]),
-      el("div", { "class": "v40s-tablewrap", tabindex: "0", role: "region", "aria-label": "Réussite de chaque joueur par catégorie" }, [tbl]),
-      rows.length > MAXP ? el("p", { "class": "v40s-note", text: "Les " + MAXP + " premiers joueurs au classement sont affichés sur " + rows.length + "." }) : null
-    ]));
+      return el("div", { "class": "v40s-tablewrap", tabindex: "0", role: "region", "aria-label": "Réussite de chaque joueur par catégorie" }, [tbl]);
+    }
+    var forcePick = shown.length ? shown[0].idx : -1;
+    main.appendChild(K.card({
+      title: "Carte des forces", desc: "Réussite de chaque joueur dans chaque catégorie. Graphique : un joueur à la fois (vert = bien maîtrisé, rouge = difficile, ★ point fort, ▼ point faible). Tableau : tous les joueurs d’un coup (2 réponses minimum pour ★ et ▼).",
+      draw: function (host) {
+        var pick = el("select", { "aria-label": "Joueur à afficher", "class": "v40s-forcepick" });
+        shown.forEach(function (r) { var op = el("option", { value: String(r.idx), text: who(r) }); if (r.idx === forcePick) op.selected = true; pick.appendChild(op); });
+        var box = el("div", { "class": "v40s-forcechart" });
+        function paintForce() {
+          while (box.firstChild) box.removeChild(box.firstChild);
+          var pr = prof[forcePick] || {}, rowsF = C.cats.map(function (g) {
+            var c = g.cells[forcePick], isBest = pr.best && pr.best.label === g.label, isWorst = pr.worst && pr.worst.label === g.label;
+            if (!c || c.rate === null) return { label: g.label, value: 0, color: K.C.none, text: "pas de réponse", tip: { title: g.label, rows: [{ label: "Réponses", value: "aucune dans cette catégorie" }] } };
+            return { label: g.label, value: c.rate, color: c.rate >= 0.5 ? K.C.good : K.C.bad, text: Math.round(c.rate * 100) + " %" + (isBest ? " ★" : isWorst ? " ▼" : "") + " · " + c.correct + "/" + c.answers,
+              tip: { title: g.label, rows: [{ label: "Réussite", value: fmt.pct(c.rate), strong: true }, { label: "Bonnes réponses", value: c.correct + " / " + c.answers }].concat(isBest ? [{ label: "Point fort", value: "★" }] : isWorst ? [{ label: "Point faible", value: "▼" }] : []) } };
+          });
+          K.hbars(box, { rows: rowsF, max: 1, axisTitle: "Réussite", ariaLabel: "Réussite par catégorie" });
+        }
+        pick.addEventListener("change", function () { forcePick = Number(pick.value); paintForce(); });
+        host.appendChild(el("label", { "class": "v40s-forcelab" }, [document.createTextNode("Joueur : "), pick]));
+        host.appendChild(box);
+        paintForce();
+      },
+      table: function () { var w = heatTable(); return w; }
+    }));
+    if (rows.length > MAXP) main.appendChild(el("p", { "class": "v40s-note", text: "Les " + MAXP + " premiers joueurs au classement sont affichés sur " + rows.length + "." }));
     if (C.champions.length) main.appendChild(K.card({
       title: "Le champion de chaque catégorie", desc: "Meilleure réussite dans la catégorie (2 réponses minimum, égalités partagées).",
-      draw: function (host) { host.appendChild(K.table(["Catégorie", "Champion", "Réussite"], C.champions.map(function (c) { return [c.label, c.holders.slice(0, 3).map(who).join(", ") + (c.holders.length > 3 ? " et " + (c.holders.length - 3) + " autre" + (c.holders.length > 4 ? "s" : "") : ""), fmt.pct(c.rate)]; }), "Champion de chaque catégorie")); },
+      draw: function (host) {
+        K.hbars(host, { rows: C.champions.map(function (c, i) {
+          var names = c.holders.slice(0, 3).map(who).join(", ") + (c.holders.length > 3 ? " +" + (c.holders.length - 3) : "");
+          return { label: c.label, value: c.rate, color: K.C.palette[i % K.C.palette.length], text: names + " · " + fmt.pct(c.rate),
+            tip: { title: c.label, rows: [{ label: c.holders.length > 1 ? "Champions" : "Champion", value: c.holders.map(who).join(", "), strong: true }, { label: "Réussite", value: fmt.pct(c.rate) }] } };
+        }), max: 1, axisTitle: "Réussite du champion", ariaLabel: "Champion de chaque catégorie" });
+      },
       table: function () { return K.table(["Catégorie", "Champion", "Réussite"], C.champions.map(function (c) { return [c.label, c.holders.map(who).join(", "), fmt.pct(c.rate)]; }), "Champion de chaque catégorie"); }
     }));
   }

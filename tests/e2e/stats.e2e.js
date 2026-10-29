@@ -24,11 +24,11 @@ const SHOTS = process.env.SHOTS || "";
     await N.ev(H, `V40Stats.open()`); await H.waitForTimeout(600);
     t("la fenêtre propose les onglets Catégories et Profils", (await H.getByRole("tab", { name: /Catégories/i }).count()) === 1 && (await H.getByRole("tab", { name: /Profils/i }).count()) === 1);
     await H.getByRole("tab", { name: /Catégories/i }).click(); await H.waitForTimeout(700);
-    const c = await H.evaluate(() => { const b = document.querySelector(".v40s-scroll"); return { text: b.innerText, svg: b.querySelectorAll("svg").length, tables: b.querySelectorAll("table").length, cards: b.querySelectorAll(".v40c-card, .v40-card").length }; });
+    const c = await H.evaluate(() => { const b = document.querySelector(".v40s-scroll"); return { text: b.innerText, svg: b.querySelectorAll("svg").length, tables: b.querySelectorAll("table").length, cards: b.querySelectorAll(".v40s-card").length }; });
     t("Catégories : les 4 catégories de la partie apparaissent", cats.every(x => c.text.includes(x.slice(3))));
     t("Catégories : carte des forces et champions présents", /carte des forces/i.test(c.text) && /champion/i.test(c.text));
-    t("Catégories : au moins un graphique et un tableau", c.svg + c.cards >= 2 && c.tables >= 2);
-    if (SHOTS) await H.screenshot({ path: SHOTS + "/stats-categories.png" });
+    t("Catégories : tous les blocs s'ouvrent en graphique (au moins 5 graphiques) ; les tableaux sont derrière « Tableau »", c.svg >= 5 && c.cards >= 5 && c.tables === 0);
+    if (SHOTS) { await H.evaluate(() => { document.querySelector(".v40s-scroll").scrollTop = 99999; }); await H.waitForTimeout(300); await H.screenshot({ path: SHOTS + "/stats-categories.png" }); }
     await H.getByRole("tab", { name: /Profils/i }).click(); await H.waitForTimeout(700);
     const p = await H.evaluate(() => { const b = document.querySelector(".v40s-scroll"); return { text: b.innerText, svg: b.querySelectorAll("svg").length, tables: b.querySelectorAll("table").length }; });
     t("Profils : les 4 joueurs apparaissent", names.every(n => p.text.includes(n)));
@@ -37,6 +37,34 @@ const SHOTS = process.env.SHOTS || "";
     if (SHOTS) await H.screenshot({ path: SHOTS + "/stats-profils.png" });
     await H.getByRole("tab", { name: /Catégories/i }).click(); await H.waitForTimeout(300);
     t("on peut revenir sur Catégories sans erreur", (await H.evaluate(() => document.querySelector(".v40s-scroll").innerText)).includes("Géographie"));
+    /* graphiques réels (et plus seulement des tableaux) pour « Carte des forces » et « Le champion de chaque catégorie » */
+    const cardOf = re => H.evaluate(src => { const c = [...document.querySelectorAll(".v40s-card")].find(x => new RegExp(src, "i").test((x.querySelector("h3") || {}).textContent || "")); if (!c) return null; return { svg: c.querySelectorAll("svg.v40s-svg").length, tables: c.querySelectorAll("table").length, sel: c.querySelectorAll("select.v40s-forcepick").length, texts: [...c.querySelectorAll("svg text")].map(x => x.textContent).join("|"), on: (c.querySelector(".v40s-seg .on") || {}).textContent || "" }; }, re.source);
+    const champ = await cardOf(/champion de chaque/);
+    t("Champion : la vue « Graphique » est un vrai graphique (barres), pas un tableau", champ && champ.svg === 1 && champ.tables === 0 && /Graphique/.test(champ.on) && cats.every(x => champ.texts.includes(x.slice(3))));
+    t("Champion : le nom du champion et sa réussite sont écrits sur chaque barre", champ && /(Léa|Tom|Max|Zoé) · \d+ ?%/.test(champ.texts));
+    const forces = await cardOf(/carte des forces/);
+    t("Carte des forces : un vrai graphique avec choix du joueur, et les 4 catégories", forces && forces.svg === 1 && forces.sel === 1 && cats.every(x => forces.texts.includes(x.slice(3))));
+    await H.evaluate(() => { const sel = document.querySelector("select.v40s-forcepick"); sel.value = sel.options[2].value; sel.dispatchEvent(new Event("change", { bubbles: true })); }); await H.waitForTimeout(300);
+    const forces2 = await cardOf(/carte des forces/);
+    t("Carte des forces : changer de joueur redessine le graphique", forces2 && forces2.svg === 1 && forces2.texts !== forces.texts);
+    await H.evaluate(() => { const c = [...document.querySelectorAll(".v40s-card")].find(x => /carte des forces/i.test(x.querySelector("h3").textContent)); [...c.querySelectorAll(".v40s-seg button")].find(b => /Tableau/.test(b.textContent)).click(); }); await H.waitForTimeout(300);
+    const forces3 = await cardOf(/carte des forces/);
+    t("Carte des forces : la vue « Tableau » montre les 4 joueurs d'un coup (carte de chaleur)", forces3 && forces3.tables === 1 && forces3.svg === 0 && /Tableau/.test(forces3.on) && await H.evaluate(() => { const c = [...document.querySelectorAll(".v40s-card")].find(x => /carte des forces/i.test(x.querySelector("h3").textContent)); return c.querySelectorAll("table.v40s-heat tbody tr").length === 4; }));
+    /* le choix Graphique / Tableau est retenu en changeant d'onglet */
+    await H.getByRole("tab", { name: /Profils/i }).click(); await H.waitForTimeout(400);
+    await H.getByRole("tab", { name: /Catégories/i }).click(); await H.waitForTimeout(500);
+    const forces4 = await cardOf(/carte des forces/);
+    t("la carte reste en « Tableau » après un aller-retour entre onglets", forces4 && forces4.tables === 1 && /Tableau/.test(forces4.on));
+    await H.evaluate(() => { const c = [...document.querySelectorAll(".v40s-card")].find(x => /carte des forces/i.test(x.querySelector("h3").textContent)); [...c.querySelectorAll(".v40s-seg button")].find(b => /Graphique/.test(b.textContent)).click(); }); await H.waitForTimeout(300);
+    /* barre d'onglets : garde sa position et l'onglet choisi reste visible */
+    await H.setViewportSize({ width: 600, height: 900 }); await H.waitForTimeout(400);
+    await H.evaluate(() => { document.querySelector(".v40s-scroll").scrollTop = 99999; document.querySelector(".v40s-tabs").scrollLeft = 99999; });
+    await H.evaluate(() => { [...document.querySelectorAll(".v40s-tabs button")].find(b => /Profils/.test(b.textContent)).click(); }); await H.waitForTimeout(500);
+    const tabs = await H.evaluate(() => { const tb = document.querySelector(".v40s-tabs"), on = tb.querySelector(".on"), a = on.getBoundingClientRect(), c = tb.getBoundingClientRect(); return { left: tb.scrollLeft, visible: a.left >= c.left - 1 && a.right <= c.right + 1, label: on.textContent, top: document.querySelector(".v40s-scroll").scrollTop }; });
+    t("changer d'onglet : la barre d'onglets ne revient pas à gauche, l'onglet choisi est visible", tabs.left > 0 && tabs.visible && /Profils/.test(tabs.label));
+    t("changer d'onglet : le nouveau contenu s'ouvre tout en haut", tabs.top === 0);
+    await H.setViewportSize({ width: 1000, height: 1100 }); await H.waitForTimeout(300);
+    t("aucune erreur JavaScript dans les statistiques", N.errs.filter(e => !/peer-unavailable|dialog|qcm\.php/.test(e)).length === 0);
     /* historique vide : pas de plantage */
     await H.evaluate(() => localStorage.setItem("quizV40History", "[]")); await H.reload(); await H.waitForTimeout(600);
     await N.ev(H, `V40Stats.open()`); await H.waitForTimeout(400);
