@@ -99,9 +99,12 @@ guestBtn.textContent=ok?"✅ Règles acceptées":"✅ J'ai lu et j'accepte les r
 }
 const note=document.getElementById("rulesGuestNote");
 if(note){
-note.textContent=ok
+const everyone=Object.values(players);
+const accepted=everyone.filter(p=>p&&p.rulesOk===true).length;
+const count=everyone.length?" ("+accepted+"/"+everyone.length+" ont accepté)":"";
+note.textContent=(ok
 ?"Merci ! L'hôte lancera la partie quand tout le monde aura accepté."
-:"Tu dois accepter les règles pour que la partie puisse commencer.";
+:"Tu dois accepter les règles pour que la partie puisse commencer.")+count;
 }
 if(!isHost)return;
 const list=Object.values(players);
