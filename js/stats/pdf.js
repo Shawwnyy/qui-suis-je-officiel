@@ -519,6 +519,78 @@ var V40Pdf = (function () {
     valueBars("Temps de réponse moyen par thème", QI.themeTime.map(function (g) { return { label: g.label, value: g.avgTime, text: secs(g.avgTime) + "  (" + g.answers + " rép.)" }; }));
     valueBars("Les questions qui ont fait le plus réfléchir", QI.slowest.map(function (r) { return { label: "Question " + r.round, value: r.avgTime, text: secs(r.avgTime) + "  (" + pct(r.rate) + " de réussite)" }; }));
 
+    /* ----- Catégories (onglet « Catégories ») ----- */
+    var CR = A.categoryReport(log, 12);
+    if (CR.cats.length) {
+      var STP = [{ name: "Bonnes réponses", color: C.good }, { name: "Mauvaises réponses", color: C.bad }, { name: "Sans réponse", color: C.none }];
+      if (CR.hidden) note("Les " + CR.shown + " catégories les plus jouées sont affichées sur " + CR.total + ".");
+      stackBars("Résultats par catégorie", CR.cats.map(function (g) {
+        return { label: g.label, vals: [g.correct, g.wrong, g.none], text: g.correct + " justes · " + g.wrong + " fausses · " + g.none + " sans rép." };
+      }), STP);
+      var cpts = CR.cats.filter(function (g) { return g.rate !== null && g.avgTime !== null; });
+      if (cpts.length >= 2) {
+        title("Vitesse contre réussite par catégorie", 16 * (Math.min(cpts.length, 8) + 1));
+        table([
+          { h: "Catégorie", w: 4, f: function (g) { return g.label; } }, { h: "Questions", w: 1.4, a: "right", f: function (g) { return String(g.questions); } },
+          { h: "Temps moyen", w: 1.8, a: "right", f: function (g) { return secs(g.avgTime); } },
+          { h: "Réussite", w: 1.4, a: "right", f: function (g) { return pct(g.rate); }, color: function (g) { return g.rate >= 0.5 ? C.good : C.bad; } }
+        ], cpts.slice().sort(function (a, b) { return a.avgTime - b.avgTime; }), { size: 8.5 });
+        note("Plus le temps moyen est court et la réussite haute, plus la catégorie est facile pour le groupe.");
+      }
+      var DCP = [["facile", "Facile"], ["moyen", "Moyen"], ["difficile", "Difficile"], ["impossible", "Impossible"]];
+      stackBars("Difficulté de chaque catégorie", CR.cats.map(function (g) {
+        return { label: g.label, vals: DCP.map(function (d) { return g.diffs[d[0]] || 0; }), text: DCP.map(function (d) { return (g.diffs[d[0]] || 0) ? (g.diffs[d[0]] + " " + d[1].toLowerCase()) : ""; }).filter(Boolean).join(" · ") };
+      }), DCP.map(function (d, i) { return { name: d[1], color: SERIES[i % SERIES.length] }; }));
+      var forceCats = CR.cats.slice(0, 8), forceRows = ranked.slice(0, 30);
+      if (forceCats.length) {
+        title("Carte des forces : réussite de chaque joueur par catégorie", 16 * (Math.min(forceRows.length, 8) + 1));
+        table([{ h: "Joueur", w: 3.2, f: function (r) { return r.name; }, bold: function () { return true; } }].concat(forceCats.map(function (g) {
+          return { h: g.label, w: 1.7, a: "right", f: function (r) { var c = g.cells[r.idx]; return !c || c.rate === null ? "·" : Math.round(c.rate * 100) + " %"; },
+            color: function (r) { var c = g.cells[r.idx]; return !c || c.rate === null ? C.mute : c.rate >= 0.5 ? C.good : C.bad; } };
+        })), forceRows, { size: 8 });
+        note("Vert : au moins la moitié de bonnes réponses ; rouge : moins de la moitié ; « · » : aucune réponse dans la catégorie." + (CR.cats.length > forceCats.length ? " Les " + forceCats.length + " catégories les plus jouées sont affichées." : ""));
+      }
+      if (CR.champions.length) {
+        title("Le champion de chaque catégorie", 16 * (Math.min(CR.champions.length, 8) + 1));
+        table([
+          { h: "Catégorie", w: 4, f: function (c) { return c.label; } },
+          { h: "Champion", w: 5, f: function (c) { return c.holders.slice(0, 3).map(function (h) { return h.name; }).join(", ") + (c.holders.length > 3 ? " et " + (c.holders.length - 3) + " autre" + (c.holders.length > 4 ? "s" : "") : ""); }, bold: function () { return true; } },
+          { h: "Réussite", w: 1.5, a: "right", f: function (c) { return pct(c.rate); } }
+        ], CR.champions, { size: 8.5 });
+        note("Meilleure réussite dans la catégorie (2 réponses minimum) ; les égalités sont partagées.");
+      }
+    }
+    /* ----- Profils des joueurs (onglet « Profils ») ----- */
+    var PF = A.playerProfiles(log), pfList = PF.players.filter(function (p) { return p.answered > 0; });
+    if (pfList.length) {
+      var styOf = function (p) { return p.style ? PF.styles[p.style].replace(/^[^\wÀ-ÿ]+/u, "").trim() : "-"; };
+      var pfPts = pfList.filter(function (p) { return p.accuracy !== null && p.avgTime !== null; });
+      if (pfPts.length >= 2) {
+        title("Vitesse contre précision de chaque joueur", 16 * (Math.min(pfPts.length, 8) + 1));
+        table([
+          { h: "Joueur", w: 3.4, f: function (p) { return p.name; }, bold: function () { return true; } }, { h: "Style", w: 3, f: function (p) { return styOf(p); } },
+          { h: "Temps moyen", w: 1.8, a: "right", f: function (p) { return secs(p.avgTime); } },
+          { h: "Réussite", w: 1.4, a: "right", f: function (p) { return pct(p.accuracy); }, color: function (p) { return p.accuracy >= 0.5 ? C.good : C.bad; } }
+        ], pfPts.slice().sort(function (a, b) { return a.avgTime - b.avgTime || a.idx - b.idx; }).slice(0, 30), { size: 8.5 });
+        note("Style par rapport à la médiane du groupe : rapide ou réfléchi, précis ou approximatif (médiane de réussite " + pct(PF.medians.accuracy) + ", de temps " + secs(PF.medians.time) + ").");
+      }
+      var pfFast = pfList.filter(function (p) { return p.speedIndex !== null; }).sort(function (a, b) { return a.speedIndex - b.speedIndex || a.idx - b.idx; }).slice(0, 20);
+      if (pfFast.length >= 2) {
+        valueBars("Plus rapide que le groupe ? (100 = médiane)", pfFast.map(function (p) { return { label: p.name, value: p.speedIndex, color: colorOf[p.idx] || C.accent, text: Math.round(p.speedIndex) + (p.speedIndex < 100 ? " · plus rapide" : p.speedIndex > 100 ? " · plus lent" : " · médiane") }; }), C.accent);
+        note("Temps du joueur comparé au temps médian du groupe sur les mêmes questions : moins de 100, plus rapide que la médiane.");
+      }
+      var pfReg = pfList.filter(function (p) { return p.sd !== null; }).sort(function (a, b) { return a.sd - b.sd || a.idx - b.idx; }).slice(0, 20);
+      if (pfReg.length >= 2) valueBars("Régularité des temps de réponse (écart type)", pfReg.map(function (p) { return { label: p.name, value: p.sd, color: colorOf[p.idx] || C.accent, text: "± " + secs(p.sd) }; }), C.accent);
+      title("Le profil de chaque joueur", 16 * (Math.min(pfList.length, 8) + 1));
+      table([
+        { h: "Joueur", w: 2.6, f: function (p) { return p.name; }, bold: function () { return true; } }, { h: "Style", w: 2.4, f: function (p) { return styOf(p); } },
+        { h: "Réussite", w: 1.3, a: "right", f: function (p) { return pct(p.accuracy); } },
+        { h: "1re → 2e moitié", w: 2.6, a: "right", f: function (p) { return p.delta === null ? "-" : pct(p.early) + " > " + pct(p.late); } },
+        { h: "Point fort", w: 2.8, f: function (p) { return p.best ? p.best.label + " (" + pct(p.best.rate) + ")" : "-"; } },
+        { h: "Point faible", w: 2.8, f: function (p) { return p.worst ? p.worst.label + " (" + pct(p.worst.rate) + ")" : "-"; } }
+      ], pfList.slice(0, 30), { size: 8 });
+    }
+
     /* ----- Bonus et malus ----- */
     if (log.B && log.B.length) {
       var pws = A.powers(log), BON = SERIES[2], MAL = SERIES[1], BLK = SERIES[0], nrm = pws.total - pws.wheel.spins;

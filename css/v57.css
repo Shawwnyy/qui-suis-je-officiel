@@ -1,0 +1,12 @@
+/* 📋 Ta partie en un coup d'œil · 🎚️ Difficulté · 🔗 Code de config (js/patches/050-v57-config.js) */
+.v57-card { margin: 0 0 14px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .14); }
+.v57-sub { margin-top: 12px; }
+.v57-lines { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.v57-chip { padding: 6px 12px; border-radius: 999px; background: rgba(124, 58, 237, .22); border: 1px solid rgba(167, 139, 250, .45); font-size: .88rem; font-weight: 700; }
+.v57-chip.warn { background: rgba(245, 158, 11, .18); border-color: rgba(245, 158, 11, .55); color: #fde68a; }
+.v57-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+.v57-row .v57-b { width: auto; flex: 0 1 auto; margin: 0; padding: 8px 14px; font-size: .9rem; }
+.v57-row .v57-b.on { background: rgba(124, 58, 237, .45); border-color: #a78bfa; }
+.v57-row .v57-code { flex: 1 1 220px; margin: 0; padding: 9px 12px; font-size: .85rem; min-width: 0; }
+.v57-note { margin-top: 6px; font-size: .82rem; opacity: .75; }
+.v57-msg { min-height: 18px; margin-top: 8px; font-size: .85rem; color: #86efac; }

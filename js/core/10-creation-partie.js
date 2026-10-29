@@ -38,10 +38,17 @@ document.getElementById(
 "roomCodeDisplay"
 ).textContent=
 roomCode;
-showScreen("lobbyScreen");
-buildLangSelect();
-buildThemeSelector();
-updatePlayers();
+/* chaque étape est isolée : si l'une plante (script de correctif, données du navigateur…), la liste des langues,
+   la grille des thèmes et la liste des joueurs se construisent quand même */
+[
+()=>buildLangSelect(),
+()=>showScreen("lobbyScreen"),
+()=>buildLangSelect(),
+()=>buildThemeSelector(),
+()=>updatePlayers()
+].forEach(step=>{
+try{step();}catch(error){console.error("Création de la salle :",error);}
+});
 });
 peer.on("connection",connection=>{
 setupConnection(connection);

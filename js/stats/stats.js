@@ -321,7 +321,7 @@
     refreshTimer = setTimeout(function () { if (isOpen()) render(true); }, 120);
   }
 
-  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["ranking", "🏁 Classement"], ["trophies", "🏆 Trophées"], ["duels", "🤝 Duels"], ["facts", "📌 Faits marquants"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["records", "🏅 Mes records"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
+  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["ranking", "🏁 Classement"], ["trophies", "🏆 Trophées"], ["duels", "🤝 Duels"], ["facts", "📌 Faits marquants"], ["categories", "🗂️ Catégories"], ["profiles", "🧬 Profils"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["records", "🏅 Mes records"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
 
   function render(keepScroll) {
     var log = currentLog();
@@ -361,7 +361,7 @@
       else if (!log || !log.R.length) main.appendChild(emptyState(log));
       else {
         if (!liveDone && isLiveLog(log)) main.appendChild(el("p", { "class": "v40s-note", text: "⏳ Partie en cours : les chiffres sont à jour jusqu’à la dernière question terminée (" + log.R.length + (typeof totalRounds === "number" && totalRounds ? "/" + totalRounds : "") + ")." }));
-        var fn = { overview: buildOverview, players: buildPlayers, ranking: buildRanking, trophies: buildTrophies, duels: buildDuels, facts: buildFacts, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, records: buildRecords, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
+        var fn = { overview: buildOverview, players: buildPlayers, ranking: buildRanking, trophies: buildTrophies, duels: buildDuels, facts: buildFacts, categories: buildCategories, profiles: buildProfiles, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, records: buildRecords, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
         if (log.of) main.appendChild(el("p", { "class": "v40s-note", text: "👥 Grande salle : " + fmt.int(log.of) + " joueurs. Les statistiques montrent les " + fmt.int(log.P.length) + " meilleurs au classement final." }));
         fn(main, log);
       }
@@ -521,6 +521,112 @@
       var mrows = D.players.map(function (a) { return [who(a)].concat(D.players.map(function (b) { return a.idx === b.idx ? "·" : D.w[a.idx][b.idx] + " – " + D.w[b.idx][a.idx]; })); });
       main.appendChild(K.table(head, mrows, "Face à face : chaque case donne les victoires de la ligne puis celles de la colonne"));
     } else main.appendChild(el("p", { "class": "v40s-note", text: "Le tableau face à face est affiché jusqu’à 12 joueurs." }));
+  }
+
+  /* ---------- 🗂️ Catégories : réussite, vitesse, difficulté, forces et faiblesses ---------- */
+  function heatColor(rate) {
+    var a = Math.min(0.85, 0.12 + Math.abs(rate - 0.5) * 1.3);
+    return rate >= 0.5 ? "rgba(46,160,67," + a.toFixed(2) + ")" : "rgba(229,72,77," + a.toFixed(2) + ")";
+  }
+  function buildCategories(main, log) {
+    var C = A.categoryReport(log, 12), S = K.STATE;
+    if (!C.cats.length) { main.appendChild(el("p", { "class": "v40s-note", text: "Pas encore de catégorie : il faut au moins une question jouée." })); return; }
+    if (C.hidden) main.appendChild(el("p", { "class": "v40s-note", text: "Les " + C.shown + " catégories les plus jouées sont affichées sur " + C.total + "." }));
+    var H = C.highlights, tiles = [];
+    function ct(g, name, sub) { return tile(g ? g.label : "—", name, g ? sub(g) : "Pas assez de réponses pour comparer (3 par catégorie minimum)"); }
+    tiles.push(ct(H.best, "Catégorie la mieux réussie", function (g) { return fmt.pct(g.rate) + " de réussite"; }));
+    tiles.push(ct(H.worst, "Catégorie la plus piégeuse", function (g) { return fmt.pct(g.rate) + " de réussite"; }));
+    tiles.push(ct(H.fastest, "Réponses les plus rapides", function (g) { return fmt.sec(g.avgTime) + " en moyenne"; }));
+    tiles.push(ct(H.slowest, "Réponses les plus lentes", function (g) { return fmt.sec(g.avgTime) + " en moyenne"; }));
+    main.appendChild(el("div", { "class": "v40s-tiles" }, tiles));
+    main.appendChild(K.card({
+      title: "Résultats par catégorie", desc: "Bonnes réponses, erreurs et oublis de tout le groupe, catégorie par catégorie.",
+      legend: function () { return K.legend([1, 2, 3].map(function (st) { return { key: String(st), name: S[st].name, color: S[st].color, glyph: S[st].glyph }; }), null, null); },
+      draw: function (host) {
+        K.stack(host, { unit: "réponse", rows: C.cats.map(function (g) {
+          return { label: g.label, total: g.answers, parts: [{ name: S[1].name, glyph: S[1].glyph, value: g.correct, color: S[1].color }, { name: S[2].name, glyph: S[2].glyph, value: g.wrong, color: S[2].color }, { name: S[3].name, glyph: S[3].glyph, value: g.none, color: S[3].color }] };
+        }), ariaLabel: "Bonnes et mauvaises réponses par catégorie" });
+      },
+      table: function () { return K.table(["Catégorie", "Questions", "✓ Bonnes", "✗ Mauvaises", "⏱ Sans réponse", "Réussite", "Temps moyen"], C.cats.map(function (g) { return [g.label, g.questions, g.correct, g.wrong, g.none, fmt.pct(g.rate), g.avgTime === null ? "—" : fmt.sec(g.avgTime)]; }), "Résultats par catégorie"); }
+    }));
+    var pts = C.cats.map(function (g, i) { return g.rate === null || g.avgTime === null ? null : { x: g.avgTime, y: g.rate, label: g.label, color: K.C.palette[i % K.C.palette.length],
+      tip: { title: g.label, rows: [{ label: "Réussite", value: fmt.pct(g.rate), strong: true }, { label: "Temps moyen", value: fmt.sec(g.avgTime) }, { label: "Questions", value: String(g.questions) }] } }; }).filter(Boolean);
+    if (pts.length >= 2) main.appendChild(K.card({
+      title: "Vitesse contre réussite", desc: "Une bulle par catégorie : en haut à gauche, les catégories rapides et bien réussies ; en bas à droite, celles où le groupe hésite et se trompe.",
+      draw: function (host) { K.scatter(host, { points: pts, xFmt: function (v) { return fmt.sec(v); }, xTitle: "Temps moyen de réponse", yTitle: "Réussite", ariaLabel: "Vitesse contre réussite par catégorie" }); },
+      table: function () { return K.table(["Catégorie", "Temps moyen", "Réussite"], pts.map(function (p) { return [p.label, fmt.sec(p.x), fmt.pct(p.y)]; }), "Vitesse et réussite par catégorie"); }
+    }));
+    var DC = [["facile", "Facile", "●"], ["moyen", "Moyen", "▲"], ["difficile", "Difficile", "■"], ["impossible", "Impossible", "◆"]];
+    main.appendChild(K.card({
+      title: "Difficulté de chaque catégorie", desc: "Nombre de questions jouées par niveau de difficulté dans chaque catégorie.",
+      legend: function () { return K.legend(DC.map(function (d, i) { return { key: d[0], name: d[1], color: K.C.palette[i], glyph: d[2] }; }), null, null); },
+      draw: function (host) {
+        K.stack(host, { unit: "question", rows: C.cats.map(function (g) { return { label: g.label, total: g.questions, parts: DC.map(function (d, i) { return { name: d[1], glyph: d[2], value: g.diffs[d[0]] || 0, color: K.C.palette[i] }; }) }; }), ariaLabel: "Difficulté des questions par catégorie" });
+      },
+      table: function () { return K.table(["Catégorie"].concat(DC.map(function (d) { return d[1]; })), C.cats.map(function (g) { return [g.label].concat(DC.map(function (d) { return g.diffs[d[0]] || 0; })); }), "Difficulté par catégorie"); }
+    }));
+    /* carte des forces : joueurs × catégories */
+    var rows = A.perPlayer(log).sort(function (a, b) { return a.rank - b.rank || a.idx - b.idx; }), MAXP = 30, shown = rows.slice(0, MAXP);
+    var prof = {}; C.players.forEach(function (p) { prof[p.idx] = p; });
+    var tbl = el("table", { "class": "v40s-table v40s-heat" }), hr = el("tr", null, [el("th", { scope: "col", text: "Joueur" })].concat(C.cats.map(function (g) { return el("th", { scope: "col", text: g.label }); })));
+    tbl.appendChild(el("thead", null, [hr]));
+    tbl.appendChild(el("tbody", null, shown.map(function (r) {
+      var pr = prof[r.idx] || {};
+      return el("tr", null, [el("th", { scope: "row", text: who(r) })].concat(C.cats.map(function (g) {
+        var c = g.cells[r.idx], isBest = pr.best && pr.best.label === g.label, isWorst = pr.worst && pr.worst.label === g.label;
+        if (!c || c.rate === null) return el("td", { text: "·", title: "Pas de réponse dans cette catégorie" });
+        return el("td", { text: Math.round(c.rate * 100) + " %" + (isBest ? " ★" : isWorst ? " ▼" : ""), style: "background:" + heatColor(c.rate), title: c.correct + " bonne" + (c.correct > 1 ? "s" : "") + " sur " + c.answers + (isBest ? " · point fort" : isWorst ? " · point faible" : "") });
+      })));
+    })));
+    main.appendChild(el("section", { "class": "v40s-card" }, [
+      el("div", { "class": "v40s-cardhead" }, [el("div", null, [el("h3", { text: "Carte des forces" }), el("p", { text: "Réussite de chaque joueur dans chaque catégorie (vert = bien maîtrisé, rouge = difficile). ★ = point fort, ▼ = point faible (2 réponses minimum)." })])]),
+      el("div", { "class": "v40s-tablewrap", tabindex: "0", role: "region", "aria-label": "Réussite de chaque joueur par catégorie" }, [tbl]),
+      rows.length > MAXP ? el("p", { "class": "v40s-note", text: "Les " + MAXP + " premiers joueurs au classement sont affichés sur " + rows.length + "." }) : null
+    ]));
+    if (C.champions.length) main.appendChild(K.card({
+      title: "Le champion de chaque catégorie", desc: "Meilleure réussite dans la catégorie (2 réponses minimum, égalités partagées).",
+      draw: function (host) { host.appendChild(K.table(["Catégorie", "Champion", "Réussite"], C.champions.map(function (c) { return [c.label, c.holders.slice(0, 3).map(who).join(", ") + (c.holders.length > 3 ? " et " + (c.holders.length - 3) + " autre" + (c.holders.length > 4 ? "s" : "") : ""), fmt.pct(c.rate)]; }), "Champion de chaque catégorie")); },
+      table: function () { return K.table(["Catégorie", "Champion", "Réussite"], C.champions.map(function (c) { return [c.label, c.holders.map(who).join(", "), fmt.pct(c.rate)]; }), "Champion de chaque catégorie"); }
+    }));
+  }
+
+  /* ---------- 🧬 Profils : vitesse, précision, régularité, progression ---------- */
+  function buildProfiles(main, log) {
+    var P = A.playerProfiles(log), list = P.players.filter(function (p) { return p.answered > 0; });
+    if (!list.length) { main.appendChild(el("p", { "class": "v40s-note", text: "Pas encore de profil : il faut au moins une réponse." })); return; }
+    var STY = P.styles, plotted = list.filter(function (p) { return p.idx < MAX_PLAYERS_PLOTTED; });
+    function sty(p) { return p.style ? STY[p.style] : "—"; }
+    var pts = plotted.filter(function (p) { return p.accuracy !== null && p.avgTime !== null; }).map(function (p) {
+      return { x: p.avgTime, y: p.accuracy, label: p.name, color: colorFor(p.idx), tip: { title: who(p), sub: sty(p), rows: [{ label: "Réussite", value: fmt.pct(p.accuracy), strong: true }, { label: "Temps moyen", value: fmt.sec(p.avgTime) }, { label: "Régularité", value: p.sd === null ? "—" : "± " + fmt.sec(p.sd) }] } };
+    });
+    if (pts.length >= 2) main.appendChild(K.card({
+      title: "Vitesse contre précision", desc: "Un point par joueur : en haut à gauche, rapide et précis ; en haut à droite, réfléchi et précis ; en bas à gauche, rapide mais approximatif.",
+      draw: function (host) { K.scatter(host, { points: pts, xFmt: function (v) { return fmt.sec(v); }, xTitle: "Temps moyen de réponse", yTitle: "Réussite", ariaLabel: "Vitesse contre précision de chaque joueur" }); },
+      table: function () { return K.table(["Joueur", "Style", "Réussite", "Temps moyen"], pts.map(function (p) { return [p.label, p.tip.sub, fmt.pct(p.y), fmt.sec(p.x)]; }), "Vitesse et précision par joueur"); }
+    }));
+    var fast = plotted.filter(function (p) { return p.speedIndex !== null; }).sort(function (a, b) { return a.speedIndex - b.speedIndex || a.idx - b.idx; });
+    if (fast.length >= 2) main.appendChild(K.card({
+      title: "Plus rapide que le groupe ?", desc: "Temps de chaque joueur comparé au temps médian du groupe sur les mêmes questions : 100 = dans la médiane, moins = plus rapide.",
+      draw: function (host) { K.hbars(host, { rows: fast.map(function (p) { return { label: p.name, avatar: p.avatar, value: p.speedIndex, color: colorFor(p.idx), text: Math.round(p.speedIndex) + "",
+        tip: { title: who(p), rows: [{ label: "Indice de vitesse", value: Math.round(p.speedIndex) + (p.speedIndex < 100 ? " (plus rapide que la médiane)" : p.speedIndex > 100 ? " (plus lent que la médiane)" : ""), strong: true }, { label: "Temps moyen", value: fmt.sec(p.avgTime) }] } }; }), axisTitle: "Indice de vitesse (100 = médiane)", ariaLabel: "Indice de vitesse de chaque joueur" }); },
+      table: function () { return K.table(["Joueur", "Indice de vitesse", "Temps moyen"], fast.map(function (p) { return [p.name, Math.round(p.speedIndex), fmt.sec(p.avgTime)]; }), "Indice de vitesse"); }
+    }));
+    var reg = plotted.filter(function (p) { return p.sd !== null; }).sort(function (a, b) { return a.sd - b.sd || a.idx - b.idx; });
+    if (reg.length >= 2) main.appendChild(K.card({
+      title: "Régularité", desc: "Écart type des temps de réponse : plus la barre est courte, plus le joueur répond à un rythme constant.",
+      draw: function (host) { K.hbars(host, { rows: reg.map(function (p) { return { label: p.name, avatar: p.avatar, value: p.sd, color: colorFor(p.idx), text: "± " + fmt.sec(p.sd),
+        tip: { title: who(p), rows: [{ label: "Écart type", value: "± " + fmt.sec(p.sd), strong: true }, { label: "Temps moyen", value: fmt.sec(p.avgTime) }] } }; }), axisTitle: "Écart type des temps (s)", ariaLabel: "Régularité des temps de réponse" }); },
+      table: function () { return K.table(["Joueur", "Écart type", "Temps moyen"], reg.map(function (p) { return [p.name, "± " + fmt.sec(p.sd), fmt.sec(p.avgTime)]; }), "Régularité"); }
+    }));
+    var rowsT = list.map(function (p) {
+      return [who(p), sty(p), fmt.pct(p.accuracy), p.avgTime === null ? "—" : fmt.sec(p.avgTime),
+        p.delta === null ? "—" : fmt.pct(p.early) + " → " + fmt.pct(p.late) + (p.delta > 0.05 ? " ▲" : p.delta < -0.05 ? " ▼" : " ＝"),
+        p.best ? p.best.label + " (" + fmt.pct(p.best.rate) + ")" : "—", p.worst ? p.worst.label + " (" + fmt.pct(p.worst.rate) + ")" : "—"];
+    });
+    main.appendChild(el("section", { "class": "v40s-card" }, [
+      el("div", { "class": "v40s-cardhead" }, [el("div", null, [el("h3", { text: "Le profil de chaque joueur" }), el("p", { text: "Style (par rapport à la médiane du groupe : rapide ou réfléchi, précis ou approximatif), progression entre la 1ʳᵉ et la 2ᵉ moitié de la partie, point fort et point faible par catégorie." })])]),
+      K.table(["Joueur", "Style", "Réussite", "Temps moyen", "1ʳᵉ → 2ᵉ moitié", "Point fort", "Point faible"], rowsT, "Profil de chaque joueur")
+    ]));
   }
 
   /* ---------- 📌 Faits marquants ---------- */

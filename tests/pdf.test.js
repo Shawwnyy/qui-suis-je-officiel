@@ -109,6 +109,9 @@ t("gros journal sombre : valide, sans NaN", bigd.startsWith("%PDF-1.4") && !/NaN
 const lat = b => Buffer.from(b).toString("latin1");
 t("PDF : classement à la mi-partie présent (journal de 4 questions : après la question 2)", lat(P.build(log)).includes("Classement \\340 la mi-partie") && lat(P.build(log)).includes("apr\\350s la question 2 sur 4"));
 t("PDF : trophées de la partie présents (tableau des gagnants)", lat(P.build(log)).includes("Troph\\351es de la partie") && lat(P.build(log)).includes("Gagnant\\(e\\)"));
+t("PDF : section Catégories (résultats, carte des forces, champions) présente", lat(P.build(log)).includes("R\\351sultats par cat\\351gorie") && lat(P.build(log)).includes("Carte des forces") && lat(P.build(log)).includes("champion de chaque cat\\351gorie"));
+t("PDF : section Profils (style, vitesse contre précision, profil de chaque joueur) présente", lat(P.build(log)).includes("Vitesse contre pr\\351cision") && lat(P.build(log)).includes("profil de chaque joueur") && lat(P.build(log)).includes("Plus rapide que le groupe"));
+t("PDF : pas de section Catégories ni Profils pour un journal sans aucune réponse", (function () { var e = JSON.parse(JSON.stringify(one)); e.R = []; var b = lat(P.build(e)); return !b.includes("Carte des forces") && !b.includes("profil de chaque joueur"); })());
 t("PDF : pas de classement à la mi-partie pour une seule question", !lat(P.build(one)).includes("Classement \\340 la mi-partie"));
 /* tous les sous-titres de graphique de la page de stats ont leur équivalent dans le PDF (mêmes mots) */
 const statsSrc = fs.readFileSync(path.join(__dirname, "../js/stats/stats.js"), "utf8");

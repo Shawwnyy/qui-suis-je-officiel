@@ -48,7 +48,7 @@ var V56 = (function () {
       if (s && !seen[s]) { seen[s] = 1; themes.push(s); }
     });
     var lang = typeof o.lang === "string" && /^[a-z]{2,5}$/.test(o.lang) ? o.lang : "";
-    return { rounds: int(o.rounds, 1, 500, 10), time: int(o.time, 1, 600, 20), lang: lang, themes: themes };
+    return { rounds: int(o.rounds, 1, 999, 10), time: int(o.time, 1, 600, 20), lang: lang, themes: themes };
   }
   var api = { PRESETS: PRESETS, nearest: nearest, sample: sample, cleanSaved: cleanSaved };
   if (typeof module !== "undefined" && module.exports) module.exports = api;

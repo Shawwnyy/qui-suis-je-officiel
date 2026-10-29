@@ -36,6 +36,7 @@ css/
   features.css          styles des fonctionnalités (chat, pouvoirs, podium…)
   qcm.css               styles de la fenêtre « QCM depuis un cours »
   v40.css               anti-triche, questions avec média, statistiques
+  v57.css               écran de configuration : résumé, difficulté, code à partager
   v43.css               voix off (réglages), justification de la réponse, horloge permanente et roue des bonus / malus
   voicechat.css         bouton et panneau du chat vocal
 js/
@@ -379,6 +380,20 @@ Touches **1 2 3 4** (rangée du haut, pavé numérique, y compris clavier AZERTY
 - **Grandes salles** : au-delà de 200 joueurs, les écrans de statistiques montrent les **200 meilleurs** du classement final (mention « Grande salle : N joueurs… » en haut) pour rester fluides ; les statistiques ne sont alors **pas diffusées aux invités** (une manche pèserait des milliers d'entrées par invité) : l'hôte garde tout (historique, CSV, PDF).
 - Tests : `node tests/stats.test.js` (duels, faits, coupe des grandes salles — mutations vérifiées), `node tests/menus.test.js` (liste bornée) et, avec Playwright, `node tests/e2e/bigroom.e2e.js` (réglage jusqu'à 9 999, avertissements, panneau borné avec 160 joueurs, onglets, journal de 300 joueurs).
 
+## ⚙️ Écran de configuration : résumé, difficulté, code à partager (`js/patches/050-v57-config.js`, `css/v57.css`)
+- **Résumé en direct** (carte sous les réglages de l'hôte) : durée estimée de la partie (questions × temps + pauses), nombre de questions disponibles dans les thèmes cochés, langue, difficulté, et un avertissement si des thèmes cochés n'existent pas dans la langue choisie. En mode « toutes les questions » (999), la durée n'est annoncée que si le nombre de questions disponibles est connu et raisonnable.
+- **Difficulté au choix** : boutons Facile / Moyen / Difficile / Impossible, cumulables (aucun bouton = toutes les difficultés). Le filtre s'applique à `getQuestionPool()` ; il est mémorisé sur l'appareil et le résumé montre ce qu'il reste de questions.
+- **Code de configuration** `QSJ1.…` : « Copier mon code » encode manches, temps, langue, difficulté et thèmes (texte court, sans accent, lisible partout) ; « Appliquer ce code » le relit, le nettoie (valeurs bornées, thèmes inconnus ignorés) et recoche les thèmes. Un code invalide affiche un message sans rien changer.
+- **Liste des langues réparée** : la liste « Langue des questions » est remplie à la création de la salle même si un script de correctif plante (chaque étape de création est isolée et l'erreur va dans la console), et une **auto-réparation** (chaque seconde) reconstruit une liste vide, des menus sans valeur ou une grille de thèmes vide. La cause exacte du menu vide vu en direct n'a pas pu être reproduite ; la création est durcie et la réparation couvre le cas.
+- **Mémorisation du marathon** : le préréglage « toutes les questions » (999) est maintenant bien sauvegardé et restauré (il retombait à 100).
+- Tests : `node tests/config.test.js` (code de config, filtres, durées, mutations vérifiées) et, avec Playwright, `node tests/e2e/config.e2e.js` (résumé, réparation, filtre de difficulté sur une vraie partie, code copié puis appliqué, anglais, création de salle avec script planté).
+
+## 🗂️ Catégories et 🧬 Profils : graphiques plus poussés (`js/stats/analysis.js` → `categoryReport`, `playerProfiles` ; onglets dédiés des statistiques, et dans le PDF)
+- **🗂️ Catégories** : catégories les mieux / moins bien réussies et les plus rapides / lentes, **résultats par catégorie** (bonnes, mauvaises, sans réponse), **vitesse contre réussite** (une bulle par catégorie), **difficulté de chaque catégorie**, **carte des forces** (réussite de chaque joueur dans chaque catégorie, ★ point fort, ▼ point faible) et **champion de chaque catégorie** (2 réponses minimum, égalités partagées). 12 catégories et 30 joueurs au maximum à l'écran.
+- **🧬 Profils** : **vitesse contre précision** (un point par joueur, style 🚀 Machine / ⚡ Sprinter / 🧠 Réfléchi / 🐢 Prend son temps par rapport à la médiane du groupe), **indice de vitesse** (100 = médiane du groupe sur les mêmes questions), **régularité** (écart type des temps), et un tableau par joueur : style, réussite, temps moyen, 1ʳᵉ → 2ᵉ moitié de partie, point fort et point faible.
+- Chaque graphique a sa version Tableau, l'infobulle, la copie en image et le PNG comme les autres, et les mêmes graphiques sont dans l'**export PDF**.
+- Tests : `node tests/stats.test.js` (calculs, mutations vérifiées), `node tests/pdf.test.js` (un équivalent PDF pour chaque graphique d'écran) et, avec Playwright, `node tests/e2e/stats.e2e.js`.
+
 ## 🔒 Corrections de sécurité de cette version
 - Un joueur dont l'identifiant réseau est un mot réservé du langage (`__proto__`, `constructor`…) pouvait corrompre la liste des joueurs de tout le jeu : son arrivée est désormais ignorée, et le sondage comme les équipes ne reconnaissent un joueur que s'il existe vraiment dans la liste.
 - **Usurpation d'identité** : l'hôte croyait l'identité écrite dans chaque message, donc n'importe quel invité pouvait répondre, écrire dans le chat, choisir un pouvoir ou accepter les règles **au nom d'un autre joueur**, ou envoyer une fiche truquée (`host: true`, « règles acceptées », score). Désormais l'identité vient **de la connexion réseau** pour tous les messages d'un invité, et la fiche du joueur est **reconstruite par l'hôte**.
@@ -458,8 +473,11 @@ node tests/justif.test.js                # justifications (bonne / mauvaise / te
 node tests/rooms.test.js                 # salles : décisions d'entrée, mot de passe et essais limités, places, données reçues, identité des invités, refus propres
 node tests/menus.test.js                 # menus : réglages bornés, annonces d'arrivée / départ, classement des joueurs du panneau
 node tests/presets.test.js               # préréglages : valeur la plus proche, tirage sans remise, configuration mémorisée nettoyée
+node tests/config.test.js                # écran de configuration : code QSJ1, filtre de difficulté, durée estimée, résumé
 node tests/e2e/menus.e2e.js              # (facultatif, Playwright) menus et préréglages de bout en bout
 node tests/e2e/bigroom.e2e.js            # (facultatif, Playwright) places jusqu'à 9 999, panneau borné, onglets Duels / Faits marquants, journal de 300 joueurs
+node tests/e2e/config.e2e.js             # (facultatif, Playwright) résumé, auto-réparation des listes, difficulté sur une vraie partie, code de config, anglais
+node tests/e2e/stats.e2e.js              # (facultatif, Playwright) onglets Catégories et Profils avec une partie de démonstration
 node tests/e2e/rooms.e2e.js              # (facultatif, Playwright) salles de bout en bout dans deux navigateurs avec réseau simulé
 NODE_PATH=<dossier de jszip> node tests/formats.test.js   # PPTX, ODP, XLSX, ODS, EPUB, RTF, HTML, sous-titres, liens (fichiers réels de tests/fixtures)
 ```

@@ -45,10 +45,14 @@ diffLabel:pack.diff[q.difficulty]
 function buildLangSelect(){
 const select=document.getElementById("questionLang");
 if(!select)return;
-select.innerHTML=QUESTION_LANGS
+const langs=QUESTION_LANGS.length?QUESTION_LANGS:[{code:"fr",label:"🇫🇷 Français"}];
+select.innerHTML=langs
 .map(l=>`<option value="${l.code}">${l.label}</option>`)
 .join("");
+/* une langue inconnue ne doit jamais laisser la liste sans sélection (affichage vide) */
+if(!langs.some(l=>l.code===questionLang))questionLang=langs[0].code;
 select.value=questionLang;
+if(select.selectedIndex<0)select.selectedIndex=0;
 }
 function onQuestionLangChange(){
 const select=document.getElementById("questionLang");

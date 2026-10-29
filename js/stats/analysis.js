@@ -728,6 +728,97 @@ var V40Analysis = (function () {
     return out;
   }
 
+  /* ---------- Catégories : bilan du groupe, champion de chaque catégorie, point fort / faible de chacun ---------- */
+  var MIN_CELL = 2;      /* réponses minimum d'un joueur dans une catégorie pour en parler (1 si la catégorie n'a qu'une question) */
+  function categoryReport(log, maxCats) {
+    maxCats = int(maxCats, 1, 60, 12);
+    var np = log.P.length, map = {}, order = [], k;
+    log.R.forEach(function (R) {
+      var key = R.c || "Sans thème", g = map[key];
+      if (!g) {
+        g = map[key] = { key: key, label: key, questions: 0, answers: 0, correct: 0, wrong: 0, none: 0, _t: 0, _tn: 0, diffs: { facile: 0, moyen: 0, difficile: 0, impossible: 0 }, cells: [] };
+        for (k = 0; k < np; k++) g.cells.push({ answers: 0, correct: 0, _t: 0, _tn: 0 });
+        order.push(key);
+      }
+      g.questions++; g.diffs[R.d] = (g.diffs[R.d] || 0) + 1;
+      R.r.forEach(function (e, idx) {
+        var st = e[0]; if (!isAnswer(st) || !g.cells[idx]) return;
+        var c = g.cells[idx]; g.answers++; c.answers++;
+        if (st === 1) { g.correct++; c.correct++; } else if (st === 2) g.wrong++; else g.none++;
+        if (st === 1 || st === 2) { g._t += e[1]; g._tn++; c._t += e[1]; c._tn++; }
+      });
+    });
+    var cats = order.map(function (key) {
+      var g = map[key];
+      g.rate = g.answers ? g.correct / g.answers : null; g.avgTime = g._tn ? g._t / g._tn : null; delete g._t; delete g._tn;
+      g.cells.forEach(function (c) { c.rate = c.answers ? c.correct / c.answers : null; c.avgTime = c._tn ? c._t / c._tn : null; delete c._t; delete c._tn; });
+      return g;
+    });
+    cats.sort(function (a, b) { return b.questions - a.questions || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0); });
+    var total = cats.length; cats = cats.slice(0, maxCats);
+    function extreme(list, val, hi) {
+      var c = list.filter(function (g) { return val(g) !== null && g.answers >= 3; });
+      if (c.length < 2) return null;
+      c.sort(function (a, b) { return (hi ? val(b) - val(a) : val(a) - val(b)) || b.answers - a.answers; });
+      return val(c[0]) === val(c[c.length - 1]) ? null : c[0];
+    }
+    var champions = cats.map(function (g) {
+      var need = Math.min(MIN_CELL, g.questions), best = 0, holders = [];
+      g.cells.forEach(function (c, idx) { if (c.answers >= need && c.rate !== null && c.rate > best) best = c.rate; });
+      if (best > 0) g.cells.forEach(function (c, idx) { if (c.answers >= need && c.rate === best) holders.push({ idx: idx, name: log.P[idx].n, avatar: log.P[idx].a }); });
+      return { key: g.key, label: g.label, rate: best, holders: holders };
+    }).filter(function (c) { return c.holders.length > 0; });
+    var players = log.P.map(function (p, idx) {
+      var cells = cats.map(function (g, ci) { var c = g.cells[idx]; return { ci: ci, label: g.label, answers: c.answers, rate: c.rate }; })
+        .filter(function (c) { return c.rate !== null && c.answers >= Math.min(MIN_CELL, cats[c.ci].questions); });
+      var best = null, worst = null;
+      if (cells.length >= 2) {
+        var hi = cells.slice().sort(function (a, b) { return b.rate - a.rate || b.answers - a.answers || a.ci - b.ci; })[0];
+        var lo = cells.slice().sort(function (a, b) { return a.rate - b.rate || b.answers - a.answers || a.ci - b.ci; })[0];
+        if (hi.rate > lo.rate) { best = { label: hi.label, rate: hi.rate, answers: hi.answers }; worst = { label: lo.label, rate: lo.rate, answers: lo.answers }; }
+      }
+      return { idx: idx, name: p.n, avatar: p.a, best: best, worst: worst };
+    });
+    return { total: total, shown: cats.length, hidden: total - cats.length, cats: cats, champions: champions, players: players,
+      highlights: { best: extreme(cats, function (g) { return g.rate; }, true), worst: extreme(cats, function (g) { return g.rate; }, false),
+        fastest: extreme(cats, function (g) { return g.avgTime; }, false), slowest: extreme(cats, function (g) { return g.avgTime; }, true) } };
+  }
+
+  /* ---------- Profils des joueurs : vitesse, précision, régularité, progression, style ---------- */
+  function medianOf(list) { if (!list.length) return null; var a = list.slice().sort(function (x, y) { return x - y; }); return quantile(a, 0.5); }
+  function playerProfiles(log) {
+    var rows = perPlayer(log), np = log.P.length, cat = categoryReport(log, 60);
+    var qMed = log.R.map(function (R) { var ts = []; R.r.forEach(function (e) { if ((e[0] === 1 || e[0] === 2) && e[1] > 0) ts.push(e[1]); }); return ts.length >= 2 ? medianOf(ts) : null; });
+    var players = rows.map(function (row) {
+      var idx = row.idx, times = [], rel = [], seq = [];
+      log.R.forEach(function (R, q) {
+        var e = R.r[idx]; if (!e || !isAnswer(e[0])) return;
+        seq.push(e[0] === 1 ? 1 : 0);
+        if ((e[0] === 1 || e[0] === 2) && e[1] > 0) { times.push(e[1]); if (qMed[q]) rel.push(e[1] / qMed[q]); }
+      });
+      var avg = times.length ? times.reduce(function (a, b) { return a + b; }, 0) / times.length : null, sd = null;
+      if (times.length >= 3) { var m = avg; sd = Math.sqrt(times.reduce(function (a, b) { return a + (b - m) * (b - m); }, 0) / times.length); }
+      var early = null, late = null, delta = null;
+      if (seq.length >= 4) {
+        var h = Math.ceil(seq.length / 2), a1 = seq.slice(0, h), a2 = seq.slice(h);
+        early = a1.reduce(function (a, b) { return a + b; }, 0) / a1.length; late = a2.reduce(function (a, b) { return a + b; }, 0) / a2.length; delta = late - early;
+      }
+      var cp = cat.players[idx] || {};
+      return { idx: idx, name: row.name, avatar: row.avatar, answered: row.answered, accuracy: row.accuracy, avgTime: avg, sd: sd,
+        speedIndex: rel.length >= 2 ? (rel.reduce(function (a, b) { return a + b; }, 0) / rel.length) * 100 : null,
+        early: early, late: late, delta: delta, best: cp.best || null, worst: cp.worst || null, style: null };
+    });
+    var ok = players.filter(function (p) { return p.accuracy !== null && p.avgTime !== null; });
+    var medAcc = medianOf(ok.map(function (p) { return p.accuracy; })), medTime = medianOf(ok.map(function (p) { return p.avgTime; }));
+    var STYLES = { machine: "🚀 Machine", sprinter: "⚡ Sprinter", thinker: "🧠 Réfléchi", slow: "🐢 Prend son temps" };
+    var distinct = ok.length >= 2 && (Math.min.apply(null, ok.map(function (p) { return p.accuracy; })) !== Math.max.apply(null, ok.map(function (p) { return p.accuracy; })) || Math.min.apply(null, ok.map(function (p) { return p.avgTime; })) !== Math.max.apply(null, ok.map(function (p) { return p.avgTime; })));
+    if (distinct) ok.forEach(function (p) {
+      var fast = p.avgTime <= medTime, acc = p.accuracy >= medAcc;
+      p.style = fast ? (acc ? "machine" : "sprinter") : (acc ? "thinker" : "slow");
+    });
+    return { players: players, medians: { accuracy: medAcc, time: medTime }, styles: STYLES };
+  }
+
   /* ---------- Historique ---------- */
   function summarize(log) {
     var rows = perPlayer(log), t = totals(log);
@@ -808,7 +899,7 @@ var V40Analysis = (function () {
     return out;
   }
 
-  return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, VIEW_PLAYERS: VIEW_PLAYERS, limitPlayers: limitPlayers, duels: duels, facts: facts, trunc: trunc, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
+  return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, VIEW_PLAYERS: VIEW_PLAYERS, limitPlayers: limitPlayers, duels: duels, facts: facts, categoryReport: categoryReport, playerProfiles: playerProfiles, trunc: trunc, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
     byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, questionInsights: questionInsights, rankingAt: rankingAt, rankingMoments: rankingMoments, rankingTitle: rankingTitle, ordinal: ordinal, recapText: recapText, awards: awards, myAwards: myAwards, myCard: myCard, awardNames: awardNames, myRecords: myRecords, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell,
     tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats, textReport: textReport, textReportTxt: textReportTxt, reactionStats: reactionStats, quantile: quantile };
