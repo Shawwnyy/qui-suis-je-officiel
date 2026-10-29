@@ -34,7 +34,7 @@
   var buf = {};              /* hôte : réponses de la question en cours */
   var seenEv = {};           /* hôte : évènements bonus / malus déjà notés */
   var history = loadHistory();
-  var view = { tab: "overview", src: "live", hidden: new Set(), textSrc: "all", common: false, allLetters: true, alpha: false, nWords: 15 };
+  var view = { tab: "overview", rk: null, src: "live", hidden: new Set(), textSrc: "all", common: false, allLetters: true, alpha: false, nWords: 15 };
   var chatAcc = A.newChat();   /* comptages du chat avant le début d'une partie (jamais le texte des messages) */
 
   /* ===================================================================== Historique */
@@ -63,12 +63,12 @@
   function beginLog() {
     buf = {}; liveDone = false; seenEv = {};
     live = { v: 1, id: "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), at: Date.now(),
-      qt: Number(questionTime) || 0, mode: String(window.v9GameMode || ""), P: [], R: [], C: [], B: [], Ch: chatAcc };
+      qt: Number(questionTime) || 0, mode: String(window.v9GameMode || ""), rc: String(typeof roomCode !== "undefined" && roomCode ? roomCode : "").replace(/[^0-9A-Za-z]/g, "").slice(0, 12), P: [], R: [], C: [], B: [], Ch: chatAcc };
     chatAcc = A.newChat();
     rememberHosted(live.id);
     Object.keys(players).forEach(function (id) { addPlayer(live, players[id]); });
     refreshEntryPoints();
-    broadcast({ type: "v40Entry", kind: "begin", head: { id: live.id, at: live.at, qt: live.qt, mode: live.mode, P: live.P } });
+    broadcast({ type: "v40Entry", kind: "begin", head: { id: live.id, at: live.at, qt: live.qt, mode: live.mode, rc: live.rc, P: live.P } });
   }
   function clampSeconds(t) {
     var qt = Number(questionTime) || 0, left = Number(t);
@@ -204,7 +204,7 @@
   function onEntry(d) {
     if (isHost || !d) return;
     if (d.kind === "begin" && d.head) {
-      var head = A.normalize({ id: d.head.id, at: d.head.at, qt: d.head.qt, mode: d.head.mode, P: d.head.P, R: [], C: [] });
+      var head = A.normalize({ id: d.head.id, at: d.head.at, qt: d.head.qt, mode: d.head.mode, rc: d.head.rc, P: d.head.P, R: [], C: [] });
       if (head) { live = head; liveDone = false; live.Ch = chatAcc; chatAcc = A.newChat(); }
     } else if (d.kind === "round" && live && live.id === d.id && typeof d.n === "number" && d.n >= 0 && d.n < A.MAX_ROUNDS) {
       var np = live.P.length;
@@ -310,7 +310,7 @@
     refreshTimer = setTimeout(function () { if (isOpen()) render(true); }, 120);
   }
 
-  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["records", "🏅 Mes records"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
+  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["ranking", "🏁 Classement"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["records", "🏅 Mes records"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
 
   function render(keepScroll) {
     var log = currentLog();
@@ -350,7 +350,7 @@
       else if (!log || !log.R.length) main.appendChild(emptyState(log));
       else {
         if (!liveDone && log === live) main.appendChild(el("p", { "class": "v40s-note", text: "⏳ Partie en cours : les chiffres sont à jour jusqu’à la dernière question terminée (" + log.R.length + (typeof totalRounds === "number" && totalRounds ? "/" + totalRounds : "") + ")." }));
-        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, records: buildRecords, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
+        var fn = { overview: buildOverview, players: buildPlayers, ranking: buildRanking, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, records: buildRecords, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
         fn(main, log);
       }
     } catch (e) {
@@ -378,6 +378,104 @@
       if (window.console) console.error("V40Stats PDF", e);
       try { if (typeof window.v34Toast === "function") window.v34Toast("Export PDF impossible : " + (e && e.message ? e.message : "erreur")); } catch (e2) {}
     }
+  }
+  /* ---------- 🏁 Classement : 1er, 2e, 3e, 4e… à la mi-partie, à la fin ou après n'importe quelle question, en image ---------- */
+  var RK_FONT = "Arial, Helvetica, sans-serif", RK_W = 760, RK_ROW = 56, RK_MAX = 12;
+  function drawRanking(log, k, withMark) {
+    var n = log.R.length, half = Math.ceil(n / 2), from = k >= n && n >= 2 ? half : (k >= 1 ? k - 1 : null);
+    var rows = A.rankingAt(log, k, from), shown = rows.slice(0, RK_MAX), extra = rows.length - shown.length, S = K.STATE;
+    var scale = 2, pad = 24, headH = 96, H = headH + shown.length * RK_ROW + (extra > 0 ? 30 : 0) + 38 + (withMark ? K.FOOT : 0);
+    var cv = document.createElement("canvas"); cv.width = RK_W * scale; cv.height = H * scale;
+    var ctx = cv.getContext("2d"); ctx.scale(scale, scale);
+    ctx.fillStyle = K.C.surface; ctx.fillRect(0, 0, RK_W, H);
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
+    ctx.fillStyle = K.C.ink; ctx.font = "900 26px " + RK_FONT; ctx.fillText("🏁 Classement — " + A.rankingTitle(log, k), pad, 40);
+    ctx.fillStyle = K.C.ink2; ctx.font = "400 15px " + RK_FONT;
+    ctx.fillText(dateLabel(log.at) + " · " + log.P.length + " joueur" + (log.P.length > 1 ? "s" : "") + (log.rc ? " · 🔑 Code de la salle : " + log.rc : ""), pad, 68);
+    var top = rows.length ? Math.max(rows[0].score, 1) : 1, MEDAL = ["#f5c518", "#c0c7d1", "#cd7f32"], bx = 380, bw = 200;
+    shown.forEach(function (r, i) {
+      var y = headH + i * RK_ROW, mid = y + RK_ROW / 2;
+      if (i % 2 === 0) { ctx.fillStyle = "rgba(255,255,255,.04)"; ctx.fillRect(pad - 8, y + 2, RK_W - pad * 2 + 16, RK_ROW - 4); }
+      ctx.textAlign = "left"; ctx.fillStyle = r.rank <= 3 ? MEDAL[r.rank - 1] : K.C.ink2; ctx.font = "900 22px " + RK_FONT;
+      ctx.fillText((r.rank === 1 ? "🥇 " : r.rank === 2 ? "🥈 " : r.rank === 3 ? "🥉 " : "") + r.label, pad, mid + 8);
+      ctx.fillStyle = K.C.ink; ctx.font = "400 28px " + RK_FONT; ctx.fillText(r.avatar || "🙂", 124, mid + 10);
+      ctx.font = "700 19px " + RK_FONT; var nm = r.name + (r.left ? " (parti)" : ""); while (nm.length > 3 && ctx.measureText(nm).width > 196) nm = nm.slice(0, -2) + "…";
+      ctx.fillText(nm, 166, mid + 7);
+      ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.fillRect(bx, mid - 9, bw, 18);
+      ctx.fillStyle = r.rank <= 3 ? MEDAL[r.rank - 1] : K.C.palette[0]; ctx.fillRect(bx, mid - 9, Math.max(r.score > 0 ? 3 : 0, bw * r.score / top), 18);
+      ctx.fillStyle = K.C.ink; ctx.font = "800 18px " + RK_FONT; ctx.fillText(fmt.int(r.score) + " pts", bx + bw + 14, mid + 6);
+      ctx.textAlign = "right"; ctx.font = "800 17px " + RK_FONT;
+      if (r.move === null || r.move === 0) { ctx.fillStyle = K.C.muted; ctx.fillText(r.move === null ? "" : "＝", RK_W - pad, mid + 6); }
+      else { ctx.fillStyle = r.move > 0 ? S[1].color : S[2].color; ctx.fillText((r.move > 0 ? "▲ " : "▼ ") + Math.abs(r.move), RK_W - pad, mid + 6); }
+    });
+    var y2 = headH + shown.length * RK_ROW;
+    ctx.textAlign = "left"; ctx.fillStyle = K.C.muted; ctx.font = "400 14px " + RK_FONT;
+    if (extra > 0) { ctx.fillText("… et " + extra + " autre" + (extra > 1 ? "s" : "") + " joueur" + (extra > 1 ? "s" : ""), pad, y2 + 22); y2 += 30; }
+    if (rows.some(function (r) { return r.move !== null; })) ctx.fillText("Les flèches indiquent les places gagnées ▲ ou perdues ▼ depuis " + (from === half && k >= n ? "la mi-partie." : "la question précédente."), pad, y2 + 24);
+    if (withMark) K.watermark(ctx, RK_W, H, RK_FONT);
+    return cv;
+  }
+  function buildRanking(main, log) {
+    var n = log.R.length, half = Math.ceil(n / 2), cv = null, label, slider, wrap;
+    if (view.rk === null || view.rk > n) view.rk = half;
+    function repaint() {
+      var k = Math.max(0, Math.min(n, view.rk)), fresh = drawRanking(log, k, true);
+      if (cv) { cv.width = fresh.width; cv.height = fresh.height; cv.getContext("2d").drawImage(fresh, 0, 0); }
+      label.textContent = A.rankingTitle(log, k); slider.value = String(k); slider.setAttribute("aria-valuetext", A.rankingTitle(log, k));
+      [].forEach.call(wrap.querySelectorAll("[data-rk]"), function (b) { var on = Number(b.getAttribute("data-rk")) === k; b.className = "v40s-btn" + (on ? " on" : ""); b.setAttribute("aria-pressed", String(on)); });
+    }
+    function go(k) { view.rk = k; repaint(); }
+    slider = el("input", { type: "range", min: "0", max: String(n), step: "1", value: String(view.rk), "aria-label": "Choisir le moment de la partie", style: "flex:1;min-width:160px" });
+    slider.addEventListener("input", function () { go(Number(slider.value)); });
+    label = el("div", { id: "v40sRankLabel", "aria-live": "polite", style: "font-weight:800;margin:12px 4px 8px" });
+    var btns = [["Début", 0]];
+    if (n >= 2) btns.push(["Mi-partie", half]);
+    btns.push(["Fin", n]);
+    wrap = el("div", { "class": "v40s-textbar", role: "group", "aria-label": "Moment de la partie" });
+    btns.forEach(function (b) { wrap.appendChild(el("button", { type: "button", "class": "v40s-btn", "data-rk": String(b[1]), text: b[0], onclick: function () { go(b[1]); } })); });
+    var prev = el("button", { type: "button", "class": "v40s-btn", text: "◀", "aria-label": "Question précédente", onclick: function () { go(Math.max(0, view.rk - 1)); } });
+    var next = el("button", { type: "button", "class": "v40s-btn", text: "▶", "aria-label": "Question suivante", onclick: function () { go(Math.min(n, view.rk + 1)); } });
+    wrap.appendChild(prev); wrap.appendChild(slider); wrap.appendChild(next);
+    cv = el("canvas", { id: "v40sRankCanvas", role: "img", "aria-label": "Classement de la partie", style: "width:100%;max-width:" + RK_W + "px;height:auto;border-radius:12px;display:block;margin:10px auto" });
+    var copyB = el("button", { type: "button", id: "v40sRankCopy", "class": "v40s-tool", text: "📋 Copier l’image" });
+    var saveB = el("button", { type: "button", id: "v40sRankSave", "class": "v40s-tool", text: "⬇️ PNG" });
+    var markB = el("button", { type: "button", id: "v40sRankMark", "class": "v40s-tool v40s-mark" });
+    function mk() { return new Promise(function (res, rej) { drawRanking(log, view.rk, K.markOn()).toBlob(function (b) { b ? res(b) : rej(new Error("png")); }, "image/png"); }); }
+    function say(b, m, back) { b.textContent = m; setTimeout(function () { b.textContent = back; }, 2600); }
+    function dl(blob) { var a = el("a", { href: URL.createObjectURL(blob), download: "classement-" + (view.rk >= n ? "fin" : view.rk === half && n >= 2 ? "mi-partie" : "question-" + view.rk) + ".png" }); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { try { URL.revokeObjectURL(a.href); } catch (e) {} }, 4000); }
+    copyB.addEventListener("click", function () {
+      var p = mk();
+      if (navigator.clipboard && window.ClipboardItem && navigator.clipboard.write) navigator.clipboard.write([new ClipboardItem({ "image/png": p })]).then(function () { say(copyB, "✓ Image copiée", "📋 Copier l’image"); }, function () { p.then(dl); say(copyB, "⬇️ Image enregistrée", "📋 Copier l’image"); });
+      else p.then(dl).then(function () { say(copyB, "⬇️ Image enregistrée", "📋 Copier l’image"); });
+    });
+    saveB.addEventListener("click", function () { mk().then(function (b) { dl(b); say(saveB, "✓ Image enregistrée", "⬇️ PNG"); }, function () { say(saveB, "✗ Échec", "⬇️ PNG"); }); });
+    markB.addEventListener("click", function () { if (!K.canSkipMark()) return; K.setNoMarkPref(!K.noMarkPref()); paintRankMark(markB); });
+    paintRankMark(markB);
+    main.appendChild(el("section", { "class": "v40s-card" }, [
+      el("div", { "class": "v40s-cardhead" }, [el("div", null, [el("h3", { text: "Classement de la partie" }), el("p", { text: "Qui est 1er, 2e, 3e, 4e… à la mi-partie, à la fin ou après n’importe quelle question. Les flèches montrent les places gagnées ou perdues." })]), el("div", { "class": "v40s-cardctl", "aria-live": "polite" }, [copyB, saveB, markB])]),
+      label, wrap, cv
+    ]));
+    repaint();
+    /* toutes les parties enregistrées : leader à la mi-partie et à la fin, un clic pour voir l'image */
+    var list = history.slice(); if (live && !list.some(function (g) { return g.id === live.id; })) list.unshift(live);
+    list = list.filter(function (g) { return g.R.length; });
+    if (list.length > 1 || (list.length === 1 && list[0] !== log)) main.appendChild(allGamesCard(list));
+  }
+  function paintRankMark(b) { var skip = K.noMarkPref() && K.canSkipMark(); b.textContent = skip ? "💧 Sans filigrane" : "💧 Avec filigrane"; b.setAttribute("aria-pressed", String(skip)); b.title = "Réservé à l’hôte : les images des joueurs ont toujours le filigrane « " + K.BRAND + " »."; }
+  function leaderText(rows) { var tops = rows.filter(function (r) { return r.rank === 1; }); return tops.length ? tops.map(function (r) { return (r.avatar ? r.avatar + " " : "") + r.name; }).join(" & ") + " (" + fmt.int(tops[0].score) + ")" : "—"; }
+  function allGamesCard(list) {
+    var box = el("section", { "class": "v40s-card" }, [el("div", { "class": "v40s-cardhead" }, [el("div", null, [el("h3", { text: "La mi-partie et la fin de chaque partie" }), el("p", { text: "Le ou les premiers à la moitié de chaque partie enregistrée, puis à la fin. Clique pour afficher l’image du classement." })])])]);
+    var t = el("table", { "class": "v40s-table" }), hr = el("tr", null, ["Partie", "Code", "1er à la mi-partie", "1er à la fin", "Images"].map(function (h) { return el("th", { scope: "col", text: h }); }));
+    t.appendChild(el("thead", null, [hr]));
+    var tb = el("tbody");
+    list.forEach(function (g) {
+      var n = g.R.length, half = Math.ceil(n / 2), mid = n >= 2 ? leaderText(A.rankingAt(g, half)) : "—", end = leaderText(A.rankingAt(g, n));
+      function show(k) { return function () { view.src = g === live && (!history.some(function (h) { return h.id === g.id; })) ? "live" : g.id; view.rk = k; view.hidden = new Set(); view.tab = "ranking"; render(); }; }
+      var cell = el("td", null, [n >= 2 ? el("button", { type: "button", "class": "v40s-tool", text: "Mi-partie", onclick: show(half) }) : null, " ", el("button", { type: "button", "class": "v40s-tool", text: "Fin", onclick: show(n) })]);
+      tb.appendChild(el("tr", null, [el("th", { scope: "row", text: dateLabel(g.at) + " · " + n + " q." }), el("td", { text: g.rc || "—" }), el("td", { text: mid }), el("td", { text: end }), cell]));
+    });
+    t.appendChild(tb); box.appendChild(el("div", { "class": "v40s-tablewrap", tabindex: "0", role: "region", "aria-label": "Mi-partie et fin de chaque partie" }, [t]));
+    return box;
   }
   function copyRecap(btn) {
     var log = currentLog(); if (!log || !log.R.length) return;

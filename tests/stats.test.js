@@ -220,5 +220,30 @@ t("records : réussite cumulée 6 sur 8", mr.totalCorrect === 6 && mr.totalAnswe
 t("records : prénom vide ou inconnu → rien, sans erreur", A.myRecords([gA], "").played === 0 && A.myRecords([gA], "").bestScore === null && A.myRecords([gA], "Inconnu").overall === null);
 t("records : si aucune partie n'a 5 réponses, on prend la meilleure réussite quand même", A.myRecords([gA], "Léa").bestAccuracy.id === "a");
 
+/* --- classement à chaque moment de la partie (mi-partie, fin, après chaque question) + code de la salle --- */
+const rk2 = A.rankingAt(log, 2), rk4 = A.rankingAt(log, 4), rk0 = A.rankingAt(log, 0);
+t("classement après la question 2 : Léa 1900 (1er), Tom et Max à égalité à 0 (2e)", rk2.map(r => r.name + ":" + r.score + ":" + r.label).join() === "Léa:1900:1er,Tom:0:2e,Max:0:2e");
+t("classement au départ : tout le monde à égalité 1er", rk0.every(r => r.rank === 1 && r.score === 0 && r.label === "1er"));
+t("classement final = rangs et scores de perPlayer", rk4.every(r => { const p = A.perPlayer(log)[r.idx]; return p.rank === r.rank && p.final === r.score; }));
+t("écart avec le 1er", rk4.map(r => r.gap).join() === "0,1100,2600");
+t("pas de flèche sans point de comparaison", rk4.every(r => r.move === null));
+const rkm = A.rankingAt(log, 4, 2);
+t("flèches depuis la mi-partie : Léa et Tom stables, Max perd une place", rkm.map(r => r.name + ":" + r.move).join() === "Léa:0,Tom:0,Max:-1");
+t("un joueur qui gagne des places a une flèche positive", A.rankingAt(A.normalize({ id: "m", at: 1, qt: 20, P: [{ i: "a", n: "A" }, { i: "b", n: "B" }], R: [{ q: "x", c: "c", d: "facile", m: 0, r: [[1, 1, 500], [2, 1, 100]] }, { q: "y", c: "c", d: "facile", m: 0, r: [[2, 1, 500], [1, 1, 900]] }] }), 2, 1).map(r => r.name + ":" + r.rank + ":" + r.move).join() === "B:1:1,A:2:-1");
+t("moment hors limites ramené dans la partie", A.rankingAt(log, 99).length === 3 && A.rankingAt(log, 99)[0].score === 2600 && A.rankingAt(log, -3)[0].score === 0 && A.rankingAt(log, NaN)[0].score === 0);
+t("rangs ordinaux : 1er, 2e, 3e, 12e", [1, 2, 3, 12].map(A.ordinal).join() === "1er,2e,3e,12e");
+t("moments : mi-partie après 2 questions sur 4, puis la fin", A.rankingMoments(log).map(m => m.key + ":" + m.round).join() === "half:2,end:4");
+t("moments : 5 questions → mi-partie arrondie au-dessus (3)", A.rankingMoments({ R: [1, 2, 3, 4, 5] }).map(m => m.key + ":" + m.round).join() === "half:3,end:5");
+t("moments : 1 question → seulement la fin ; partie vide → aucun", A.rankingMoments({ R: [1] }).map(m => m.key).join() === "end" && A.rankingMoments({ R: [] }).length === 0);
+t("titres des moments", A.rankingTitle(log, 0) === "Départ" && A.rankingTitle(log, 2) === "Mi-partie (après la question 2 sur 4)" && A.rankingTitle(log, 3) === "Après la question 3 sur 4" && A.rankingTitle(log, 4) === "Fin de partie (4 questions)");
+const withRc = A.normalize({ id: "rc", at: 1, qt: 20, rc: "12 34-56", P: [{ i: "a", n: "A" }], R: [{ q: "x", c: "c", d: "facile", m: 0, r: [[1, 1, 500]] }] });
+t("code de la salle : nettoyé (chiffres et lettres), absent si non fourni", withRc.rc === "123456" && log.rc === undefined && A.normalize({ id: "x", P: [{ i: "a", n: "A" }], R: [], rc: "<script>" }).rc === "script");
+t("code de la salle : ajouté au récap", A.recapText(withRc, "").split("\n").indexOf("🔑 Code de la salle : 123456") > 0 && A.recapText(log, "").indexOf("Code de la salle") < 0);
+
+/* le code de la salle est noté par l'hôte, envoyé aux joueurs dans l'en-tête de la partie et relu par eux (parties à plusieurs, y compris à partir d'un cours) */
+const stSrc = require("fs").readFileSync(__dirname + "/../js/stats/stats.js", "utf8");
+t("code de la salle : noté au lancement, envoyé dans l'en-tête, relu côté joueur", /live = \{[\s\S]{0,400}?rc: String\(typeof roomCode/.test(stSrc) && /head: \{[^}]*rc: live\.rc/.test(stSrc) && /A\.normalize\(\{[^}]*rc: d\.head\.rc/.test(stSrc));
+t("onglet Classement : image avec code, flèches, filigrane géré par K.markOn", /ranking: buildRanking/.test(stSrc) && /Code de la salle/.test(stSrc) && /K\.watermark\(ctx, RK_W, H/.test(stSrc) && /drawRanking\(log, view\.rk, K\.markOn\(\)\)/.test(stSrc));
+
 console.log("Stats : " + ok + " OK, " + ko + " échec(s)");
 process.exit(ko ? 1 : 0);

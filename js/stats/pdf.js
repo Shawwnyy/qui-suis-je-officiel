@@ -237,6 +237,20 @@ var V40Pdf = (function () {
       { h: "Temps moy.", w: 10, a: "right", f: function (r) { return secs(r.avgTime); } },
       { h: "Infract.", w: 8, a: "right", f: function (r) { return String(r.cheats); }, color: function (r) { return r.cheats ? C.bad : C.ink; } }
     ], ranked);
+    /* ----- Classement à la mi-partie (avec les places gagnées ou perdues jusqu'à la fin) ----- */
+    if (log.R.length >= 2) {
+      var halfK = Math.ceil(log.R.length / 2), halfRows = A.rankingAt(log, halfK), endPos = {};
+      A.rankingAt(log, log.R.length).forEach(function (r) { endPos[r.idx] = r.rank; });
+      y += 8;
+      title("Classement à la mi-partie (après la question " + halfK + " sur " + log.R.length + ")", 16 * Math.min(halfRows.length + 1, 14));
+      table([
+        { h: "#", w: 4, a: "center", f: function (r) { return String(r.rank); } },
+        { h: "Joueur", w: 26, f: function (r) { return r.name; }, bold: function (r) { return r.rank === 1; } },
+        { h: "Score", w: 10, a: "right", f: function (r) { return String(r.score); }, bold: function () { return true; } },
+        { h: "Écart avec le 1er", w: 14, a: "right", f: function (r) { return r.gap ? "-" + r.gap : "-"; } },
+        { h: "Rang final", w: 10, a: "center", f: function (r) { var d = r.rank - endPos[r.idx]; return endPos[r.idx] + (d > 0 ? "  (+" + d + ")" : d < 0 ? "  (" + d + ")" : ""); } }
+      ], halfRows);
+    }
 
     /* ----- Couleur d'un joueur : la même dans tous les graphiques (selon son rang final) ----- */
     var series = A.scoreSeries(log), order = ranked.slice(0, SERIES.length), colorOf = {};

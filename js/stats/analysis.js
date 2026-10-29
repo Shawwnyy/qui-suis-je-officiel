@@ -44,6 +44,7 @@ var V40Analysis = (function () {
       v: 1, id: str(raw.id, 40) || ("g" + Date.now()), at: int(raw.at, 0, 4102444800000, 0),
       qt: int(raw.qt, 0, 600, 0), mode: str(raw.mode, 20), P: [], R: [], C: [], B: []
     };
+    var rc = str(raw.rc, 12).replace(/[^0-9A-Za-z]/g, ""); if (rc) log.rc = rc;          /* code de la salle (partie à plusieurs, y compris à partir d'un cours) */
     raw.P.forEach(function (p) {
       p = p || {};
       log.P.push({ i: str(p.i, 64), n: str(p.n, 40) || "Joueur", a: str(p.a, 12), h: p.h ? 1 : 0, x: p.x ? 1 : 0 });
@@ -428,6 +429,38 @@ var V40Analysis = (function () {
     return out;
   }
 
+  /* ---------- Classement à un moment de la partie (après k questions) : 1er, 2e, 3e, 4e… ---------- */
+  function ordinal(r) { return r === 1 ? "1er" : r + "e"; }
+  function rankingAt(log, k, from) {
+    var n = log.R.length; k = Math.max(0, Math.min(n, Math.round(Number(k)) || 0));
+    function board(upto) {
+      var rows = log.P.map(function (p, idx) { return { idx: idx, id: p.i, name: p.n, avatar: p.a, host: !!p.h, left: !!p.x, score: 0, rank: 0 }; }), q;
+      for (q = 0; q < upto; q++) log.R[q].r.forEach(function (e, i) { if (rows[i] && e[0] !== 0) rows[i].score = e[2]; });
+      var sorted = rows.slice().sort(function (a, b) { return b.score - a.score || a.idx - b.idx; });
+      sorted.forEach(function (r, i) { r.rank = i > 0 && sorted[i - 1].score === r.score ? sorted[i - 1].rank : i + 1; });
+      return sorted;
+    }
+    var now = board(k), lead = now.length ? now[0].score : 0, prev = null;
+    if (from !== undefined && from !== null && Math.round(Number(from)) >= 0 && Math.round(Number(from)) < k) { prev = {}; board(Math.round(Number(from))).forEach(function (r) { prev[r.idx] = r.rank; }); }
+    now.forEach(function (r) { r.gap = lead - r.score; r.label = ordinal(r.rank); r.move = prev ? prev[r.idx] - r.rank : null; });
+    return now;
+  }
+  /* Les moments à regarder : la mi-partie (à la moitié des questions, arrondie au-dessus) et la fin */
+  function rankingMoments(log) {
+    var n = log.R.length, out = [];
+    if (!n) return out;
+    if (n >= 2) out.push({ key: "half", round: Math.ceil(n / 2), label: "Mi-partie" });
+    out.push({ key: "end", round: n, label: "Fin de partie" });
+    return out;
+  }
+  function rankingTitle(log, k) {
+    var n = log.R.length;
+    if (k <= 0) return "Départ";
+    if (k >= n) return "Fin de partie (" + n + " question" + (n > 1 ? "s" : "") + ")";
+    if (n >= 2 && k === Math.ceil(n / 2)) return "Mi-partie (après la question " + k + " sur " + n + ")";
+    return "Après la question " + k + " sur " + n;
+  }
+
   /* ---------- Récap à coller dans un message (texte brut) ---------- */
   function nfr(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f"); }
   function recapText(log, dateStr) {
@@ -445,6 +478,7 @@ var V40Analysis = (function () {
     if (fs) L.push("⚡ Réponse la plus rapide : " + fs.name + " (" + (Math.round(fs.fastest * 10) / 10).toString().replace(".", ",") + " s)");
     var hd = hardest(log, 1)[0];
     if (hd) L.push("🧗 Question la plus difficile : « " + (hd.q || "(sans texte)").slice(0, 90) + " » (" + pctFr(hd.rate) + " de réussite)");
+    if (log.rc) L.push("🔑 Code de la salle : " + log.rc);
     L.push("🎮 qui-suis-je-officiel");
     return L.join("\n");
   }
@@ -574,7 +608,7 @@ var V40Analysis = (function () {
   }
 
   return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
-    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, questionInsights: questionInsights, recapText: recapText, myRecords: myRecords, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
+    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, questionInsights: questionInsights, rankingAt: rankingAt, rankingMoments: rankingMoments, rankingTitle: rankingTitle, ordinal: ordinal, recapText: recapText, myRecords: myRecords, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell,
     tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats, textReport: textReport, textReportTxt: textReportTxt, reactionStats: reactionStats, quantile: quantile };
 })();
