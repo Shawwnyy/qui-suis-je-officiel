@@ -344,8 +344,10 @@
     if (!log || !log.R.length) pdfBtn.disabled = true;
     var pdfDark = el("button", { type: "button", id: "v40sPdfDark", "class": "v40s-btn", text: "🌙 PDF sombre", title: "Télécharger tous les tableaux et graphiques en PDF, fond sombre (idéal à l’écran)", onclick: function () { exportPDF("dark"); } });
     if (!log || !log.R.length) pdfDark.disabled = true;
+    var mailBtn = el("button", { type: "button", id: "v40sMail", "class": "v40s-btn", text: "✉️ E-mail", title: "Recevoir les statistiques par e-mail (sans serveur : ton application de messagerie s’ouvre avec le message prêt)", onclick: function () { openMail(); } });
+    if (!log || !log.R.length) mailBtn.disabled = true;
     var closeBtn = el("button", { type: "button", id: "v40sClose", "class": "v40s-btn close", "aria-label": "Fermer les statistiques", text: "✕", onclick: close });
-    wrap.appendChild(el("div", { "class": "v40s-top" }, [el("h2", { id: "v40sTitle", text: "📊 Statistiques" }), el("div", { "class": "v40s-actions" }, [sel, recapBtn, pdfBtn, pdfDark, csvBtn, closeBtn])]));
+    wrap.appendChild(el("div", { "class": "v40s-top" }, [el("h2", { id: "v40sTitle", text: "📊 Statistiques" }), el("div", { "class": "v40s-actions" }, [sel, recapBtn, mailBtn, pdfBtn, pdfDark, csvBtn, closeBtn])]));
     /* ---- onglets ---- */
     var tabs = el("div", { "class": "v40s-tabs", role: "tablist" });
     TABS.forEach(function (t) {
@@ -494,6 +496,14 @@
     });
     t.appendChild(tb); box.appendChild(el("div", { "class": "v40s-tablewrap", tabindex: "0", role: "region", "aria-label": "Mi-partie et fin de chaque partie" }, [t]));
     return box;
+  }
+  /* ✉️ e-mail sans serveur : js/stats/mail.js prépare le message, le navigateur ouvre la messagerie */
+  function openMail() {
+    var log = currentLog(); if (!log || !log.R.length) return;
+    if (!window.V61MailUI) { try { if (typeof window.v34Toast === "function") window.v34Toast("L’envoi par e-mail n’est pas disponible."); } catch (e) {} return; }
+    var me = (typeof myName === "string" ? myName : "").trim();
+    window.V61MailUI.open({ host: document.body, log: log, dateStr: dateLabel(log.at), recap: function () { return A.recapText(log, dateLabel(log.at)); }, card: function () { return me ? A.myCard(log, me) : null; },
+      pdf: function (dark) { if (!window.V40Pdf) throw new Error("module PDF absent"); return window.V40Pdf.build(log, { theme: dark ? "dark" : "light" }); }, pdfDownload: function () { exportPDF("light"); } });
   }
   function copyRecap(btn) {
     var log = currentLog(); if (!log || !log.R.length) return;

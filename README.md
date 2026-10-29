@@ -426,6 +426,16 @@ Une carte « ✨ Outils de l'hôte » s'affiche sous « Ta partie en un coup d'�
 - **Barre d'onglets** : elle revenait toute à gauche à chaque clic, et l'onglet choisi (Catégories, Profils…) disparaissait hors de l'écran ; elle garde maintenant sa position et amène l'onglet choisi en vue. Le contenu du nouvel onglet s'ouvre toujours tout en haut.
 - Tests : `node tests/e2e/stats.e2e.js` (graphiques réels, changement de joueur, mémoire du choix, barre d'onglets en fenêtre étroite — mutations vérifiées).
 
+## ✉️ Recevoir les statistiques par e-mail, sans serveur (`js/stats/mail.js`, bouton « ✉️ E-mail » des statistiques)
+Le jeu n'a **aucun serveur** et n'envoie rien lui-même : il prépare le message et c'est **toi qui appuies sur « Envoyer »**.
+- **📧 Mon application de messagerie** : ouvre un lien `mailto:` avec le sujet (« 🏆 Statistiques de la partie — date · N joueurs ») et le message déjà écrit : **ton bilan perso** (rang, score, réussite, meilleure série, trophées ; si ton prénom est dans la partie) puis le **récap du groupe** (podium, série, rapidité, trophées, code de salle).
+- **Gmail** et **Outlook** : ouvrent la page « nouveau message » préremplie dans un nouvel onglet (https, `noopener`).
+- **📎 Avec le PDF joint** : sur téléphone (et les navigateurs qui savent partager un fichier), le menu de partage s'ouvre avec le PDF des statistiques : choisis ta messagerie, le fichier est déjà joint. Sur ordinateur, le PDF est téléchargé et l'e-mail est préparé avec la consigne de le joindre.
+- **📋 Copier le message** et **👀 Voir le message** (aperçu).
+- **Adresse facultative** : une seule adresse, sans espace ni virgule ni `? & # = : /` (impossible de glisser un destinataire ou un champ en plus dans le lien). « Retenir cette adresse sur cet appareil » la garde dans le navigateur, nulle part ailleurs.
+- **Liens longs** : un lien `mailto:` est limité à ≈ 2 000 caractères (les émojis comptent double). Si le message est trop long, la ligne « trophées du groupe » puis la fin du récap sautent, **ton bilan perso reste en haut**, et le **message complet est copié** dans le presse-papiers.
+- Tests : `node tests/mail.test.js` (adresses, liens, longueur, absence de tout appel réseau — mutations vérifiées) et, avec Playwright, `node tests/e2e/mail.e2e.js` (vraie fenêtre, messagerie, Gmail, Outlook, PDF, adresse retenue, **aucune requête réseau faite par le jeu**).
+
 ## 🔒 Corrections de sécurité de cette version
 - Un joueur dont l'identifiant réseau est un mot réservé du langage (`__proto__`, `constructor`…) pouvait corrompre la liste des joueurs de tout le jeu : son arrivée est désormais ignorée, et le sondage comme les équipes ne reconnaissent un joueur que s'il existe vraiment dans la liste.
 - **Usurpation d'identité** : l'hôte croyait l'identité écrite dans chaque message, donc n'importe quel invité pouvait répondre, écrire dans le chat, choisir un pouvoir ou accepter les règles **au nom d'un autre joueur**, ou envoyer une fiche truquée (`host: true`, « règles acceptées », score). Désormais l'identité vient **de la connexion réseau** pour tous les messages d'un invité, et la fiche du joueur est **reconstruite par l'hôte**.

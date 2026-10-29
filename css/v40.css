@@ -183,3 +183,23 @@ html.v40s-lock,html.v40s-lock body{overflow:hidden!important}
 
 .v40s-forcelab{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:13px;font-weight:700;color:#c3c2b7}
 .v40s-forcepick{max-width:100%;min-height:36px;padding:4px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:#262625;color:#f0efec;font:inherit}
+
+.v61-mail{position:fixed;inset:0;z-index:100001;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.62)}
+.v61-card{width:min(520px,100%);max-height:100%;overflow:auto;padding:18px;border-radius:16px;background:#1f1f1e;border:1px solid rgba(255,255,255,.22);color:#f0efec;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+.v61-card h3{margin:0 0 6px;font-size:1.15rem}
+.v61-note{margin:0 0 12px;font-size:.88rem;line-height:1.4;color:#c3c2b7}
+.v61-lab{display:block;margin:6px 0 4px;font-weight:800;font-size:.9rem}
+.v61-input{width:100%;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.28);background:#161615;color:#f0efec;font:inherit}
+.v61-check{display:flex;align-items:flex-start;gap:8px;margin:8px 0;font-size:.88rem;line-height:1.35}
+.v61-check input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:0 0 auto;display:inline-grid;place-content:center;width:24px;height:24px;min-width:24px;margin:0;padding:0;border-radius:7px;background:rgba(255,255,255,.08);border:2px solid rgba(255,255,255,.45);cursor:pointer}
+.v61-check input[type=checkbox]:checked{background:#7c3aed;border-color:#c4b5fd}
+.v61-check input[type=checkbox]:checked::after{content:"✓";color:#fff;font-weight:900;font-size:16px;line-height:1}
+.v61-check input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
+.v61-check input[type=checkbox]:focus-visible{outline:3px solid rgba(168,85,247,.7);outline-offset:2px}
+.v61-row{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 6px}
+.v61-b{width:auto;flex:1 1 auto;min-height:44px}
+.v61-msg{min-height:1.2em;margin:6px 0;font-size:.88rem;line-height:1.4}
+.v61-msg.ok{color:#86efac}.v61-msg.bad{color:#fca5a5}
+.v61-prev{margin:6px 0 10px;font-size:.88rem}
+.v61-pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:200px;overflow:auto;margin:6px 0 0;padding:10px;border-radius:10px;background:#161615;font:inherit;font-size:.85rem}
+.v61-close{width:100%;min-height:44px}
