@@ -173,5 +173,52 @@ t("roue : séries nettes cohérentes", wp.netSeries[0].values.join() === "0,300,
 t("roue : libellés lisibles", A.powerName([1, 0, 0, 1, "w_jackpot", 0, 0, ""]) === "Roue : jackpot +1000" && A.powerName([1, 0, 0, 2, "w_tax", 0, 0, ""]) === "Roue : impôt −15 %");
 t("roue : total = pouvoirs + tirages", wp.total === 5 && wp.bonus === 1 && wp.malus === 1);
 
+/* --- questions : graphiques supplémentaires (fatigue, issues, temps par thème, divisent, surprises) --- */
+const qi = A.questionInsights(log);
+t("3 moments de la partie", qi.thirds.length === 3 && qi.thirds.map(g => g.questions).join() === "2,1,1");
+t("moments : réussite 3/6, 1/2, 2/2", qi.thirds.map(g => g.correct + "/" + g.answers).join() === "3/6,1/2,2/2" && qi.thirds[2].rate === 1);
+t("moments : libellés lisibles", qi.thirds[0].label === "Début · Q1–2" && qi.thirds[1].label === "Milieu · Q3" && qi.thirds[2].label === "Fin · Q4");
+t("issues par difficulté : facile 4/1/0, moyen 1/1/1, difficile 1/1/0", qi.mix.map(g => g.label + ":" + g.correct + "/" + g.wrong + "/" + g.none).join() === "facile:4/1/0,moyen:1/1/1,difficile:1/1/0");
+t("issues : le total des 3 états = les réponses de la partie", qi.mix.reduce((a, g) => a + g.correct + g.wrong + g.none, 0) === tot.answers);
+t("temps par thème : Sciences 5,5 > Géographie 4,24 > Arts 4", qi.themeTime.map(g => g.label.split(" ")[1] + ":" + Math.round(g.avgTime * 100) / 100).join() === "Sciences:5.5,Géographie:4.24,Arts:4");
+t("questions les plus longues : 1, 3, 2, 4", qi.slowest.map(r => r.round).join() === "1,3,2,4");
+t("questions qui divisent : Q3 (50 %) puis Q1, Q4 en dernier", qi.divisive[0].round === 3 && qi.divisive[1].round === 1 && qi.divisive[qi.divisive.length - 1].round === 4);
+t("plus faciles que prévu : Q4 (100 % contre 80 % en facile)", qi.easier.length === 1 && qi.easier[0].round === 4 && Math.abs(qi.easier[0].dev - 0.2) < 1e-9 && Math.abs(qi.easier[0].expected - 0.8) < 1e-9);
+t("plus difficiles que prévu : aucune (écart de −13 % seulement)", qi.harder.length === 0);
+const qe = A.questionInsights(empty);
+t("partie vide : aucun graphique supplémentaire, sans erreur", qe.thirds.length === 0 && qe.mix.length === 0 && qe.themeTime.length === 0 && qe.slowest.length === 0 && qe.divisive.length === 0);
+const two = A.normalize({ id: "g2", at: 1, qt: 20, P: [{ i: "a", n: "A", a: "🦊" }], R: [{ q: "x", c: "c", d: "facile", m: 0, r: [[1, 2, 100]] }, { q: "y", c: "c", d: "facile", m: 0, r: [[2, 4, 100]] }] });
+const q2 = A.questionInsights(two);
+t("deux questions seulement : pas de découpage en trois moments", q2.thirds.length === 0 && q2.mix.length === 1 && q2.divisive.length === 0);
+
+/* --- récap à coller dans un message --- */
+const rc = A.recapText(log, "29 oct.").split("\n");
+t("récap : titre avec la date", rc[0] === "🏆 Récap de la partie — 29 oct.");
+t("récap : podium dans l'ordre avec médailles", /^🥇 🦊 Léa — 2\u202f600 pts \(75 % de bonnes réponses\)$/.test(rc[1]) && /^🥈 🐻 Tom — 1\u202f500 pts/.test(rc[2]) && /^🥉 🐸 Max — 0 pts \(0 % de bonnes réponses\)$/.test(rc[3]));
+t("récap : nombre de questions et réussite du groupe", rc.indexOf("❓ 4 questions · ✅ réussite du groupe : 60 %") === 5);
+t("récap : série, réponse la plus rapide, question la plus difficile", rc.indexOf("🔥 Plus longue série : Léa (2 bonnes réponses d’affilée)") > 0 && rc.indexOf("⚡ Réponse la plus rapide : Léa (1,5 s)") > 0 && rc.indexOf("🧗 Question la plus difficile : « Qui a peint la Joconde ? » (33,3 % de réussite)") > 0);
+t("récap : signature en dernière ligne, aucune ligne vide en trop", rc[rc.length - 1] === "🎮 qui-suis-je-officiel" && rc.filter(l => l === "").length === 1);
+const bigRaw = { id: "big", at: 5, qt: 20, P: Array.from({ length: 13 }, (_, i) => ({ i: "p" + i, n: "J" + i })), R: [{ q: "x", c: "c", d: "facile", m: 0, r: Array.from({ length: 13 }, (_, i) => [1, 2, 100 * (i + 1)]) }] };
+const rcBig = A.recapText(A.normalize(bigRaw), "").split("\n");
+t("récap : 13 joueurs → 10 lignes + « … et 3 autres », sans date", rcBig[0] === "🏆 Récap de la partie" && rcBig.filter(l => /^(🥇|🥈|🥉|\d+\.) /.test(l)).length === 10 && rcBig.indexOf("… et 3 autres") === 11);
+const bigN = n => A.recapText(A.normalize({ id: "b" + n, at: 5, qt: 20, P: Array.from({ length: n }, (_, i) => ({ i: "p" + i, n: "J" + i })), R: [{ q: "x", c: "c", d: "facile", m: 0, r: Array.from({ length: n }, (_, i) => [1, 2, 100 * (i + 1)]) }] }), "").split("\n");
+t("récap : 10 joueurs → pas de « … et », 11 joueurs → « … et 1 autre »", bigN(10).every(l => !/^… et/.test(l)) && bigN(11).indexOf("… et 1 autre") === 11);
+t("récap : partie vide sans erreur", A.recapText(empty, "").indexOf("réussite du groupe : —") > 0);
+
+/* --- mes records (retrouvés par le prénom, sans tenir compte des majuscules) --- */
+const mkG = (id, at, name, rounds, other) => A.normalize({ id, at, qt: 20, P: [{ i: "p", n: name }].concat(other ? [{ i: "q", n: other }] : []), R: rounds.map((r, k) => ({ q: "q" + k, c: "c", d: "facile", m: 0, r })) });
+const gA = mkG("a", 100, "Léa", [[[1, 2, 500], [2, 5, 0]], [[1, 1.2, 1100], [1, 3, 500]], [[1, 3, 1600], [2, 4, 500]]], "Bob");
+const gB = mkG("b", 200, "léa", [[[1, 4, 300]], [[2, 5, 300]], [[1, 2.5, 600]], [[1, 3, 900]], [[2, 6, 900]]]);
+const gC = mkG("c", 300, "Zoé", [[[1, 1, 500]]]);
+const mr = A.myRecords([gB, gA, gC], "  LÉA ");
+t("records : 2 parties de Léa, la plus ancienne d'abord, Zoé ignorée", mr.played === 2 && mr.games.map(g => g.id).join() === "a,b");
+t("records : 1 victoire (la partie en solo ne compte pas)", mr.wins === 1 && mr.games[0].won === true && mr.games[1].won === false);
+t("records : meilleur score 1600 (partie a)", mr.bestScore.id === "a" && mr.bestScore.final === 1600);
+t("records : meilleure réussite parmi les parties de 5 réponses ou plus (partie b, 60 %)", mr.bestAccuracy.id === "b" && Math.abs(mr.bestAccuracy.accuracy - 0.6) < 1e-9);
+t("records : série 3, réponse la plus rapide 1,2 s, plus gros gain 600", mr.bestStreak.bestStreak === 3 && mr.fastest.fastest === 1.2 && mr.bestGain.bestGain === 600);
+t("records : réussite cumulée 6 sur 8", mr.totalCorrect === 6 && mr.totalAnswered === 8 && Math.abs(mr.overall - 0.75) < 1e-9);
+t("records : prénom vide ou inconnu → rien, sans erreur", A.myRecords([gA], "").played === 0 && A.myRecords([gA], "").bestScore === null && A.myRecords([gA], "Inconnu").overall === null);
+t("records : si aucune partie n'a 5 réponses, on prend la meilleure réussite quand même", A.myRecords([gA], "Léa").bestAccuracy.id === "a");
+
 console.log("Stats : " + ok + " OK, " + ko + " échec(s)");
 process.exit(ko ? 1 : 0);

@@ -310,7 +310,7 @@
     refreshTimer = setTimeout(function () { if (isOpen()) render(true); }, 120);
   }
 
-  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
+  var TABS = [["overview", "Vue d’ensemble"], ["players", "Joueurs"], ["questions", "Questions"], ["detail", "Détail"], ["advanced", "Analyses"], ["react", "⏱️ Réactions"], ["text", "✍️ Mots & lettres"], ["records", "🏅 Mes records"], ["powers", "Bonus / Malus"], ["cheat", "Triche"], ["history", "Historique"]];
 
   function render(keepScroll) {
     var log = currentLog();
@@ -327,12 +327,14 @@
     sel.addEventListener("change", function () { view.src = sel.value; view.hidden = new Set(); render(); });
     var csvBtn = el("button", { type: "button", "class": "v40s-btn", text: "⬇️ CSV", title: "Télécharger toutes les réponses (tableur)", onclick: function () { exportCSV(); } });
     if (!log || !log.R.length) csvBtn.disabled = true;
+    var recapBtn = el("button", { type: "button", id: "v40sRecap", "class": "v40s-btn", text: "📋 Récap", title: "Copier un résumé de la partie à coller dans un message", onclick: function () { copyRecap(recapBtn); } });
+    if (!log || !log.R.length) recapBtn.disabled = true;
     var pdfBtn = el("button", { type: "button", id: "v40sPdf", "class": "v40s-btn", text: "📄 PDF clair", title: "Télécharger tous les tableaux et graphiques en PDF, fond blanc (idéal à imprimer)", onclick: function () { exportPDF("light"); } });
     if (!log || !log.R.length) pdfBtn.disabled = true;
     var pdfDark = el("button", { type: "button", id: "v40sPdfDark", "class": "v40s-btn", text: "🌙 PDF sombre", title: "Télécharger tous les tableaux et graphiques en PDF, fond sombre (idéal à l’écran)", onclick: function () { exportPDF("dark"); } });
     if (!log || !log.R.length) pdfDark.disabled = true;
     var closeBtn = el("button", { type: "button", id: "v40sClose", "class": "v40s-btn close", "aria-label": "Fermer les statistiques", text: "✕", onclick: close });
-    wrap.appendChild(el("div", { "class": "v40s-top" }, [el("h2", { id: "v40sTitle", text: "📊 Statistiques" }), el("div", { "class": "v40s-actions" }, [sel, pdfBtn, pdfDark, csvBtn, closeBtn])]));
+    wrap.appendChild(el("div", { "class": "v40s-top" }, [el("h2", { id: "v40sTitle", text: "📊 Statistiques" }), el("div", { "class": "v40s-actions" }, [sel, recapBtn, pdfBtn, pdfDark, csvBtn, closeBtn])]));
     /* ---- onglets ---- */
     var tabs = el("div", { "class": "v40s-tabs", role: "tablist" });
     TABS.forEach(function (t) {
@@ -348,7 +350,7 @@
       else if (!log || !log.R.length) main.appendChild(emptyState(log));
       else {
         if (!liveDone && log === live) main.appendChild(el("p", { "class": "v40s-note", text: "⏳ Partie en cours : les chiffres sont à jour jusqu’à la dernière question terminée (" + log.R.length + (typeof totalRounds === "number" && totalRounds ? "/" + totalRounds : "") + ")." }));
-        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
+        var fn = { overview: buildOverview, players: buildPlayers, questions: buildQuestions, detail: buildDetail, advanced: buildAdvanced, react: buildReact, records: buildRecords, text: buildTextTab, powers: buildPowers, cheat: buildCheat }[view.tab] || buildOverview;
         fn(main, log);
       }
     } catch (e) {
@@ -376,6 +378,43 @@
       if (window.console) console.error("V40Stats PDF", e);
       try { if (typeof window.v34Toast === "function") window.v34Toast("Export PDF impossible : " + (e && e.message ? e.message : "erreur")); } catch (e2) {}
     }
+  }
+  function copyRecap(btn) {
+    var log = currentLog(); if (!log || !log.R.length) return;
+    var txt = A.recapText(log, dateLabel(log.at)), done = function (m) { btn.textContent = m; setTimeout(function () { btn.textContent = "📋 Récap"; }, 2600); };
+    function fallback() {
+      try { var ta = el("textarea", { style: "position:fixed;opacity:0;left:-999px" }); ta.value = txt; document.body.appendChild(ta); ta.select(); var ok = document.execCommand("copy"); ta.remove(); done(ok ? "✓ Récap copié" : "✗ Copie impossible"); } catch (e) { done("✗ Copie impossible"); }
+    }
+    try { navigator.clipboard.writeText(txt).then(function () { done("✓ Récap copié"); }, fallback); } catch (e) { fallback(); }
+  }
+  /* ---------- Mes records (parties enregistrées sur cet appareil, retrouvées grâce au prénom) ---------- */
+  function buildRecords(main, log) {
+    var me = (typeof myName === "string" ? myName : "").trim(), list = history.slice();
+    if (live && liveDone && !list.some(function (g) { return g.id === live.id; })) list.unshift(live);
+    var R = A.myRecords(list, me);
+    if (!me) { main.appendChild(el("p", { "class": "v40s-note", text: "Tes records sont retrouvés grâce à ton prénom : crée ou rejoins une partie pour les voir apparaître." })); return; }
+    if (!R.played) { main.appendChild(el("p", { "class": "v40s-note", text: "Aucune partie terminée sous le prénom « " + me + " » n’est enregistrée sur cet appareil. Joue une partie complète pour voir tes records." })); return; }
+    var when = function (g) { return g ? dateLabel(g.at) : ""; };
+    main.appendChild(el("p", { "class": "v40s-note", text: "Records de « " + me + " » sur les " + R.played + " dernière" + (R.played > 1 ? "s" : "") + " partie" + (R.played > 1 ? "s" : "") + " enregistrée" + (R.played > 1 ? "s" : "") + " sur cet appareil (12 au maximum)." }));
+    main.appendChild(el("div", { "class": "v40s-tiles" }, [
+      tile(String(R.played), "Parties jouées", R.wins ? R.wins + " victoire" + (R.wins > 1 ? "s" : "") : "pas encore de victoire"),
+      tile(R.bestScore ? fmt.int(R.bestScore.final) + " pts" : "—", "Meilleur score", when(R.bestScore)),
+      tile(R.bestAccuracy ? fmt.pct(R.bestAccuracy.accuracy) : "—", "Meilleure réussite", R.bestAccuracy ? R.bestAccuracy.correct + "/" + R.bestAccuracy.answered + " · " + when(R.bestAccuracy) : ""),
+      tile(R.bestStreak ? R.bestStreak.bestStreak + " d’affilée" : "—", "Plus longue série", when(R.bestStreak)),
+      tile(R.fastest ? fmt.sec(R.fastest.fastest) : "—", "Réponse la plus rapide", when(R.fastest)),
+      tile(R.bestGain ? "+" + fmt.int(R.bestGain.bestGain) : "—", "Plus gros gain en une question", when(R.bestGain)),
+      tile(fmt.pct(R.overall), "Réussite cumulée", R.totalCorrect + " bonnes sur " + R.totalAnswered + " réponses")
+    ]));
+    main.appendChild(K.card({
+      title: "Mon score, partie après partie", desc: "Score final de chaque partie enregistrée, de la plus ancienne à la plus récente.",
+      draw: function (host) {
+        K.line(host, { n: R.games.length, series: [{ key: "me", name: me, color: K.C.palette[0], values: [null].concat(R.games.map(function (g) { return g.final; })) }], xTitle: "Parties", ariaLabel: "Score final de " + me + " partie après partie",
+          yFmt: function (v) { return fmt.int(v); },
+          header: function (i) { if (i === 0) return { title: "Départ" }; var g = R.games[i - 1]; return { title: "Partie " + i, sub: dateLabel(g.at) + " · " + g.rank + "ᵉ sur " + g.players }; },
+          valueText: function (sr, i) { return fmt.int(sr.values[i]) + " pts"; } });
+      },
+      table: function () { return K.table(["Partie", "Date", "Rang", "Score", "Réussite", "Meilleure série"], R.games.map(function (g, i) { return [i + 1, dateLabel(g.at), g.rank + " / " + g.players, fmt.int(g.final), fmt.pct(g.accuracy), g.bestStreak]; }), "Mes parties"); }
+    }));
   }
   function exportCSV() {
     var log = currentLog(); if (!log || !log.R.length) return;
@@ -578,6 +617,44 @@
     if (media.length > 1) main.appendChild(rateCard("Questions avec image ou vidéo", "Les médias aident-ils à trouver la réponse ?", media));
     main.appendChild(rankedList("Les 5 questions les plus difficiles", "Celles qui ont fait le plus d’erreurs.", A.hardest(log, 5), true));
     main.appendChild(rankedList("Les 5 questions les plus faciles", "Celles que presque tout le monde a trouvées.", A.easiest(log, 5), false));
+    buildQuestionExtras(main, log);
+  }
+  /* Graphiques supplémentaires sur les questions : fatigue, issues par difficulté, temps par thème, questions qui divisent, surprises */
+  function buildQuestionExtras(main, log) {
+    var I = A.questionInsights(log), S = K.STATE;
+    if (I.thirds.length) main.appendChild(rateCard("Réussite au fil de la partie", "Début, milieu et fin : le groupe se fatigue-t-il ou s’échauffe-t-il ?", I.thirds));
+    if (I.mix.length) main.appendChild(K.card({
+      title: "Bonnes, mauvaises et sans réponse par difficulté", desc: "Pour chaque niveau de difficulté, ce que les joueurs ont fait de leurs réponses.",
+      legend: function () { return K.legend([1, 2, 3].map(function (st) { return { key: String(st), name: S[st].name, color: S[st].color, glyph: S[st].glyph }; }), null, null); },
+      draw: function (host) {
+        K.stack(host, { unit: "réponse", rows: I.mix.map(function (g) {
+          return { label: g.label, total: g.correct + g.wrong + g.none, parts: [
+            { name: S[1].name, glyph: S[1].glyph, value: g.correct, color: S[1].color }, { name: S[2].name, glyph: S[2].glyph, value: g.wrong, color: S[2].color }, { name: S[3].name, glyph: S[3].glyph, value: g.none, color: S[3].color }] };
+        }), ariaLabel: "Issues des réponses par difficulté" });
+      },
+      table: function () { return K.table(["Difficulté", "✓ Bonnes", "✗ Mauvaises", "⏱ Sans réponse", "Questions"], I.mix.map(function (g) { return [g.label, g.correct, g.wrong, g.none, g.questions]; }), "Issues des réponses par difficulté"); }
+    }));
+    if (I.themeTime.length) main.appendChild(K.card({
+      title: "Temps de réponse moyen par thème", desc: "Les thèmes qui demandent le plus de réflexion, du plus lent au plus rapide.",
+      draw: function (host) {
+        K.hbars(host, { rows: I.themeTime.map(function (g) {
+          return { label: g.label, value: g.avgTime, color: K.C.palette[1] || K.C.palette[0], text: fmt.sec(g.avgTime), tip: { title: g.label, rows: [{ label: "Temps moyen", value: fmt.sec(g.avgTime), strong: true }, { label: "Réponses", value: g.answers }, { label: "Questions", value: g.questions }] } };
+        }), tickFmt: function (v) { return fmt.sec(v); }, axisTitle: "Temps moyen", ariaLabel: "Temps de réponse moyen par thème" });
+      },
+      table: function () { return K.table(["Thème", "Temps moyen", "Réponses", "Questions"], I.themeTime.map(function (g) { return [g.label, fmt.sec(g.avgTime), g.answers, g.questions]; }), "Temps de réponse moyen par thème"); }
+    }));
+    if (I.slowest.length) main.appendChild(K.card({
+      title: "Les questions qui ont fait le plus réfléchir", desc: "Temps moyen avant de répondre, des plus longues aux plus courtes (les 8 premières).",
+      draw: function (host) {
+        K.hbars(host, { rows: I.slowest.map(function (r) {
+          return { label: "Question " + r.round, value: r.avgTime, color: K.C.palette[2] || K.C.palette[0], text: fmt.sec(r.avgTime), tip: { title: "Question " + r.round, sub: K.cut(r.q, 90), rows: [{ label: "Temps moyen", value: fmt.sec(r.avgTime), strong: true }, { label: "Réussite", value: fmt.pct(r.rate) }, { label: "Difficulté", value: r.d }] } };
+        }), tickFmt: function (v) { return fmt.sec(v); }, axisTitle: "Temps moyen", ariaLabel: "Questions les plus longues" });
+      },
+      table: function () { return K.table(["Question", "Texte", "Temps moyen", "Réussite"], I.slowest.map(function (r) { return [r.round, K.cut(r.q, 70), fmt.sec(r.avgTime), fmt.pct(r.rate)]; }), "Questions les plus longues"); }
+    }));
+    if (I.divisive.length) main.appendChild(rankedList("Les questions qui divisent le groupe", "Environ la moitié des joueurs a trouvé, l’autre moitié non.", I.divisive, false));
+    if (I.easier.length) main.appendChild(rankedList("Plus faciles que prévu", "Mieux réussies que la moyenne de leur difficulté.", I.easier, false));
+    if (I.harder.length) main.appendChild(rankedList("Plus difficiles que prévu", "Moins bien réussies que la moyenne de leur difficulté.", I.harder, true));
   }
 
   /* ---------- Détail (joueur × question) ---------- */

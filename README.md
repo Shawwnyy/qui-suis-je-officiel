@@ -7,7 +7,7 @@ Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **a
 - **🎙️ Chat vocal à plusieurs** dans la salle (bouton en bas à gauche) : rien à installer, aucun serveur à toi — voir « Chat vocal » plus bas
 - **🔗 Lien d'invitation** : l'hôte copie un lien `…/?room=123456`, le camarade l'ouvre et n'a plus qu'à entrer son prénom
 
-- **157 thèmes**, environ **15 800 questions** de texte, plus **≈ 700 questions avec image ajoutées à tous les thèmes** (tirées à chaque partie) (4 niveaux : facile, moyen, difficile, impossible)
+- **201 thèmes**, environ **14 100 questions** de texte (181 fichiers de banque), plus des milliers de questions avec image : **16 thèmes dessinés par le jeu** et **≈ 700 questions avec image ajoutées à tous les thèmes** (tirées à chaque partie) (4 niveaux : facile, moyen, difficile, impossible)
 - Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, Word, PowerPoint, ODP, Excel, EPUB, page web, audio, vidéo…), **avec les images du cours** pour les PDF
 - **Modération stricte** du chat (voir plus bas)
 - **Anti-triche progressif** : avertissements, malus, puis exclusion jusqu'à la fin de la partie
@@ -232,6 +232,11 @@ Huit thèmes de plus, dessinés par le jeu (SVG, aucune image extérieure) et r�
 - **🎼 Lire une partition** (nom d'une note en clé de sol, nombre de notes), **🎲 Dés et dominos** (somme, face opposée, total d'un domino), **🧭 Boussole et orientation**, **🌡️ Thermomètres**, **🔷 Solides et volumes** (nom, faces, sommets), **🏛️ Chiffres romains**, **📊 Lire un graphique** (barre la plus haute, valeur, total).
 - La bonne réponse est calculée à partir des données qui servent à dessiner l'image ; `tests/more.test.js` la **relit dans le SVG** avec des tables indépendantes (noms, familles de couleurs de chaque drapeau, graduation du thermomètre, angle de la flèche, hauteur des barres…).
 
+### Huit thèmes en images de plus (`js/data/image-v50.js`)
+Dessinés par le jeu (SVG, aucune image extérieure) et régénérés à chaque partie, 196 questions par partie :
+- **🔢 Compter les formes** (combien de cercles, carrés, triangles, étoiles ? de formes rouges, bleues… ?), **🎨 Couleurs & mélanges** (nom d'une couleur, rouge + jaune = ?), **⏰ Lire l'heure** (horloge à aiguilles, avec le piège des aiguilles lues à l'envers), **🧩 Suites logiques** (forme suivante, point suivant), **📐 Angles** (aigu, droit, obtus, plat ; mesure), **🪞 Axes de symétrie**, **🍕 Fractions en images** (disque et barre), **📍 Coordonnées** (lire un point, trouver un point).
+- `tests/v50img.test.js` **relit chaque réponse dans le SVG** : éléments comptés, couleurs lues, angle des aiguilles, bras des angles mesurés, **axes de symétrie recalculés géométriquement** (réflexions qui renvoient la figure sur elle-même), parts coloriées, points de la grille.
+
 ### Des images dans tous les thèmes (`js/data/image-mix.js`)
 
 Chaque thème reçoit, **en plus** de ses questions de texte (aucune n'est remplacée ni supprimée), quelques questions avec image — environ 12 % de la taille du thème, entre 3 et 8 — retirées au sort à chaque partie. Il y en a ≈ 700 en tout, sur les 157 thèmes :
@@ -252,8 +257,9 @@ les joueurs (même un joueur exclu) : tout le monde voit les mêmes chiffres. On
 
 - **Vue d'ensemble** : chiffres clés, **évolution des scores** question par question, classement ;
 - **Joueurs** : bonnes / mauvaises / sans réponse, temps de réponse moyen, plus gros gain ;
-- **Questions** : réussite par question, par thème, par difficulté, avec / sans média, questions les plus difficiles et les plus faciles ;
+- **Questions** : réussite par question, par thème, par difficulté, avec / sans média, questions les plus difficiles et les plus faciles ; ; 7 graphiques de plus : **réussite au fil de la partie** (début, milieu, fin), **bonnes / mauvaises / sans réponse par difficulté**, **temps moyen par thème**, **questions qui ont fait le plus réfléchir**, **questions qui divisent le groupe**, **plus faciles / plus difficiles que prévu** (écart à la moyenne de leur difficulté)
 - **Détail** : qui a répondu quoi à chaque question ;
+- **🏅 Mes records** : retrouvés grâce à ton prénom dans les 12 dernières parties gardées sur l'appareil — parties jouées et victoires, meilleur score, meilleure réussite, plus longue série, réponse la plus rapide, plus gros gain, réussite cumulée, et ton score partie après partie ;
 - **Bonus / Malus** : pouvoirs utilisés (🎁 bonus pour soi, 💥 malus contre un adversaire), avec 7 graphiques — pouvoirs lancés par joueur, malus reçus (touchés / bloqués par un bouclier ou renvoyés), points gagnés et perdus grâce aux pouvoirs, bilan net au fil des questions, types de pouvoirs, **qui vise qui** (matrice lanceur × cible) et bonus / malus cumulés. Les pouvoirs spéciaux sans montant comptent dans les effectifs mais pas dans les points ;
 - **Triche** : infractions par joueur et chronologie ;
 - **Historique** : les 12 dernières parties (gardées dans le navigateur), réussite de chaque partie.
@@ -267,6 +273,8 @@ Les bonus et malus sont notés par l'hôte (évènement « v35Event ») et envoy
 - **Filigrane « qui-suis-je-officiel »** : toute image de graphique copiée (📋) ou téléchargée (⬇️ PNG) porte la signature du site en bas à droite et un motif diagonal très discret sur tout le graphique (pour qu'on ne puisse pas simplement rogner le bas). **Seul l'hôte de la partie** peut avoir les images sans filigrane : un bouton **💧 Sans filigrane / Avec filigrane** n'apparaît que chez lui (choix mémorisé, « sans » par défaut) ; les joueurs ne le voient pas et leurs images ont toujours le filigrane. L'appareil retient les parties qu'il a lancées comme hôte (`quizV40Hosted`), donc l'hôte garde ce droit aussi dans l'historique des 12 dernières parties. Limite assumée : le site n'a pas de serveur, la règle est donc appliquée dans le navigateur ; quelqu'un de très habile peut la contourner avec les outils de développement. Testé dans `tests/watermark.test.js`.
 - **Même style partout** : toutes les cartes de graphique ont la même disposition que « Évolution des scores » (titre, explication, rangée de boutons Graphique / Tableau / Copier l'image / PNG, légende en haut, puis le graphique) ; tous les graphiques ont une grille fine, des graduations (entières pour les comptages), un titre d'axe et des valeurs écrites au bout des barres. Le PDF reprend l'axe gradué sous chaque graphique en barres.
 - **Bonus / Malus** : la **roue** y figure aussi (tuile « tirages », carte « Roue des bonus / malus », bilans en points).
+
+Le bouton **📋 Récap** copie un résumé prêt à coller dans un message (podium avec médailles, réussite du groupe, plus longue série, réponse la plus rapide, question la plus difficile).
 
 Export **CSV** de toutes les réponses (compatible tableur) et export **📄 PDF**, au choix en **fond clair** (impression) ou en **fond sombre** (écran) via les boutons « 📄 PDF clair » et « 🌙 PDF sombre » : classement, **tous les graphiques de l'écran** en vectoriel (évolution des scores, course au classement, forme du moment, qui a mené, bonnes / mauvaises réponses, séries, temps, réussite par question, thème / difficulté, roue, malus reçus, points gagnés / perdus, bilan net, types de pouvoirs, **qui vise qui**, cumuls), grille joueurs × questions, détail de chaque question, infractions et tableau « Bonus et malus ». Seul l'historique multi-parties n'y figure pas (il n'est pas dans le journal d'une partie). Le PDF est généré dans le navigateur, **sans bibliothèque externe ni connexion**, en vectoriel (net à tout zoom, texte sélectionnable) ; les emojis, absents de la police intégrée, en sont retirés. Les deux palettes de séries sont validées pour leur fond et les daltoniens ; au-delà de 8 joueurs, les courbes montrent les 8 premiers arrivés et les autres figurent dans les tableaux.
 
@@ -296,6 +304,14 @@ La carte est complétée environ une seconde plus tard avec les statistiques de 
 ## 🕒 Horloge permanente (`js/clock/clock.js`)
 L'heure **HH:MM:SS** (24 h, en gras) s'affiche **en bas à gauche, sur tous les écrans** : accueil, salons, question, correction, résultats, fenêtres ouvertes. Elle se place juste au-dessus du bouton « Son ON / OFF », ne capte jamais un clic et se recale sur le début de chaque seconde (et au retour sur l'onglet).
 C'est l'heure **de l'appareil de chaque joueur** (pas une heure serveur : si l'horloge d'un téléphone est déréglée, elle l'est aussi à l'écran). Elle n'apparaît pas à l'impression.
+
+## 🎁💥 16 pouvoirs de plus, écrans vert et rouge (`js/patches/041-v50-bonus-malus.js`, `css/v50.css`)
+- **8 bonus** : 💰 Trésor (+350 tout de suite), 🍀 Chance (+500 ou +150), 💚 Soin (+2 de série), 😇 Ange (bouclier + 100), 🕰️ Horloge (+15 s), 🚀 Boost ×1,5 (2 questions), 🥇 Lingot (+300 sur la prochaine bonne réponse), 🌅 Phénix (retrouve sa meilleure série +1).
+- **8 malus** : 👮 Amende (−300), 📳 Séisme (l'écran tremble), ⛓️ Boulet (−2 de série), 🦠 Virus (gains −15 %), 🌑 Éclipse (réponses cachées 3 s), 🕵️ Larcin (vole 200), 🌪️ Tempête (−3 s), ⚫ Trou noir (la prochaine bonne réponse ne rapporte rien).
+- Ils passent par la même chaîne que les autres pouvoirs : bouclier, miroir et hérisson les bloquent ou les renvoient, deux malus actifs au maximum, pas plus de deux usages du même pouvoir.
+- **Écran vert animé** (confettis, éclat, emoji qui rebondit) pour un bonus, **écran rouge animé** (secousse, éclair, vibration du téléphone) pour un malus : c'est la couleur du message affiché (`showPowerPanel`) qui décide. L'écran ne bloque jamais les clics (`pointer-events:none`), disparaît seul en 2,6 s et devient une simple apparition douce si l'appareil demande moins d'animations (`prefers-reduced-motion`).
+- **Règlement détaillé** (`js/patches/042-v50-reglement.js`) : 13 articles en français, anglais et espagnol (déroulement, scores, séries, difficultés, pouvoirs, boucliers, roue, tricherie, chat et voix, filigrane…), construits à partir des vrais noms des pouvoirs.
+- Tests : `node tests/v50.test.js`.
 
 ## 🎡 Roue des bonus et malus (`js/wheel/wheel.js`)
 Une roue tourne **entre deux questions**. **L'hôte choisit dans le salon d'attente (« 🎡 Roue des bonus / malus »)** : **moments fixes** (après la 3e, la 6e, la 9e… manche, par défaut), **moments aléatoires** (de 1 à 6 roues à des manches tirées au sort au début de la partie, non annoncées, jamais avant la 2e manche ni après la dernière, jamais deux de suite) ou **désactivée**. Le choix est gardé dans le navigateur de l'hôte et figé au début de la partie ; les joueurs le subissent comme le reste des réglages de l'hôte. Jamais après la dernière manche ; pas de roue dans une partie de 3 manches ou moins en mode fixe. **Chaque joueur tire sa propre case en même temps** : l'hôte tire au sort (8 cases, toutes équiprobables : la taille d'une case est sa vraie probabilité) puis diffuse le résultat ; chacun voit la roue s'arrêter sur SA case, puis la liste des résultats de tous. La question suivante démarre juste après (≈ 9,5 s).
@@ -351,6 +367,8 @@ node tests/images.test.js                # drapeaux et horloges : la réponse es
 node tests/more.test.js                  # 8 nouveaux thèmes en images : 51 drapeaux (couleurs), notes, dés, boussole, thermomètre, solides, chiffres romains, graphiques — réponse relue sur le dessin
 node tests/chat.test.js                  # chat : messages d'une seule lettre supprimés (envoi, relais de l'hôte, réception, modification)
 node tests/watermark.test.js             # filigrane des images de graphiques : forcé pour les joueurs, au choix pour l'hôte
+node tests/v50.test.js                   # 16 nouveaux pouvoirs (effets exacts, bouclier, plafonds), écrans vert / rouge, règlement FR / EN / ES
+node tests/v50img.test.js                # 8 thèmes en images de plus : chaque réponse relue dans le SVG (heure, angles, symétrie, fractions, coordonnées…)
 node tests/mix.test.js                   # images dans tous les thèmes : chaque réponse est recalculée en relisant le dessin
 node tests/stats.test.js                 # calculs de statistiques, historique, CSV, journaux malveillants
 node tests/pdf.test.js                   # export PDF clair / sombre : structure du fichier, métriques, caractères, pagination, un équivalent PDF pour chaque graphique d'écran

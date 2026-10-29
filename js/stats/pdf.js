@@ -484,6 +484,14 @@ var V40Pdf = (function () {
     bars("Réussite par difficulté", A.byDifficulty(log), function (g) { return (DIFF[g.key] || g.key) + " (" + g.questions + " q.)"; });
     var med = A.byMedia(log); if (med.length > 1) bars("Questions avec image ou vidéo", med, function (g) { return g.label + " (" + g.questions + " q.)"; });
     note("Barre verte : au moins la moitié de bonnes réponses ; rouge : moins de la moitié. Le pourcentage et le détail (bonnes / réponses) sont écrits à droite.");
+    /* ----- Questions : fatigue, issues par difficulté, temps par thème, questions les plus longues ----- */
+    var QI = A.questionInsights(log);
+    bars("Réussite au fil de la partie", QI.thirds, function (g) { return g.label + " (" + g.questions + " q.)"; });
+    stackBars("Bonnes, mauvaises et sans réponse par difficulté", QI.mix.map(function (g) {
+      return { label: DIFF[g.key] || g.key, vals: [g.correct, g.wrong, g.none], text: g.correct + " justes · " + g.wrong + " fausses · " + g.none + " sans rép." };
+    }), [{ name: "Bonnes réponses", color: C.good }, { name: "Mauvaises réponses", color: C.bad }, { name: "Sans réponse", color: C.none }]);
+    valueBars("Temps de réponse moyen par thème", QI.themeTime.map(function (g) { return { label: g.label, value: g.avgTime, text: secs(g.avgTime) + "  (" + g.answers + " rép.)" }; }));
+    valueBars("Les questions qui ont fait le plus réfléchir", QI.slowest.map(function (r) { return { label: "Question " + r.round, value: r.avgTime, text: secs(r.avgTime) + "  (" + pct(r.rate) + " de réussite)" }; }));
 
     /* ----- Bonus et malus ----- */
     if (log.B && log.B.length) {
@@ -554,6 +562,9 @@ var V40Pdf = (function () {
     }
     qTable("Les 5 questions les plus difficiles", A.hardest(log, 5));
     qTable("Les 5 questions les plus faciles", A.easiest(log, 5));
+    qTable("Les questions qui divisent le groupe", QI.divisive);
+    qTable("Plus faciles que prévu", QI.easier);
+    qTable("Plus difficiles que prévu", QI.harder);
 
     /* ----- Matrice joueurs × questions ----- */
     var np = log.P.length, nr = log.R.length;

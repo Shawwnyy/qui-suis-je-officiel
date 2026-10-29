@@ -65,7 +65,7 @@ var V50Img = (function () {
   function qCountShape() {
     var sc = countScene(), sh = pick(SHAPES), n = sc.items.filter(function (i) { return i.t === sh.n; }).length;
     if (n < 1 || n > 8) return null;
-    return mk(T_COUNT, "compter-forme", n <= 3 ? "facile" : n <= 5 ? "moyen" : "difficile", "Combien de " + sh.p + " voyez-vous dans cette image ?",
+    return mk(T_COUNT, "compter-forme", n <= 3 ? "facile" : n <= 5 ? "moyen" : "difficile", "Combien " + (/^[aeiouéèê]/.test(sh.p) ? "d'" : "de ") + sh.p + " voyez-vous dans cette image ?",
       numAns(n, [n - 2, n - 1, n + 1, n + 2, n + 3].filter(function (v) { return v >= 0; }), String), sc.svg, "Il y a " + n + " " + (n > 1 ? sh.p : sh.n) + ".");
   }
   function qCountColor() {
@@ -79,6 +79,9 @@ var V50Img = (function () {
   var PAINT = [{ n: "Rouge", h: "#dc2626" }, { n: "Bleu", h: "#2563eb" }, { n: "Vert", h: "#16a34a" }, { n: "Jaune", h: "#facc15" }, { n: "Orange", h: "#f97316" }, { n: "Violet", h: "#7c3aed" },
     { n: "Rose", h: "#ec4899" }, { n: "Marron", h: "#92400e" }, { n: "Noir", h: "#111827" }, { n: "Gris", h: "#9ca3af" }, { n: "Blanc", h: "#ffffff" }, { n: "Turquoise", h: "#14b8a6" }];
   var MIXES = [["Rouge", "Jaune", "Orange"], ["Bleu", "Jaune", "Vert"], ["Rouge", "Bleu", "Violet"], ["Rouge", "Blanc", "Rose"], ["Noir", "Blanc", "Gris"]];
+  /* « peinture » est féminin : bleue, verte, blanche, noire */
+  var FEM = { Bleu: "bleue", Vert: "verte", Blanc: "blanche", Noir: "noire" };
+  function fem(name) { return FEM[name] || name.toLowerCase(); }
   function paint(name) { return PAINT.filter(function (p) { return p.n === name; })[0]; }
   function qSwatch() {
     var c = pick(PAINT), wrong = sample(PAINT.filter(function (x) { return x !== c; }), 3);
@@ -90,7 +93,7 @@ var V50Img = (function () {
     var wrong = sample(PAINT.filter(function (x) { return x.n !== m[2] && x.n !== m[0] && x.n !== m[1]; }), 3);
     var s = open(300, 130) + '<g data-mix="' + m[0] + "+" + m[1] + '">' + Ci(55, 65, 36, first.h, "#1f2937", 3, 'data-paint="' + first.n + '"') + Tx(112, 80, "+", 40, "#1f2937") + Ci(170, 65, 36, second.h, "#1f2937", 3, 'data-paint="' + second.n + '"') +
       Tx(228, 78, "=", 36, "#1f2937") + Rc(244, 40, 44, 50, "#e5e7eb", "#6b7280", 2.5) + Tx(266, 78, "?", 34, "#6b7280") + "</g></svg>";
-    return mk(T_MIX, "melange", ["Orange", "Vert", "Violet"].indexOf(m[2]) >= 0 ? "moyen" : "facile", "Quelle couleur obtient-on en mélangeant de la peinture " + m[0].toLowerCase() + " et de la peinture " + m[1].toLowerCase() + " ?", [m[2]].concat(wrong.map(function (w) { return w.n; })), s,
+    return mk(T_MIX, "melange", ["Orange", "Vert", "Violet"].indexOf(m[2]) >= 0 ? "moyen" : "facile", "Quelle couleur obtient-on en mélangeant de la peinture " + fem(m[0]) + " et de la peinture " + fem(m[1]) + " ?", [m[2]].concat(wrong.map(function (w) { return w.n; })), s,
       m[0] + " + " + m[1] + " = " + m[2].toLowerCase() + ".");
   }
 
@@ -263,7 +266,7 @@ var V50Img = (function () {
     for (var i = QUESTIONS.length - 1; i >= 0; i--) if (QUESTIONS[i] && QUESTIONS[i].v50Img) QUESTIONS.splice(i, 1);
     var pool = build(); pool.forEach(function (q) { QUESTIONS.push(q); }); return pool.length;
   }
-  return { THEMES: [T_COUNT, T_MIX, T_CLOCK, T_SUITE, T_ANGLE, T_SYM, T_FRAC, T_COORD], FIGS: FIGS, GR: GR, PAINT: PAINT, MIXES: MIXES, COLS: COLS, build: build, register: register, valid: valid, hm: hm, clockSvg: clockSvg, angleSvg: angleSvg, gridSvg: gridSvg };
+  return { THEMES: [T_COUNT, T_MIX, T_CLOCK, T_SUITE, T_ANGLE, T_SYM, T_FRAC, T_COORD], FIGS: FIGS, GR: GR, PAINT: PAINT, MIXES: MIXES, fem: fem, COLS: COLS, build: build, register: register, valid: valid, hm: hm, clockSvg: clockSvg, angleSvg: angleSvg, gridSvg: gridSvg };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V50Img;
 if (typeof QUESTIONS !== "undefined") {

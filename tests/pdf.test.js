@@ -110,7 +110,7 @@ t("gros journal sombre : valide, sans NaN", bigd.startsWith("%PDF-1.4") && !/NaN
 const statsSrc = fs.readFileSync(path.join(__dirname, "../js/stats/stats.js"), "utf8");
 const cardTitles = [...statsSrc.matchAll(/K\.card\(\{\s*title: "([^"]+)"/g)].map(m => m[1].replace(/^[^\wÀ-ÿ]+/u, "").trim());
 const pdfSrc = fs.readFileSync(path.join(__dirname, "../js/stats/pdf.js"), "utf8");
-const IGNORED = { "Réussite des dernières parties": "historique multi-parties, absent du journal d'une partie" };
+const IGNORED = { "Réussite des dernières parties": "historique multi-parties, absent du journal d'une partie", "Mon score, partie après partie": "onglet « Mes records » : plusieurs parties, absent du journal d'une partie" };
 const ALIAS = { "Infractions par joueur": "Infractions détectées", "Chronologie": "Infractions détectées" };
 cardTitles.filter(x => !(x in IGNORED)).forEach(function (title) {
   const key = (ALIAS[title] || title).split(" ").slice(0, 3).join(" ").replace(/[’']/g, "'");

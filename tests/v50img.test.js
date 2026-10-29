@@ -18,6 +18,7 @@ const pts = tag => attr(tag, "points").trim().split(/\s+/).map(p => p.split(",")
 t("8 thèmes distincts", new Set(V.THEMES).size === 8);
 const bankNames = new Set(); fs.readdirSync(__dirname + "/../js/data/bank").forEach(f => { for (const m of fs.readFileSync(__dirname + "/../js/data/bank/" + f, "utf8").matchAll(/V35_BANK\["([^"]+)"\]/g)) bankNames.add(m[1]); });
 t("aucun thème en image n'a le même nom qu'un thème de questions", V.THEMES.every(x => !bankNames.has(x)));
+t("accord de « peinture »", V.fem("Noir") === "noire" && V.fem("Blanc") === "blanche" && V.fem("Bleu") === "bleue" && V.fem("Vert") === "verte" && V.fem("Rouge") === "rouge" && V.fem("Jaune") === "jaune");
 t("l'heure : 3 h / 3 h 05 / 12 h", V.hm(3, 0) === "3 h" && V.hm(3, 5) === "3 h 05" && V.hm(12, 45) === "12 h 45");
 
 /* ---- symétrie géométrique : on compte les réflexions qui renvoient la figure sur elle-même ---- */
@@ -43,7 +44,7 @@ for (let b = 0; b < BATCHES; b++) {
     const svg = q.media.svg, A = q.answers, good = A[0], lab = q.kind + " | " + q.question + " | " + good;
     t("valide " + q.kind, V.valid(q) && new Set(A.map(a => a.toLowerCase())).size === 4 && q.correct === 0 && V.THEMES.includes(q.category));
     if (q.kind === "compter-forme") {
-      const sh = { cercles: "cercle", carrés: "carré", triangles: "triangle", étoiles: "étoile" }[q.question.match(/Combien de (\S+) /)[1]];
+      const sh = { cercles: "cercle", carrés: "carré", triangles: "triangle", étoiles: "étoile" }[q.question.match(/Combien (?:de |d')(\S+) /)[1]];
       const n = [...svg.matchAll(/<(circle|rect|polygon)\s[^>]*data-shape="([^"]+)"/g)].filter(m => m[2] === sh).length;
       const geo = tags(svg, "circle").filter(x => attr(x, "data-shape")).length;
       const tri = tags(svg, "polygon").filter(x => attr(x, "data-shape") && pts(x).length === 3).length, star = tags(svg, "polygon").filter(x => attr(x, "data-shape") && pts(x).length === 10).length, sq = tags(svg, "rect").filter(x => attr(x, "data-shape")).length;
@@ -56,9 +57,9 @@ for (let b = 0; b < BATCHES; b++) {
     } else if (q.kind === "couleur-nom") {
       t("couleur-nom " + lab, PAINT[attr(tags(svg, "rect").filter(x => attr(x, "data-color"))[0], "fill")] === good);
     } else if (q.kind === "melange") {
-      const c = tags(svg, "circle").map(x => PAINT[attr(x, "fill")]), asked = q.question.match(/peinture (\S+) et de la peinture (\S+) /);
+      const c = tags(svg, "circle").map(x => PAINT[attr(x, "fill")]), asked = q.question.match(/peinture (\S+) et de la peinture (\S+) /), FEMT = { Bleu: "bleue", Vert: "verte", Blanc: "blanche", Noir: "noire" }, fm = n => FEMT[n] || n.toLowerCase();
       const key = [c[0], c[1]].sort().join("+"), want = Object.keys(MIX).find(k => k.split("+").sort().join("+") === key);
-      t("melange " + lab, MIX[want] === good && asked[1] === c[asked[1] === c[0].toLowerCase() ? 0 : 1].toLowerCase() && [asked[1], asked[2]].sort().join() === [c[0].toLowerCase(), c[1].toLowerCase()].sort().join());
+      t("melange " + lab, MIX[want] === good && [asked[1], asked[2]].sort().join() === [fm(c[0]), fm(c[1])].sort().join() && !/ (noir|blanc|bleu|vert) /.test(" " + q.question.split("peinture").slice(1).join(" ") + " "));
     } else if (q.kind === "horloge") {
       const hands = {}; tags(svg, "line").filter(x => attr(x, "data-hand")).forEach(x => { const dx = attr(x, "x2") - attr(x, "x1"), dy = attr(x, "y2") - attr(x, "y1"); hands[attr(x, "data-hand")] = ((Math.atan2(dx, -dy) * 180 / Math.PI) + 360) % 360; });
       const m = Math.round(hands.m / 6) % 60; let h = Math.round((hands.h - m / 2) / 30) % 12; if (!h) h = 12;
@@ -93,6 +94,7 @@ for (let b = 0; b < BATCHES; b++) {
     } else t("genre inconnu " + q.kind, false);
   });
 }
+t("« Combien d'étoiles » (élision)", V.build().filter(q => q.kind === "compter-forme").every(q => !/Combien de [aeiouéèê]/.test(q.question)));
 t("14 types de questions", Object.keys(kinds).length === 14);
 t("chaque thème a au moins 20 questions par lot", V.THEMES.every(x => byTheme[x] >= 20 * BATCHES));
 console.log(ok + " vérifications réussies, " + bad + " échec(s) — " + Object.keys(kinds).length + " types, " + Object.values(byTheme).reduce((a, b) => a + b, 0) + " questions relues dans le SVG");

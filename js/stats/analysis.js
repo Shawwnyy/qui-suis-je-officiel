@@ -395,6 +395,81 @@ var V40Analysis = (function () {
       .sort(function (a, b) { return b.rate - a.rate || b.answers - a.answers || a.round - b.round; }).slice(0, n || 5);
   }
 
+  /* ---------- Questions : fatigue, issues par difficulté, temps par thème, questions qui divisent, surprises ---------- */
+  function questionInsights(log) {
+    var stats = roundStats(log), n = log.R.length, out = { thirds: [], mix: [], themeTime: [], slowest: [], divisive: [], easier: [], harder: [] }, i;
+    if (n >= 3) {
+      var cut = [0, Math.ceil(n / 3), Math.ceil(2 * n / 3), n], names = ["Début", "Milieu", "Fin"];
+      for (i = 0; i < 3; i++) {
+        var g = { key: "t" + i, label: names[i] + " · " + (cut[i] + 1 === cut[i + 1] ? "Q" + cut[i + 1] : "Q" + (cut[i] + 1) + "–" + cut[i + 1]), answers: 0, correct: 0, questions: cut[i + 1] - cut[i] };
+        log.R.slice(cut[i], cut[i + 1]).forEach(function (R) { R.r.forEach(function (e) { if (!isAnswer(e[0])) return; g.answers++; if (e[0] === 1) g.correct++; }); });
+        g.rate = g.answers ? g.correct / g.answers : null; out.thirds.push(g);
+      }
+    }
+    DIFFS.forEach(function (d) {
+      var g = { key: d, label: d, correct: 0, wrong: 0, none: 0, questions: 0 };
+      log.R.forEach(function (R) { if (R.d !== d) return; g.questions++; R.r.forEach(function (e) { if (e[0] === 1) g.correct++; else if (e[0] === 2) g.wrong++; else if (e[0] === 3) g.none++; }); });
+      if (g.correct + g.wrong + g.none) out.mix.push(g);
+    });
+    var tm = {}, order = [];
+    log.R.forEach(function (R) {
+      var k = R.c || "Sans thème", g = tm[k] || (tm[k] = { label: k, sum: 0, n: 0, questions: 0 }); if (tm[k] === g && order.indexOf(k) < 0) order.push(k);
+      g.questions++; R.r.forEach(function (e) { if (e[0] === 1 || e[0] === 2) { g.sum += e[1]; g.n++; } });
+    });
+    out.themeTime = order.map(function (k) { var g = tm[k]; return { label: g.label, avgTime: g.n ? g.sum / g.n : null, answers: g.n, questions: g.questions }; })
+      .filter(function (g) { return g.avgTime !== null; }).sort(function (a, b) { return b.avgTime - a.avgTime || a.label.localeCompare(b.label); }).slice(0, 12);
+    out.slowest = stats.filter(function (r) { return r.avgTime !== null; }).sort(function (a, b) { return b.avgTime - a.avgTime || a.round - b.round; }).slice(0, 8);
+    var multi = stats.filter(function (r) { return r.answers >= 2; });
+    out.divisive = multi.slice().sort(function (a, b) { return Math.abs(a.rate - 0.5) - Math.abs(b.rate - 0.5) || b.answers - a.answers || a.round - b.round; }).slice(0, 5);
+    var byD = {}; byDifficulty(log).forEach(function (g) { byD[g.key] = g.rate; });
+    var dev = multi.map(function (r) { var o = {}; for (var k in r) o[k] = r[k]; o.expected = byD[r.d] === null || byD[r.d] === undefined ? r.rate : byD[r.d]; o.dev = r.rate - o.expected; return o; });
+    out.easier = dev.filter(function (r) { return r.dev >= 0.15; }).sort(function (a, b) { return b.dev - a.dev || a.round - b.round; }).slice(0, 3);
+    out.harder = dev.filter(function (r) { return r.dev <= -0.15; }).sort(function (a, b) { return a.dev - b.dev || a.round - b.round; }).slice(0, 3);
+    return out;
+  }
+
+  /* ---------- Récap à coller dans un message (texte brut) ---------- */
+  function nfr(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, "\u202f"); }
+  function recapText(log, dateStr) {
+    var rows = perPlayer(log).slice().sort(function (a, b) { return a.rank - b.rank || a.idx - b.idx; }), t = totals(log), medals = ["🥇", "🥈", "🥉"], L = [];
+    L.push("🏆 Récap de la partie" + (dateStr ? " — " + dateStr : ""));
+    rows.slice(0, 10).forEach(function (r) {
+      L.push((medals[r.rank - 1] || (r.rank + ".")) + " " + (r.avatar ? r.avatar + " " : "") + r.name + " — " + nfr(r.final) + " pts" + (r.accuracy === null ? "" : " (" + pctFr(r.accuracy) + " de bonnes réponses)"));
+    });
+    if (rows.length > 10) L.push("… et " + plural(rows.length - 10, "autre", "autres"));
+    L.push("");
+    L.push("❓ " + plural(log.R.length, "question", "questions") + " · ✅ réussite du groupe : " + (t.accuracy === null ? "—" : pctFr(t.accuracy)));
+    var st = rows.slice().sort(function (a, b) { return b.bestStreak - a.bestStreak || a.idx - b.idx; })[0];
+    if (st && st.bestStreak >= 2) L.push("🔥 Plus longue série : " + st.name + " (" + st.bestStreak + " bonnes réponses d’affilée)");
+    var fs = rows.filter(function (r) { return r.fastest !== null; }).sort(function (a, b) { return a.fastest - b.fastest || a.idx - b.idx; })[0];
+    if (fs) L.push("⚡ Réponse la plus rapide : " + fs.name + " (" + (Math.round(fs.fastest * 10) / 10).toString().replace(".", ",") + " s)");
+    var hd = hardest(log, 1)[0];
+    if (hd) L.push("🧗 Question la plus difficile : « " + (hd.q || "(sans texte)").slice(0, 90) + " » (" + pctFr(hd.rate) + " de réussite)");
+    L.push("🎮 qui-suis-je-officiel");
+    return L.join("\n");
+  }
+
+  /* ---------- Mes records : les parties enregistrées sur cet appareil où un joueur porte mon prénom ---------- */
+  function myRecords(list, name) {
+    var key = String(name || "").trim().toLowerCase(), games = [];
+    if (key) list.forEach(function (log) {
+      var me = null; perPlayer(log).forEach(function (r) { if (!me && String(r.name).trim().toLowerCase() === key) me = r; });
+      if (!me || !me.answered) return;
+      games.push({ id: log.id, at: log.at || 0, players: log.P.length, rounds: log.R.length, final: me.final, rank: me.rank, accuracy: me.accuracy, correct: me.correct, answered: me.answered,
+        bestStreak: me.bestStreak, fastest: me.fastest, bestGain: me.bestGain, won: me.rank === 1 && log.P.length > 1 });
+    });
+    games.sort(function (a, b) { return a.at - b.at; });
+    function top(keep, better) { var b = null; games.forEach(function (g) { if (keep(g) && (!b || better(g, b))) b = g; }); return b; }
+    var ca = 0, cn = 0; games.forEach(function (g) { ca += g.correct; cn += g.answered; });
+    return { name: name, games: games, played: games.length, wins: games.filter(function (g) { return g.won; }).length,
+      bestScore: top(function () { return true; }, function (g, b) { return g.final > b.final; }),
+      bestAccuracy: top(function (g) { return g.accuracy !== null && g.answered >= 5; }, function (g, b) { return g.accuracy > b.accuracy; }) || top(function (g) { return g.accuracy !== null; }, function (g, b) { return g.accuracy > b.accuracy; }),
+      bestStreak: top(function (g) { return g.bestStreak > 0; }, function (g, b) { return g.bestStreak > b.bestStreak; }),
+      fastest: top(function (g) { return g.fastest !== null; }, function (g, b) { return g.fastest < b.fastest; }),
+      bestGain: top(function (g) { return g.bestGain > 0; }, function (g, b) { return g.bestGain > b.bestGain; }),
+      totalCorrect: ca, totalAnswered: cn, overall: cn ? ca / cn : null };
+  }
+
   /* ---------- Répartition des temps de réponse (6 tranches égales) ---------- */
   function timeHistogram(log) {
     var times = [], maxT = 0;
@@ -499,7 +574,7 @@ var V40Analysis = (function () {
   }
 
   return { DIFFS: DIFFS, powers: powers, powerName: powerName, MAX_POWERS: MAX_POWERS, MAX_ROUNDS: MAX_ROUNDS, MAX_PLAYERS: MAX_PLAYERS, normalize: normalize, normalizeRound: normalizeRound, totals: totals, perPlayer: perPlayer, scoreSeries: scoreSeries, rankSeries: rankSeries, formSeries: formSeries, leadStats: leadStats, byCategory: byCategory,
-    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
+    byDifficulty: byDifficulty, byMedia: byMedia, roundStats: roundStats, questionInsights: questionInsights, recapText: recapText, myRecords: myRecords, timeHistogram: timeHistogram, highlights: highlights, hardest: hardest, easiest: easiest, summarize: summarize,
     addToHistory: addToHistory, toCSV: toCSV, csvCell: csvCell,
     tokenize: tokenize, newChat: newChat, addChat: addChat, normalizeChat: normalizeChat, textStats: textStats, textReport: textReport, textReportTxt: textReportTxt, reactionStats: reactionStats, quantile: quantile };
 })();
