@@ -26,3 +26,15 @@
 @keyframes v51-timer { from { transform: scaleX(1) } to { transform: scaleX(0) } }
 @media (max-width: 520px) { .v51-row { grid-template-columns: 62px 28px minmax(0, 1fr) 70px 40px; } .v51-bar { display: none; } }
 @media (prefers-reduced-motion: reduce) { .v51-half, .v51-row { animation: none } .v51-timer i { animation: none; transform: none } }
+
+/* ---- Classement à la demande de l'hôte : ne bloque pas la partie ---- */
+.v51-half.v51-manual { background: transparent; backdrop-filter: none; pointer-events: none; align-items: flex-start; padding-top: 14px; }
+.v51-half.v51-manual .v51-card { pointer-events: auto; max-height: calc(100vh - 28px); overflow-y: auto; box-shadow: 0 18px 60px rgba(0, 0, 0, .6); }
+/* ---- Classement des équipes dans l'incrustation ---- */
+.v51-teamhead { margin: 14px 0 6px; font-weight: 800; text-align: left; opacity: .9; }
+.v51-teams { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.v51-trow { display: grid; grid-template-columns: 62px minmax(0, 1fr) 90px; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; background: rgba(255, 255, 255, .06); text-align: left; }
+.v51-trow.v51-tfirst { background: rgba(255, 200, 60, .14); }
+.v51-trow.v51-me { outline: 2px solid #7c5cff; }
+.v51-trow .v51-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v51-trow .v51-pts { text-align: right; font-variant-numeric: tabular-nums; }

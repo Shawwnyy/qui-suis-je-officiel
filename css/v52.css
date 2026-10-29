@@ -1,0 +1,40 @@
+/* 👥 Équipes : choix, chat d'équipe, bouton classement (js/patches/044-v52-equipes.js) */
+.v52-pick { margin: 12px 0; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .06); border: 1px solid rgba(255, 255, 255, .14); text-align: left; }
+.v52-teams { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 10px 0 6px; }
+.v52-team { display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 10px 12px; border-radius: 12px; border: 2px solid rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .05); color: inherit; font: inherit; cursor: pointer; transition: transform .15s, border-color .15s, background .15s; }
+.v52-team:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(124, 92, 255, .8); }
+.v52-team.on { border-color: #7c5cff; background: rgba(124, 92, 255, .22); }
+.v52-team:disabled { opacity: .6; cursor: not-allowed; }
+.v52-team small { opacity: .75; font-size: .8rem; line-height: 1.3; overflow-wrap: anywhere; }
+.v52-note { font-size: .82rem; opacity: .75; margin-top: 6px; line-height: 1.4; }
+.v52-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+.v52-act { padding: 7px 12px; font-size: .9rem; }
+#dockTeam, #dockRank { position: relative; }
+.v52-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; border-radius: 99px; background: #ef4444; color: #fff; font-size: 11px; font-weight: 900; display: none; align-items: center; justify-content: center; padding: 0 4px; }
+.v52-panel { position: fixed; right: 70px; bottom: 12px; z-index: 1210; width: min(330px, calc(100vw - 90px)); height: min(420px, 62vh); display: none; flex-direction: column; border-radius: 18px; background: rgba(12, 12, 26, .97); border: 1px solid rgba(124, 92, 255, .6); box-shadow: 0 20px 60px rgba(0, 0, 0, .6); overflow: hidden; color: #fff; font-family: inherit; }
+.v52-panel.open { display: flex; }
+@media (min-width: 1100px) { body.chatOpen .v52-panel { right: 382px; } }
+.v52-phead { padding: 10px 14px; font-weight: 900; font-size: 14px; border-bottom: 1px solid rgba(255, 255, 255, .12); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.v52-phead span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v52-x { background: none; border: 0; color: #fff; font-size: 18px; cursor: pointer; }
+.v52-hint { padding: 6px 12px; font-size: 11px; opacity: .7; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.v52-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.v52-msg { padding: 6px 10px; border-radius: 12px; background: rgba(255, 255, 255, .08); max-width: 92%; word-break: break-word; }
+.v52-msg.mine { align-self: flex-end; background: rgba(124, 92, 255, .45); }
+.v52-head { display: flex; gap: 6px; align-items: baseline; font-size: 11px; opacity: .8; margin-bottom: 2px; }
+.v52-head time { margin-left: auto; opacity: .7; }
+.v52-tag { padding: 0 6px; border-radius: 99px; background: rgba(255, 255, 255, .14); }
+.v52-warn { font-size: 11px; color: #fca5a5; padding: 0 12px 6px; min-height: 14px; }
+.v52-form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid rgba(255, 255, 255, .12); }
+.v52-form input { flex: 1; min-width: 0; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .2); background: rgba(255, 255, 255, .08); color: #fff; padding: 9px 10px; font-size: 13px; }
+.v52-form button { border: 0; border-radius: 10px; padding: 0 14px; background: #7c3aed; color: #fff; font-weight: 900; cursor: pointer; }
+@media (max-width: 520px) { .v52-teams { grid-template-columns: 1fr 1fr; } }
+/* L'ancien gestionnaire d'équipes de l'hôte (listes déroulantes cassées) est remplacé par le panneau « Équipes : choix des joueurs » */
+#v9TeamManager { display: none !important; }
+.v52-assign { margin-top: 12px; display: grid; gap: 6px; }
+.v52-sub { font-weight: 700; font-size: .9rem; opacity: .85; }
+.v52-arow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(140px, 220px); align-items: center; gap: 10px; }
+.v52-arow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 520px) { .v52-arow { grid-template-columns: 1fr; } }
+.v52-actions .v52-act { width: auto; flex: 0 1 auto; margin: 0; }
+.v52-arow .select { margin: 0; width: 100%; }

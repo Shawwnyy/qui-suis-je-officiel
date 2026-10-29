@@ -321,6 +321,20 @@ C'est l'heure **de l'appareil de chaque joueur** (pas une heure serveur : si l'h
 - Les données reçues par le réseau sont **nettoyées** (taille, bornes, caractères de contrôle ; l'étiquette 1er / 2e est recalculée, jamais reprise) et affichées avec `textContent`, jamais en HTML. Le mouvement réduit (`prefers-reduced-motion`) est respecté.
 - Le classement après **n'importe quelle question** reste disponible en image dans l'onglet **🏁 Classement** des statistiques.
 - Tests : `node tests/half.test.js`.
+node tests/teams.test.js                 # équipes : répartition, choix, chat d'équipe (relais, modération, anti-spam), bouton classement de l'hôte
+
+## 🏁 Montrer le classement à tous, quand l'hôte veut (`js/patches/043-v51-mi-partie.js`, `044-v52-equipes.js`)
+- Pendant la partie, l'hôte a un bouton **🏁** dans la colonne de boutons à droite : un clic affiche le **classement du moment à tous les joueurs** (1er, 2e, 3e… avec ▲▼ depuis la dernière question, plus le classement des équipes en mode Équipes).
+- Il **ne ralentit ni ne bloque la partie** : les questions continuent, chacun peut le fermer (✕), il disparaît seul après 10 secondes, et le fond reste cliquable. Un délai de 2,5 s évite les rafales ; le bouton n'existe que pour l'hôte et seulement une fois la partie lancée.
+
+## 👥 Équipes : choix, répartition et chat d'équipe (`js/patches/044-v52-equipes.js`, `css/v52.css`)
+S'appuie sur le mode de jeu **👥 Équipes** (`window.v9GameMode === "teams"`).
+- **Les joueurs choisissent leur équipe d'un clic** dans leur salle d'attente (liste des équipes avec leurs membres, juste sous la liste des joueurs). Un joueur qui arrive est placé dans l'équipe la moins remplie.
+- **L'hôte organise** : « 🔓 Les joueurs choisissent / 🔒 Équipes verrouillées », « 🎲 Au hasard » (réparti de façon équilibrée), « ⚖️ Équilibrer » (place seulement les joueurs sans équipe), une liste par joueur pour le placer, ✏️ renommer, ＋ ajouter une équipe (6 au plus). L'hôte peut déplacer tout le monde, même verrouillé ; plus rien ne change une fois la partie lancée.
+- **Chat d'équipe** (bouton 👥, avec pastille de messages non lus) : seuls les coéquipiers reçoivent les messages. **L'hôte les reçoit tous pour modérer** — c'est écrit dans le panneau, pour les joueurs comme pour lui. Mêmes protections que le chat de la salle : filtre d'insultes, mots épelés sur plusieurs messages, message d'une seule lettre, avertissement puis sourdine, verrouillage, bannis, anti-spam (6 messages par 3 s).
+- **Sécurité** : l'identité de l'expéditeur vient de la **connexion réseau**, jamais du contenu du message (avant, un invité pouvait déplacer n'importe quel joueur en se faisant passer pour lui) ; une équipe qui n'existe pas ne peut plus être créée par une demande ; tout ce qui est reçu est borné et affiché avec `textContent`.
+- **Bug corrigé** : les listes déroulantes et le bouton ✏️ de l'ancien gestionnaire d'équipes de l'hôte ne marchaient pas (guillemets cassés dans leur HTML, « Unexpected end of input »). Ils sont remplacés par le panneau ci-dessus, l'ancien bloc est masqué.
+- Tests : `node tests/teams.test.js`.
 
 ## 🎡 Roue des bonus et malus (`js/wheel/wheel.js`)
 Une roue tourne **entre deux questions**. **L'hôte choisit dans le salon d'attente (« 🎡 Roue des bonus / malus »)** : **moments fixes** (après la 3e, la 6e, la 9e… manche, par défaut), **moments aléatoires** (de 1 à 6 roues à des manches tirées au sort au début de la partie, non annoncées, jamais avant la 2e manche ni après la dernière, jamais deux de suite) ou **désactivée**. Le choix est gardé dans le navigateur de l'hôte et figé au début de la partie ; les joueurs le subissent comme le reste des réglages de l'hôte. Jamais après la dernière manche ; pas de roue dans une partie de 3 manches ou moins en mode fixe. **Chaque joueur tire sa propre case en même temps** : l'hôte tire au sort (8 cases, toutes équiprobables : la taille d'une case est sa vraie probabilité) puis diffuse le résultat ; chacun voit la roue s'arrêter sur SA case, puis la liste des résultats de tous. La question suivante démarre juste après (≈ 9,5 s).

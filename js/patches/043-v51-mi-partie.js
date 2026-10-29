@@ -8,7 +8,7 @@
    ============================================================================= */
 var V51Half = (function () {
   "use strict";
-  var HALF_MS = 7000, MIN_ROUNDS = 4, MAX_ROWS = 30;
+  var HALF_MS = 7000, MANUAL_MS = 10000, MIN_ROUNDS = 4, MAX_ROWS = 30, MAX_TEAMS = 8;
   function str(x, n) { return typeof x === "string" ? x.replace(/[\u0000-\u001f\u007f]/g, " ").slice(0, n) : ""; }
   function int(x, lo, hi, def) { x = Math.round(Number(x)); if (!isFinite(x)) return def; return Math.max(lo, Math.min(hi, x)); }
   function ordinal(r) { return r === 1 ? "1er" : r + "e"; }
@@ -39,7 +39,11 @@ var V51Half = (function () {
         move: r.move === null || r.move === undefined ? null : int(r.move, -99, 99, 0) };
     });
     if (!rows.length) return null;
-    return { type: "v51Half", id: int(ev.id, 0, 1e9, 0), round: int(ev.round, 1, 999, 1), total: int(ev.total, 1, 999, 1), rows: rows };
+    var teams = Array.isArray(ev.teams) ? ev.teams.slice(0, MAX_TEAMS).map(function (t) {
+      t = t || {}; var rk = int(t.rank, 1, 99, 1);
+      return { name: str(t.name, 30) || "Équipe", score: int(t.score, 0, 1000000000, 0), count: int(t.count, 0, 99, 0), rank: rk, label: rk === 1 ? "1re" : rk + "e" };
+    }) : [];
+    return { type: "v51Half", id: int(ev.id, 0, 1e9, 0), round: int(ev.round, 1, 999, 1), total: int(ev.total, 1, 999, 1), rows: rows, teams: teams, manual: ev.manual === true };
   }
   /* Enchaînement côté hôte : à la moitié, on diffuse le classement puis on attend avant la question suivante.
      env : { isHost(), started(), players(), index(), total(), enabled(), broadcast(ev), show(ev), later(fn, ms), now }  */
@@ -57,6 +61,7 @@ var V51Half = (function () {
         if (!shown && due(env.index(), env.total(), env.enabled())) {
           shown = true; pending = true;
           var ev = { type: "v51Half", id: ++seq, round: env.index(), total: env.total(), rows: withMoves(rows, prev) }, my = ++token;
+          if (env.teams) { var tm = env.teams(); if (tm && tm.length) ev.teams = tm; }
           prev = ranksOf(rows);
           try { env.broadcast(ev); } catch (e) {}
           try { env.show(ev); } catch (e) {}
@@ -67,9 +72,18 @@ var V51Half = (function () {
         return base.apply(self, args);
       };
     }
-    return { wrap: wrap, reset: reset, state: function () { return { shown: shown, pending: pending }; } };
+    /* Bouton de l'hôte : classement du moment, à la demande, montré à tous sans toucher à l'enchaînement des questions */
+    function manual() {
+      if (!env.isHost() || !env.started()) return null;
+      var rows = board(env.players()), ev = { type: "v51Half", id: ++seq, round: int(env.index(), 1, 999, 1), total: int(env.total(), 1, 999, 1), rows: withMoves(rows, prev), manual: true };
+      if (env.teams) { var tm = env.teams(); if (tm && tm.length) ev.teams = tm; }
+      try { env.broadcast(ev); } catch (e) {}
+      try { env.show(ev); } catch (e) {}
+      return ev;
+    }
+    return { wrap: wrap, reset: reset, manual: manual, state: function () { return { shown: shown, pending: pending }; } };
   }
-  return { HALF_MS: HALF_MS, MIN_ROUNDS: MIN_ROUNDS, half: half, due: due, board: board, ranksOf: ranksOf, withMoves: withMoves, sanitize: sanitize, host: host, ordinal: ordinal };
+  return { HALF_MS: HALF_MS, MANUAL_MS: MANUAL_MS, MIN_ROUNDS: MIN_ROUNDS, half: half, due: due, board: board, ranksOf: ranksOf, withMoves: withMoves, sanitize: sanitize, host: host, ordinal: ordinal };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V51Half;
 
@@ -91,12 +105,13 @@ if (typeof module !== "undefined" && module.exports) module.exports = V51Half;
   function show(raw) {
     var ev = V51Half.sanitize(raw); if (!ev) return;
     hide();
+    var ms = ev.manual ? V51Half.MANUAL_MS : V51Half.HALF_MS;
     var me = typeof myId !== "undefined" ? String(myId) : "", MEDAL = ["🥇 ", "🥈 ", "🥉 "], top = Math.max(1, ev.rows[0].score);
-    var root = mk("div", "v51-half"), card = mk("div", "v51-card"), x = mk("button", "v51-x", "✕");
+    var root = mk("div", "v51-half" + (ev.manual ? " v51-manual" : "")), card = mk("div", "v51-card"), x = mk("button", "v51-x", "✕");
     root.id = "v51Half"; root.setAttribute("role", "dialog"); root.setAttribute("aria-live", "polite"); root.setAttribute("aria-labelledby", "v51HalfT");
     x.type = "button"; x.setAttribute("aria-label", "Fermer le classement"); x.onclick = hide;
-    var t = mk("div", "v51-title", "🏁 Classement à la moitié"); t.id = "v51HalfT";
-    card.appendChild(x); card.appendChild(t); card.appendChild(mk("div", "v51-sub", "Après la question " + ev.round + " sur " + ev.total));
+    var t = mk("div", "v51-title", ev.manual ? "🏁 Classement" : "🏁 Classement à la moitié"); t.id = "v51HalfT";
+    card.appendChild(x); card.appendChild(t); card.appendChild(mk("div", "v51-sub", ev.manual ? "Question " + ev.round + " sur " + ev.total + " · scores du moment" : "Après la question " + ev.round + " sur " + ev.total));
     var ol = mk("ol", "v51-list"), shown = ev.rows.slice(0, 10);
     shown.forEach(function (r) {
       var li = mk("li", "v51-row" + (r.rank <= 3 ? " v51-top" + r.rank : "") + (me && r.id === me ? " v51-me" : ""));
@@ -111,14 +126,28 @@ if (typeof module !== "undefined" && module.exports) module.exports = V51Half;
     });
     card.appendChild(ol);
     if (ev.rows.length > shown.length) card.appendChild(mk("div", "v51-more", "… et " + (ev.rows.length - shown.length) + " autre" + (ev.rows.length - shown.length > 1 ? "s" : "") + " joueur" + (ev.rows.length - shown.length > 1 ? "s" : "")));
-    var tm = mk("div", "v51-timer"), ti = mk("i"); ti.style.animationDuration = V51Half.HALF_MS + "ms"; tm.appendChild(ti); card.appendChild(tm);
+    if (ev.teams && ev.teams.length) {
+      var myTeamName = ""; try { var mp = typeof players === "object" && players ? players[me] : null; myTeamName = mp && mp.team ? String(mp.team) : ""; } catch (e) {}
+      card.appendChild(mk("div", "v51-teamhead", "👥 Équipes"));
+      var tl = mk("ol", "v51-teams");
+      ev.teams.forEach(function (tt) {
+        var li = mk("li", "v51-trow" + (tt.rank === 1 ? " v51-tfirst" : "") + (myTeamName && tt.name === myTeamName ? " v51-me" : ""));
+        li.appendChild(mk("span", "v51-rank", (MEDAL[tt.rank - 1] || "") + tt.label));
+        li.appendChild(mk("span", "v51-name", tt.name + (myTeamName && tt.name === myTeamName ? " (ton équipe)" : "") + " · " + tt.count + " joueur" + (tt.count > 1 ? "s" : "")));
+        li.appendChild(mk("span", "v51-pts", pts(tt.score)));
+        tl.appendChild(li);
+      });
+      card.appendChild(tl);
+    }
+    var tm = mk("div", "v51-timer"), ti = mk("i"); ti.style.animationDuration = ms + "ms"; tm.appendChild(ti); card.appendChild(tm);
     root.appendChild(card); document.body.appendChild(root);
-    hideTimer = setTimeout(hide, V51Half.HALF_MS);
+    hideTimer = setTimeout(hide, ms);
   }
   var ctl = V51Half.host({
     isHost: function () { return !!isHost; }, started: function () { return !!gameStarted; }, players: function () { return players; },
     index: function () { return currentQuestionIndex; }, total: function () { return totalRounds; }, enabled: enabled,
-    broadcast: function (ev) { broadcast(ev); }, show: show, later: function (fn, ms) { setTimeout(fn, ms); }
+    broadcast: function (ev) { broadcast(ev); }, show: show,
+    teams: function () { return window.V52Teams && window.v9GameMode === "teams" ? window.V52Teams.teamScores(players) : null; }, later: function (fn, ms) { setTimeout(fn, ms); }
   });
   sendNextQuestion = ctl.wrap(sendNextQuestion);
   var baseHandle = handleData;
@@ -141,5 +170,5 @@ if (typeof module !== "undefined" && module.exports) module.exports = V51Half;
     say(); box.appendChild(title); box.appendChild(sel); box.appendChild(hint); grid.appendChild(box);
   }
   mount(); document.addEventListener("DOMContentLoaded", mount);
-  window.V51HalfUI = { show: show, hide: hide, enabled: enabled, save: save };
+  window.V51HalfUI = { show: show, hide: hide, enabled: enabled, save: save, manual: function () { return ctl.manual(); } };
 })();
