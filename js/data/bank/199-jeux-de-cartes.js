@@ -1,0 +1,25 @@
+/* 🃏 Jeux de cartes — 22 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🃏 Jeux de cartes"]=[
+  "f|Combien de cartes compte un jeu classique, sans les jokers ?|52|32|54|48",
+  "f|Quelles sont les quatre couleurs d'un jeu de cartes français ?|Cœur, carreau, trèfle, pique|Cœur, étoile, lune, soleil|Rouge, noir, vert, bleu|Roi, dame, valet, as",
+  "f|Avec combien de cartes joue-t-on à la belote ?|32|52|36|40",
+  "f|Quelle carte est la plus forte à la belote dans la couleur d'atout ?|Le valet|L'as|Le roi|Le neuf|Le valet d'atout vaut 20 points, le neuf d'atout 14.",
+  "m|Combien de points vaut le valet d'atout à la belote ?|20|11|14|10",
+  "m|Combien de points vaut le neuf d'atout à la belote ?|14|9|10|20",
+  "m|Combien de points vaut un as hors atout à la belote ?|11|10|1|14",
+  "m|Comment appelle-t-on le fait d'avoir le roi et la dame d'atout à la belote ?|Belote et rebelote|Tierce|Carré|Capot",
+  "f|Quel jeu se joue avec des cartes numérotées de 0 à 9 en rouge, bleu, jaune et vert ?|Le Uno|La belote|Le tarot|Le poker",
+  "m|Combien de cartes privatives reçoit chaque joueur au Texas Hold'em ?|2|3|5|7",
+  "m|Quelle main bat toutes les autres au poker ?|La quinte flush royale|Le carré d'as|Le full|La couleur",
+  "m|Comment appelle-t-on, au poker, trois cartes de même valeur plus une paire ?|Un full|Une quinte|Un carré|Une double paire",
+  "f|Combien y a-t-il de rois dans un jeu de 52 cartes ?|4|2|8|13",
+  "d|Combien de cartes compte un jeu de tarot français complet ?|78|52|56|32",
+  "d|Combien d'atouts numérotés compte un jeu de tarot français ?|21|22|14|10",
+  "m|Comment appelle-t-on la carte du tarot sans numéro, qu'on peut jouer à tout moment ?|L'excuse|Le petit|Le grand|Le chien",
+  "m|Comment appelle-t-on le 1 d'atout au tarot ?|Le petit|Le grand|L'excuse|Le roi",
+  "f|Quel jeu de cartes consiste à réunir toutes les cartes d'une même famille ?|Les sept familles|La bataille|Le tarot|Le poker",
+  "m|Quel est le but du blackjack ?|Approcher 21 sans le dépasser|Avoir le plus de cœurs|Réunir quatre as|Faire 100 points",
+  "m|Au blackjack, combien vaut une figure (valet, dame, roi) ?|10|11|12|1",
+  "f|À la bataille, que gagne la carte la plus forte ?|Les cartes posées sur la table|Une partie entière|Un jeton|Rien",
+  "f|Quelle carte joue le rôle de bouffon dans un jeu ?|Le joker|La dame|Le valet|L'as"
+];

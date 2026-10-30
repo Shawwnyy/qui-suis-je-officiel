@@ -1,0 +1,26 @@
+/* 🧬 Acronymes de science et de santé — 23 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🧬 Acronymes de science et de santé"]=[
+  "f|Quelle est la signification de ADN ?|Acide désoxyribonucléique|Acide dérivé de nucléotides|Assemblage de nucléines|Acide diazoté naturel|L'ADN porte l'information génétique des êtres vivants.",
+  "m|Quelle est la signification de ARN ?|Acide ribonucléique|Acide rhéologique nucléaire|Assemblage ribosomique naturel|Acide recombiné nucléaire",
+  "f|Quelle est la signification de IRM ?|Imagerie par résonance magnétique|Imagerie radio médicale|Instrument de recherche médicale|Inspection par rayons magnétiques|Une IRM utilise un champ magnétique et non des rayons X.",
+  "f|Quelle est la signification de VIH ?|Virus de l'immunodéficience humaine|Virus infectieux hémorragique|Vaccin contre l'infection humaine|Virus à incubation haute",
+  "m|Quelle est la signification de SIDA ?|Syndrome d'immunodéficience acquise|Système immunitaire de défense actif|Syndrome infectieux des défenses atténuées|Suivi immunitaire des dépistages anciens",
+  "f|Quelle est la signification de ECG ?|Électrocardiogramme|Examen cardiaque général|Écho-cardiographie gauche|Exploration chronique du glucose|Un ECG enregistre l'activité électrique du cœur.",
+  "m|Quelle est la signification de AVC ?|Accident vasculaire cérébral|Attaque veineuse chronique|Arrêt ventriculaire cardiaque|Altération vitale du cerveau",
+  "m|Quelle est la signification de IMC ?|Indice de masse corporelle|Indice moyen de calories|Inventaire des muscles et de la corpulence|Index mesurant le cholestérol|On le calcule en divisant le poids en kilogrammes par la taille au carré (en mètres).",
+  "m|Quelle est la signification de OGM ?|Organisme génétiquement modifié|Organisme de gestion mondiale|Offre globale de marché|Organisation générale des moissons",
+  "m|Quelle est la signification de PMA ?|Procréation médicalement assistée|Prévention des maladies actuelles|Prise en main d'ambulance|Protocole médical d'accueil",
+  "m|Quelle est la signification de ORL ?|Oto-rhino-laryngologie|Organes respiratoires et lymphatiques|Observation rapide des lésions|Optique et rééducation de la lecture|L'ORL soigne les oreilles, le nez et la gorge.",
+  "m|Quelle est la signification de LASER ?|Light Amplification by Stimulated Emission of Radiation|Light Application for Surgical Energy Rays|Linear Amplified System of Energy Radiation|Long-range Application of Scanned Electronic Rays",
+  "m|Quelle est la signification de RADAR ?|Radio Detection And Ranging|Rapid Aerial Detection And Reporting|Radio Antenna for Distance And Rotation|Remote Air Defense And Recognition",
+  "m|Quelle est la signification de SONAR ?|Sound Navigation And Ranging|Submarine Observation And Radar|Signal Of Naval Alert Reception|Sea Orientation Navigation And Radio",
+  "d|Quelle est la signification de CRISPR (dans CRISPR-Cas9) ?|Courtes répétitions palindromiques regroupées et régulièrement espacées|Chaînes rapides d'ADN séquencées par ribosomes|Coupure ciblée des régions inactives du génome|Contrôle rapide d'insertion de séquences protéiques",
+  "d|Quelle est la signification de PCR dans un test PCR ?|Réaction en chaîne par polymérase|Prélèvement clinique rapide|Protocole de contrôle respiratoire|Procédure de comptage des récepteurs|Le test PCR copie un fragment de matériel génétique pour le détecter.",
+  "d|Quelle est la signification de GPS ?|Global Positioning System|General Position Signal|Geographic Pointing Service|Global Planet Scanner",
+  "d|Quelle est la signification de CO2 ?|Dioxyde de carbone|Oxyde de carbone double|Carbone oxygéné deux fois|Monoxyde de carbone dilué|Une molécule de CO2 a un atome de carbone et deux d'oxygène.",
+  "d|Quelle est la signification de pH ?|Potentiel hydrogène|Pression d'hydrogène|Pouvoir d'hydratation|Point d'humidité|Le pH va de 0 (très acide) à 14 (très basique) ; 7 est neutre.",
+  "d|Quelle est la signification de TDAH ?|Trouble déficit de l'attention avec ou sans hyperactivité|Trouble dû aux angoisses et à l'hyperactivité|Troubles divers d'adaptation hormonale|Test de dépistage de l'attention humaine",
+  "m|Quelle est la signification de UV ?|Ultraviolet|Ultra-vide|Unité de vision|Union visuelle|Les UV sont invisibles à l'œil nu.",
+  "m|Quelle est la signification de LED ?|Light Emitting Diode|Low Energy Display|Linear Electric Device|Light Energy Discharge|Une LED est une diode qui émet de la lumière.",
+  "d|Quelle est la signification de DLC sur un produit frais ?|Date limite de consommation|Date de lancement commercial|Durée de la conservation chimique|Dosage limite en calories"
+];

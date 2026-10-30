@@ -22,7 +22,7 @@ const CAT = "📄 Dossier technique plaque à induction";
     t("salle normale : le thème de cours est absent de la grille des thèmes", (await inGrid()) === false && (await H.locator("#themeGrid .v163-theme").count()) > 150);
     await H.evaluate(() => { const b = document.getElementById("v21SelectVisible"); if (b) b.click(); }); await H.waitForTimeout(500);
     t("salle normale, tout coché : le thème de cours n'entre pas dans le tirage", (await inPool()) === false && !(await checked()).includes(CAT));
-    t("sans thème de cours, la grille compte 201 thèmes (celui du cours n'est pas ajouté)", (await H.locator("#themeGrid .v163-theme").count()) === 201);
+    t("sans thème de cours, la grille compte 232 thèmes (celui du cours n'est pas ajouté)", (await H.locator("#themeGrid .v163-theme").count()) === 232);
 
     /* retour accueil */
     await H.evaluate(() => { try { document.querySelectorAll(".modal.show").forEach(m => m.classList.remove("show")); } catch (e) {} });

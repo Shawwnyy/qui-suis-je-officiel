@@ -1,0 +1,26 @@
+/* 🔟 Chiffres romains et numération — 23 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🔟 Chiffres romains et numération"]=[
+  "f|Combien vaut le chiffre romain V ?|5|10|50|1",
+  "f|Combien vaut le chiffre romain X ?|10|5|100|1",
+  "f|Combien vaut le chiffre romain L ?|50|100|500|5",
+  "f|Combien vaut le chiffre romain C ?|100|50|1 000|10",
+  "m|Combien vaut le chiffre romain D ?|500|50|1 000|100",
+  "m|Combien vaut le chiffre romain M ?|1 000|100|500|10 000",
+  "f|Comment écrit-on 4 en chiffres romains ?|IV|VI|IC|IIV",
+  "f|Comment écrit-on 9 en chiffres romains ?|IX|VIIII|XI|IIX",
+  "m|Comment écrit-on 14 en chiffres romains ?|XIV|XVI|IVX|XIIII",
+  "m|Comment écrit-on 19 en chiffres romains ?|XIX|XIIX|IXX|XVIIII",
+  "m|Que vaut XL en chiffres romains ?|40|60|90|14",
+  "m|Que vaut XC en chiffres romains ?|90|110|40|60",
+  "m|Que vaut CM en chiffres romains ?|900|1 100|600|400",
+  "m|Quelle année est écrite MMXXIV ?|2024|2014|2042|1924",
+  "m|Quelle année est écrite MDCCLXXXIX ?|1789|1798|1689|1879",
+  "d|Comment écrit-on 1999 en chiffres romains ?|MCMXCIX|MIM|MXMIX|MCMIC",
+  "d|Quelle période couvre le XXIᵉ siècle ?|Du 1ᵉʳ janvier 2001 au 31 décembre 2100|Du 1ᵉʳ janvier 2000 au 31 décembre 2099|Les années 2000 seulement|Les années 2100 seulement",
+  "f|Dans quel système de numération compte-t-on par paquets de dix ?|Le système décimal|Le système binaire|Le système romain|Le système sexagésimal",
+  "m|Quelle base utilise le système sexagésimal hérité des Babyloniens ?|60|10|12|2",
+  "m|Quel système de numération utilise les chiffres de 0 à 9 et les lettres de A à F ?|L'hexadécimal|Le décimal|Le binaire|L'octal",
+  "d|Que vaut la lettre A en hexadécimal ?|10|11|9|15",
+  "d|Que vaut la lettre F en hexadécimal ?|15|16|14|6",
+  "f|Comment s'appelle le nombre 1 suivi de 100 zéros ?|Un gogol (googol)|Un gogolplex|Un million|Un milliard"
+];

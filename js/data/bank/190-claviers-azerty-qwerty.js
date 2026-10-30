@@ -1,0 +1,25 @@
+/* 🔤 AZERTY, QWERTY et autres claviers — 22 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🔤 AZERTY, QWERTY et autres claviers"]=[
+  "f|Pourquoi le clavier QWERTY porte-t-il ce nom ?|Ce sont les six premières lettres de la rangée du haut|C'est le nom de son inventeur|C'est une ville américaine|C'est un mot latin",
+  "f|Pourquoi le clavier AZERTY porte-t-il ce nom ?|Ce sont les six premières lettres de la rangée du haut|C'est le nom de son inventeur|C'est une marque française|C'est une région de France",
+  "f|Quelle disposition de clavier est la plus courante en France ?|AZERTY|QWERTY|QWERTZ|Dvorak",
+  "f|Quelle disposition de clavier est la plus répandue dans le monde ?|QWERTY|AZERTY|QWERTZ|BÉPO",
+  "m|Quelle disposition est la plus courante en Allemagne ?|QWERTZ|AZERTY|QWERTY|Dvorak",
+  "m|Quelle est la particularité du clavier QWERTZ ?|Les lettres Y et Z sont échangées par rapport au QWERTY|Les chiffres sont à droite|Il n'a pas de voyelles|Il est vertical",
+  "m|Qui a conçu la disposition QWERTY ?|Christopher Latham Sholes|Thomas Edison|Alexander Graham Bell|Samuel Morse|Sholes a déposé son brevet de machine à écrire en 1868.",
+  "m|Quelle entreprise a commercialisé en 1873 la machine à écrire de Sholes ?|Remington|Olivetti|Hermès|IBM",
+  "d|Quel ingénieur a breveté en 1936 une disposition de clavier pensée pour la rapidité de frappe ?|August Dvorak|Christopher Sholes|Thomas Watson|Charles Babbage",
+  "m|Comment s'appelle la disposition de clavier française libre et ergonomique dont le nom vient de ses premières lettres ?|BÉPO|NERGO|AZERPO|DVORAK-FR|Le BÉPO a été conçu pour taper en français, avec les lettres les plus fréquentes sous les doigts.",
+  "d|Que cherche à améliorer la norme AZERTY française publiée en 2019 ?|L'accès aux caractères du français (majuscules accentuées, œ, guillemets…)|La vitesse du processeur|La couleur des touches|La taille du clavier",
+  "m|Combien de touches compte un clavier ISO complet (disposition européenne) ?|105|88|120|64",
+  "f|Comment appelle-t-on le groupe de touches à droite du clavier, avec les chiffres ?|Le pavé numérique|Le pavé tactile|Le pavé directionnel|Le pavé de fonction",
+  "f|Quelles sont les dix premières lettres de la rangée du haut d'un clavier AZERTY ?|A Z E R T Y U I O P|Q S D F G H J K L M|W X C V B N , ; : !|Z A E R T Y U I O P",
+  "f|Quelle lettre se trouve entre le A et le E sur un clavier AZERTY ?|Z|R|Q|W",
+  "m|Sur un clavier AZERTY, la lettre M est située…|À droite du L, sur la rangée du milieu|À gauche du A|Sous la barre d'espace|À droite du P",
+  "m|Quelle lettre de l'AZERTY occupe la place du A sur un clavier QWERTY ?|Q|W|Z|S|Entre ces deux dispositions, A et Q sont échangés, tout comme Z et W.",
+  "m|Quelle disposition est utilisée dans la Belgique francophone ?|Un AZERTY belge, proche du français|Un QWERTZ|Un Dvorak|Un clavier cyrillique",
+  "d|Quelle disposition est courante au Québec ?|Le clavier canadien-français (base QWERTY avec accents)|AZERTY belge|QWERTZ|BÉPO",
+  "d|Comment s'appelle la disposition russe classique, d'après ses premières lettres ?|ЙЦУКЕН (JCUKEN)|АЗЕРТИ|КВЕРТИ|ДВОРАК",
+  "f|Comment appelle-t-on les claviers dont chaque touche a son propre interrupteur ?|Claviers mécaniques|Claviers à membrane|Claviers virtuels|Claviers ergonomiques",
+  "f|Qu'est-ce qu'un clavier virtuel ?|Un clavier affiché sur un écran tactile|Un clavier sans touches ni fil|Un clavier en bois|Un clavier de musique"
+];

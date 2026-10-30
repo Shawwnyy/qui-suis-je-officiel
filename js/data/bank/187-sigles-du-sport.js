@@ -1,0 +1,25 @@
+/* 🏅 Sigles du sport — 22 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🏅 Sigles du sport"]=[
+  "f|Que signifie PSG ?|Paris Saint-Germain|Paris Sport Groupe|Parc Saint-Germain|Paris Sud-Gironde",
+  "f|Que signifie OM pour le club de Marseille ?|Olympique de Marseille|Olympique méditerranéen|Office municipal|Ordre de Marseille",
+  "f|Que signifie NBA ?|National Basketball Association|National Ball Association|North Basketball Alliance|New Basketball Academy",
+  "f|Que signifie NFL ?|National Football League|North Football Legion|National Field League|New Football Line|La NFL organise le championnat de football américain.",
+  "m|Que signifie UFC ?|Ultimate Fighting Championship|United Fighters Club|Universal Free Combat|Ultra Fight Challenge",
+  "f|Que signifie JO ?|Jeux olympiques|Jeux ouverts|Jeunes officiels|Journées officielles",
+  "m|Que signifie LNH au hockey sur glace ?|Ligue nationale de hockey|Ligue nord-américaine de hockey|Ligue nationale des hockeyeurs|Liste nationale du hockey",
+  "m|Que signifie NHL ?|National Hockey League|North Hockey Legion|National Hockey Line|New Hockey League",
+  "m|Que signifie MLB ?|Major League Baseball|Minor League Basketball|Main League of Ball|Major Line of Baseball",
+  "m|Que signifie ATP dans le tennis ?|Association of Tennis Professionals|American Tennis Players|Association of Tournament Players|Alliance of Tennis Pros",
+  "m|Que signifie WTA dans le tennis ?|Women's Tennis Association|World Tennis Alliance|Worldwide Tournament Association|Western Tennis Authority",
+  "m|Que signifie FFF ?|Fédération française de football|Fédération des fans de foot|Fédération française de fitness|Fonds français du football",
+  "m|Que signifie FFR ?|Fédération française de rugby|Fédération française de rodéo|Fédération des fans de rugby|Fonds français de la raquette",
+  "m|Que signifie VAR au football ?|Video assistant referee (arbitrage vidéo)|Vérification aérienne rapide|Visa d'arbitre régional|Valeur ajoutée du referee",
+  "m|Que signifie CAN pour une compétition de football ?|Coupe d'Afrique des nations|Championnat d'Afrique du Nord|Compétition africaine nationale|Coupe des alliances nationales",
+  "m|Que signifie UCI en cyclisme ?|Union cycliste internationale|Union des coureurs indépendants|Union centrale des itinéraires|Union cycliste intercontinentale",
+  "d|Que signifie MVP dans le sport américain ?|Most valuable player (joueur le plus précieux)|Major victory points|Most valued professional|Maximum versatile player",
+  "d|Que veut dire KO en boxe ?|Knock-out (mis hors de combat)|Key opponent|Kicked out|Kill order|Un boxeur est KO quand il ne peut pas se relever avant la fin du décompte.",
+  "d|Que signifie GOAT pour un sportif ?|Greatest of all time (le meilleur de tous les temps)|Great old athletic talent|Gold on any track|Goal over all targets",
+  "d|Que signifie DNF dans un classement sportif ?|Did not finish (n'a pas terminé)|Disqualified not final|Delayed national final|Defeated near finish",
+  "d|Que signifie DNS dans un classement sportif ?|Did not start (n'a pas pris le départ)|Did not score|Delayed new start|Dropped near semifinal",
+  "m|Que signifie RTT dans le monde du travail ?|Réduction du temps de travail|Retour à temps total|Régime de travail terminé|Repos tout terrain"
+];

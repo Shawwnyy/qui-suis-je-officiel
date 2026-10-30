@@ -1,0 +1,26 @@
+/* 📜 Proverbes à compléter — 23 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["📜 Proverbes à compléter"]=[
+  "f|Complète : « Qui sème le vent récolte… »|la tempête|la pluie|le blé|le calme",
+  "f|Complète : « Petit à petit, l'oiseau fait… »|son nid|son chant|ses œufs|son vol",
+  "f|Complète : « Pierre qui roule n'amasse pas… »|mousse|poussière|pluie|neige",
+  "f|Complète : « L'habit ne fait pas le… »|moine|marin|roi|maçon",
+  "f|Complète : « Tel est pris qui croyait… »|prendre|gagner|rire|voler",
+  "f|Complète : « Chat échaudé craint l'eau… »|froide|chaude|claire|sale",
+  "f|Complète : « Rira bien qui rira… »|le dernier|le premier|en silence|à l'envers",
+  "f|Complète : « Après la pluie, le… »|beau temps|vent|froid|soleil",
+  "m|Complète : « Les chiens aboient, la caravane… »|passe|danse|s'arrête|chante",
+  "m|Complète : « À cheval donné, on ne regarde pas les… »|dents|sabots|yeux|crins",
+  "m|Complète : « L'appétit vient en… »|mangeant|dormant|travaillant|parlant",
+  "m|Complète : « Chassez le naturel, il revient au… »|galop|trot|pas|bord",
+  "m|Complète : « Mieux vaut tard que… »|jamais|trop|moins|souvent",
+  "m|Complète : « Il n'y a pas de fumée sans… »|feu|vent|cheminée|eau",
+  "m|Complète : « Tel père, tel… »|fils|frère|maître|roi",
+  "m|Complète : « La nuit, tous les chats sont… »|gris|noirs|perdus|blancs",
+  "m|Complète : « Qui va à la chasse perd sa… »|place|chance|vie|route",
+  "m|Complète : « On ne fait pas d'omelette sans casser des… »|œufs|poules|plats|bols",
+  "d|Complète : « Qui aime bien châtie… »|bien|mal|peu|tard",
+  "d|Complète : « Les cordonniers sont toujours les plus mal… »|chaussés|payés|servis|nourris",
+  "d|Complète : « L'union fait la… »|force|paix|fête|joie",
+  "d|Complète : « Qui ne dit mot… »|consent|pense|dort|ment",
+  "d|Complète : « Aide-toi, le ciel t'… »|aidera|verra|aimera|guidera"
+];

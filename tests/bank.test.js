@@ -17,10 +17,11 @@ Object.keys(V35_BANK).forEach(cat => {
   arr.forEach((line, i) => {
     total++;
     const p = String(line).split("|"), at = cat + " #" + (i + 1);
-    if (p.length !== 6) { fail(at + " : " + p.length + " champs : " + line.slice(0, 80)); return; }
+    if (p.length !== 6 && p.length !== 7) { fail(at + " : " + p.length + " champs : " + line.slice(0, 80)); return; }
+    if (p.length === 7 && (p[6].trim().length < 12 || p[6].length > 260)) fail(at + " : explication de " + p[6].length + " caractères : " + line.slice(0, 60));
     if (!/^[fmdi]$/.test(p[0])) fail(at + " : difficulté invalide « " + p[0] + " »");
     else counts[p[0]]++;
-    const [, q, good, ...wr] = p, all = [good, ...wr];
+    const [, q, good, ...wr0] = p, wr = wr0.slice(0, 3), all = [good, ...wr];
     if (q.length < 8 || q.length > 220) fail(at + " : longueur de la question " + q.length);
     all.forEach(a => { if (!a.trim()) fail(at + " : réponse vide"); if (a.length > 120) fail(at + " : réponse trop longue"); });
     const set = new Set(all.map(a => a.toLowerCase().replace(/\s+/g, " ").trim()));

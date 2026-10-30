@@ -1,0 +1,27 @@
+/* 🔤 Acronymes courants — 24 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🔤 Acronymes courants"]=[
+  "f|Quelle est la signification de le sigle SNCF ?|Société nationale des chemins de fer français|Société nationale des chemins de fer de France|Service national des chemins de fer français|Syndicat national des cheminots français|La SNCF existe depuis le 1er janvier 1938.",
+  "f|Quelle est la signification de TVA ?|Taxe sur la valeur ajoutée|Taxe sur les ventes annuelles|Taux de vente autorisé|Taxe de valeur appliquée|La TVA est un impôt sur la consommation, payé au final par le client.",
+  "m|Quelle est la signification de SMIC ?|Salaire minimum interprofessionnel de croissance|Salaire minimal inter-entreprises de commerce|Salaire moyen interprofessionnel de croissance|Somme minimale individuelle de caisse|Le SMIC est le salaire horaire minimum légal en France ; il remplace le SMIG depuis 1970.",
+  "f|Quelle est la signification de RATP ?|Régie autonome des transports parisiens|Réseau automatique des transports de Paris|Régie aérienne des transports publics|Réseau administratif des trams parisiens",
+  "f|Quelle est la signification de PIB ?|Produit intérieur brut|Produit industriel brut|Prix intérieur de base|Profit intérieur bancaire|Le PIB mesure la richesse produite dans un pays en un an.",
+  "f|Quelle est la signification de RIB ?|Relevé d'identité bancaire|Registre d'identité bancaire|Reçu d'impôt brut|Relevé d'intérêts bancaires",
+  "f|Quelle est la signification de CDI dans le monde du travail ?|Contrat à durée indéterminée|Contrat de durée intermédiaire|Convention de droit individuel|Certificat de durée illimitée|Un CDI n'a pas de date de fin prévue.",
+  "f|Quelle est la signification de CDD ?|Contrat à durée déterminée|Contrat de durée différée|Contrat à droit direct|Certificat de départ différé|Un CDD a une date de fin fixée à l'avance.",
+  "f|Quelle est la signification de QI ?|Quotient intellectuel|Qualité d'intelligence|Question intime|Quantité d'informations",
+  "f|Quelle est la signification de OVNI ?|Objet volant non identifié|Objet venu de nulle part inconnu|Observation visuelle nocturne inexpliquée|Organisme volant non identifié",
+  "m|Quelle est la signification de CAF dans « allocations de la CAF » ?|Caisse d'allocations familiales|Centre d'aide aux familles|Caisse d'assurance foncière|Comité d'action familiale",
+  "m|Quelle est la signification de CPAM ?|Caisse primaire d'assurance maladie|Centre public d'aide médicale|Caisse principale d'action mutuelle|Comité de protection de l'assurance maladie",
+  "m|Quelle est la signification de SAMU ?|Service d'aide médicale urgente|Secours d'assistance médicale universelle|Service d'ambulances municipales urgentes|Syndicat des ambulanciers de médecine urgente|Le SAMU répond au 15.",
+  "f|Quelle est la signification de TGV ?|Train à grande vitesse|Train à grande voie|Transport grand voyageur|Train de grande ville",
+  "m|Quelle est la signification de HLM ?|Habitation à loyer modéré|Habitat à long moyen terme|Hébergement à loyer minimum|Habitation de logement municipal",
+  "m|Quelle est la signification de PACS ?|Pacte civil de solidarité|Pacte administratif de cohabitation sociale|Projet d'accord civil et solidaire|Protocole d'alliance conjugale simplifiée",
+  "d|Quelle est la signification de INSEE ?|Institut national de la statistique et des études économiques|Institut national des services et des études européennes|Institut national de la société et de l'économie|Inspection nationale des statistiques et de l'emploi|L'INSEE réalise le recensement et publie les chiffres de l'inflation et du chômage.",
+  "d|Quelle est la signification de CNIL ?|Commission nationale de l'informatique et des libertés|Centre national de l'information et des lois|Comité national des identités en ligne|Conseil national d'internet et des libertés|La CNIL veille à la protection des données personnelles.",
+  "m|Quelle est la signification de DOM dans « DOM-TOM » ?|Département d'outre-mer|Domaine d'outre-mer|Département ouvert sur la mer|Division d'outre-mer",
+  "d|Quelle est la signification de URSSAF ?|Union de recouvrement des cotisations de sécurité sociale et d'allocations familiales|Union des régimes sociaux et des services d'aide familiale|Union régionale des salariés et des assurés familiaux|Unité de recouvrement des services sociaux et d'allocations fiscales",
+  "m|Quelle est la signification de BTP ?|Bâtiment et travaux publics|Bureau technique de proximité|Banque du travail et des particuliers|Béton, tuiles et plâtre",
+  "m|Quelle est la signification de ZAC en urbanisme ?|Zone d'aménagement concerté|Zone d'attente des citoyens|Zone d'accès contrôlé|Zone d'accueil communale",
+  "f|Quelle est la signification de PV sur une contravention ?|Procès-verbal|Permis de véhicule|Plaque vérifiée|Point de vitesse",
+  "f|Quelle est la signification de RER ?|Réseau express régional|Route express rapide|Réseau ferré européen régional|Rame électrique rapide"
+];

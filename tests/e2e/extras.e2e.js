@@ -24,7 +24,7 @@ const SHOTS = process.env.SHOTS || "";
     t("« Enregistrer ma sélection » : 3 thèmes en favoris, le bouton affiche (3)", /3 thème/.test(await H.textContent("#v58Msg")) && /\(3\)/.test(await H.textContent("#v58FavLoad")));
     await H.locator("#v58Invert").click(); await H.waitForTimeout(500);
     const inv = await checked();
-    t("« Inverser » : tous les autres thèmes sont cochés (201 − 3)", inv.length === 198 && three.every(v => !inv.includes(v)));
+    t("« Inverser » : tous les autres thèmes sont cochés (232 − 3)", inv.length === 229 && three.every(v => !inv.includes(v)));
     await H.locator("#v58Invert").click(); await H.waitForTimeout(500);
     t("« Inverser » deux fois : la sélection d'origine revient", JSON.stringify(await checked()) === JSON.stringify(three));
     await N.ev(H, `randomThemes(9)`); await H.waitForTimeout(300);

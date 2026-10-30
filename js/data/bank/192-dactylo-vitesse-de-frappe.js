@@ -1,0 +1,27 @@
+/* ⏱️ Vitesse de frappe et mots par minute — 24 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["⏱️ Vitesse de frappe et mots par minute"]=[
+  "f|Que signifie MPM dans un test de frappe ?|Mots par minute|Mètres par minute|Mouvements par minute|Mains par minute|En anglais, on écrit WPM (words per minute).",
+  "m|Combien de caractères compte-t-on pour un « mot » dans le calcul standard des MPM ?|5|3|8|10|Les espaces comptent : un « mot » vaut 5 frappes.",
+  "m|Une personne tape 60 mots par minute. Combien de frappes par minute cela représente-t-il ?|300|120|360|600|60 mots × 5 caractères = 300 frappes.",
+  "m|À 60 mots par minute, combien de frappes par seconde ?|5|2|10|12|300 frappes par minute ÷ 60 secondes = 5 frappes par seconde.",
+  "m|Quelqu'un tape 45 mots par minute pendant 2 minutes. Combien de mots a-t-il tapés ?|90|45|135|22|45 × 2 = 90 mots.",
+  "m|Un texte de 600 caractères est tapé en 2 minutes. Quelle est la vitesse en MPM ?|60|120|30|300|600 ÷ 5 = 120 mots ; 120 mots ÷ 2 minutes = 60 MPM.",
+  "m|On tape 90 mots en 3 minutes. Quelle est la vitesse ?|30 MPM|90 MPM|270 MPM|15 MPM|90 ÷ 3 = 30 mots par minute.",
+  "m|Combien de temps faut-il pour taper 300 mots à 50 MPM ?|6 minutes|5 minutes|10 minutes|3 minutes|300 ÷ 50 = 6.",
+  "d|Combien de caractères tape-t-on en 3 minutes à 40 MPM ?|600|120|240|1 200|40 × 5 = 200 frappes par minute ; × 3 = 600 frappes.",
+  "f|Que mesure la précision dans un test de frappe ?|Le pourcentage de caractères tapés correctement|Le nombre de touches du clavier|La vitesse de la main gauche|La force de frappe",
+  "m|On fait 5 fautes sur 100 caractères tapés. Quelle est la précision ?|95 %|5 %|90 %|99 %|100 − 5 = 95 %.",
+  "m|Que signifie CPM dans un test de frappe ?|Caractères par minute|Copies par minute|Contrôles par minute|Cycles par minute",
+  "m|Dans un test, que représente la vitesse « nette » ?|La vitesse brute moins les erreurs|La vitesse maximale sur une seconde|La vitesse de la main gauche|La moyenne de tous les joueurs",
+  "f|Quelle vitesse de frappe moyenne a-t-on généralement sans entraînement ?|Environ 40 mots par minute|Environ 4 mots par minute|Environ 150 mots par minute|Environ 400 mots par minute",
+  "m|Combien de mots par minute prononce-t-on à peu près en parlant normalement ?|Environ 150|Environ 15|Environ 500|Environ 1 000|C'est à peu près la vitesse d'un bon dactylographe professionnel de pointe.",
+  "m|Pourquoi ne faut-il pas chercher la vitesse maximale dès le début de l'apprentissage ?|Les fautes cassent le rythme : la précision doit venir d'abord|Les doigts ne peuvent pas bouger vite|Le clavier ne le permet pas|Ce serait interdit en concours",
+  "f|Qu'est-ce qui améliore le plus la vitesse de frappe ?|De courtes séances d'entraînement régulières|Une seule longue séance par mois|Taper très fort|Regarder les touches",
+  "m|Une séance d'entraînement de frappe est le plus efficace quand elle est…|Courte et régulière|Rare et très longue|Faite en regardant les mains|Faite sans pause",
+  "m|Que signifie le « rythme » en dactylographie ?|Une frappe régulière, sans à-coups|Taper très fort|Taper en musique|Taper une seule main",
+  "d|Que fait-on en cas de faute dans un test de frappe chronométré ?|Cela dépend des règles : certaines tolèrent la correction, d'autres comptent l'erreur|On arrête toujours le test|On perd automatiquement|On recommence toujours",
+  "m|La frappe est-elle plus rapide avec deux doigts qu'avec dix doigts en moyenne ?|Non, la frappe à dix doigts est en général plus rapide|Oui, toujours|Elle est identique|Elle dépend de la couleur du clavier",
+  "f|Quel outil permet de mesurer sa vitesse de frappe ?|Un test de frappe en ligne|Un chronomètre de cuisine seulement|Un thermomètre|Un compas",
+  "d|Comment calcule-t-on les MPM à partir de frappes et de minutes ?|Frappes ÷ 5 ÷ minutes|Frappes × 5 × minutes|Frappes ÷ minutes × 5|Frappes + minutes ÷ 5",
+  "m|Pourquoi la vitesse est-elle souvent mesurée en MPM plutôt qu'en lettres par minute ?|Pour pouvoir comparer les textes sur une base standard (5 frappes = 1 mot)|Parce que les mots sont toujours courts|Parce que les chiffres sont interdits|Parce que les lettres sont moins nombreuses"
+];

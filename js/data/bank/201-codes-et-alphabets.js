@@ -1,0 +1,27 @@
+/* 🔐 Codes secrets et alphabets — 24 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🔐 Codes secrets et alphabets"]=[
+  "f|Quel code utilise des points et des traits pour transmettre des lettres ?|Le code Morse|Le braille|Le code-barres|Le code postal",
+  "m|Qui a mis au point le code Morse, avec Alfred Vail ?|Samuel Morse|Louis Braille|Jules César|Alan Turing",
+  "m|Comment s'écrit SOS en morse ?|··· −−− ···|−−− ··· −−−|·−·−·−|−·−·−·",
+  "f|Quel système d'écriture permet aux aveugles de lire avec les doigts ?|Le braille|Le morse|La sténographie|Les hiéroglyphes",
+  "m|Qui a mis au point à 15 ans l'écriture en points saillants pour les aveugles ?|Louis Braille|Valentin Haüy|Charles Barbier|Samuel Morse",
+  "m|De combien de points est composée une cellule braille ?|6|8|4|10",
+  "m|Comment s'appelle le code qui décale chaque lettre d'un même nombre de rangs dans l'alphabet ?|Le chiffre de César|Le code Morse|Le braille|Le code-barres",
+  "m|Avec un décalage de 3 (chiffre de César), que devient la lettre A ?|D|C|B|E",
+  "m|Avec un décalage de 1, que devient le mot « BON » ?|CPO|CNO|AMN|BPM",
+  "d|Quelle machine allemande de la Seconde Guerre mondiale servait à chiffrer les messages ?|Enigma|Colossus|Bombe|Morse",
+  "d|Qui a participé au déchiffrement d'Enigma à Bletchley Park ?|Alan Turing|Charles Babbage|John von Neumann|Claude Shannon",
+  "f|Quel alphabet est utilisé en Russie ?|Le cyrillique|Le latin|Le grec|L'arabe",
+  "f|Quel alphabet est utilisé en Grèce ?|L'alphabet grec|Le cyrillique|L'arabe|Le latin",
+  "m|Quelles sont les deux premières lettres de l'alphabet grec ?|Alpha et bêta|Alpha et gamma|Bêta et delta|Oméga et alpha",
+  "m|Par quelle lettre se termine l'alphabet grec ?|Oméga|Alpha|Psi|Sigma",
+  "m|Dans quel sens s'écrit l'arabe ?|De droite à gauche|De gauche à droite|De haut en bas|En spirale",
+  "d|Quel système d'écriture de l'Égypte ancienne est composé de dessins ?|Les hiéroglyphes|Le cunéiforme|Le braille|Le sanskrit",
+  "d|Quel peuple a inventé l'écriture cunéiforme ?|Les Sumériens|Les Égyptiens|Les Romains|Les Gaulois",
+  "d|Quelle célèbre pierre gravée en trois écritures a aidé à lire les hiéroglyphes ?|La pierre de Rosette|La pierre de Lune|La pierre de Philae|La pierre de Gizeh",
+  "d|Quel savant français a lu les hiéroglyphes pour la première fois, en 1822 ?|Jean-François Champollion|Auguste Mariette|Howard Carter|Napoléon",
+  "m|Comment s'appelle l'alphabet utilisé par les Vikings ?|Les runes|Les hiéroglyphes|Le cyrillique|Le braille",
+  "m|Qu'est-ce que le langage binaire ?|Un code qui n'utilise que 0 et 1|Un code à huit lettres|Un code sonore|Un code de couleurs",
+  "m|Quel nombre s'écrit 101 en binaire ?|5|3|7|10",
+  "m|Quel nombre s'écrit 1000 en binaire ?|8|4|10|1000"
+];

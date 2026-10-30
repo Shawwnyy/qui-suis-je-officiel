@@ -1,0 +1,25 @@
+/* 📺 Sigles de la culture et des médias — 22 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["📺 Sigles de la culture et des médias"]=[
+  "f|Que signifie DVD ?|Digital Versatile Disc|Digital Video Display|Direct Video Device|Data Visual Disk",
+  "f|Que signifie CD ?|Compact Disc|Central Disk|Computer Data|Cassette digitale",
+  "f|Que signifie BD ?|Bande dessinée|Bibliothèque de disques|Boîte de dialogue|Beau dessin",
+  "m|Que signifie FM sur un autoradio ?|Frequency Modulation (modulation de fréquence)|Fast Music|Free Music|Fine Mono",
+  "m|Que signifie AM sur une radio ?|Amplitude Modulation (modulation d'amplitude)|Ancient Music|Audio Mono|Advanced Mode",
+  "m|Que signifie HD pour une image ?|High definition (haute définition)|Home display|Hyper digital|High data",
+  "m|Que signifie TNT à la télévision ?|Télévision numérique terrestre|Télévision nationale transmise|Technologie numérique de télévision|Transmission nationale terrestre",
+  "m|Que signifie AFP pour une agence de presse ?|Agence France-Presse|Association des fournisseurs de presse|Agence fédérale de publication|Alliance française de la presse",
+  "m|Que signifie ISBN sur un livre ?|International Standard Book Number|Internet Standard Book Network|Internal Serial Book Number|International Society of Book Notation|Chaque livre édité reçoit son propre ISBN.",
+  "m|Que signifie BO pour un film ?|Bande originale|Boîte à outils|Billet officiel|Bureau d'ordre",
+  "m|Que signifie VO pour un film ?|Version originale|Vue ouverte|Voix off|Version officielle",
+  "m|Que signifie PEGI sur un jeu vidéo ?|Pan European Game Information (classification par âge)|Public Entertainment Game Index|Premier European Gaming Institute|Parental Eye on Games Internet",
+  "m|Que signifie MMORPG ?|Massively multiplayer online role-playing game|Multiple mode online racing and playing game|Massive mobile offline role play game|Multi-media online reality play game",
+  "d|Que signifie NPC dans un jeu ?|Non-player character (personnage non joueur)|New player challenge|Normal power card|Next play counter",
+  "d|Que signifie FPS pour un jeu de tir à la première personne ?|First-person shooter|Fast player score|Final point system|Fire per second",
+  "d|Que signifie DLC pour un jeu vidéo ?|Downloadable content (contenu téléchargeable)|Digital level code|Dual license contract|Direct live connection",
+  "d|Que signifie RPG ?|Role-playing game (jeu de rôle)|Rapid play game|Real power gauge|Random point generator",
+  "d|Que veut dire MMS ?|Multimedia Messaging Service|Mobile Media Storage|Message Multiple Send|Mobile Messaging System",
+  "d|Que signifie l'acronyme anglais SMS pour un texto ?|Short Message Service|Simple Mobile Signal|Send My Status|Smart Message System|Un SMS est limité à 160 caractères.",
+  "d|Que veut dire QR code ?|Quick Response code (code à réponse rapide)|Quality Rating code|Quantum Reading code|Query Return code",
+  "d|Que signifie LCD pour un écran ?|Liquid Crystal Display (écran à cristaux liquides)|Light Color Display|Large Computer Device|Low Contrast Diode",
+  "d|Que signifie NFT ?|Non-fungible token (jeton non fongible)|New financial tool|Network file transfer|National finance treaty"
+];

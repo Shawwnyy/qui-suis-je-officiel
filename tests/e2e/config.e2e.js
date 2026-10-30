@@ -23,7 +23,7 @@ const SHOTS = process.env.SHOTS || "";
     t("liste des langues reconstruite toute seule en moins de 2 s", (await lang()) === "3/0/fr");
     t("listes des questions et du temps : une valeur est de nouveau sélectionnée", (await H.evaluate(() => document.getElementById("roundCount").selectedIndex >= 0 && document.getElementById("questionTime").selectedIndex >= 0)));
     await H.evaluate(() => { document.getElementById("themeGrid").replaceChildren(); }); await H.waitForTimeout(2300);
-    t("grille des thèmes vidée → reconstruite avec les 201 thèmes", (await H.evaluate(() => document.querySelectorAll("#themeGrid input").length)) === 201);
+    t("grille des thèmes vidée → reconstruite avec les 232 thèmes", (await H.evaluate(() => document.querySelectorAll("#themeGrid input").length)) === 232);
     /* difficulté */
     await H.locator("#v57Diffs button[data-d=difficile]").click(); await H.waitForTimeout(300);
     t("difficulté : seule « Difficile » active, résumé mis à jour", (await H.locator("#v57Diffs button.on").count()) === 1 && (await lines()).some(l => l === "diffs=🎚️ Difficile"));
@@ -76,7 +76,7 @@ const SHOTS = process.env.SHOTS || "";
     await G.evaluate(() => { (0, eval)("showScreen = function () { throw new Error('boum'); }"); });
     await G.fill("#hostName", "Bob"); await G.evaluate(() => createRoom()); await G.waitForTimeout(2500);
     const g = await G.evaluate(() => ({ langs: document.getElementById("questionLang").options.length, sel: document.getElementById("questionLang").selectedIndex, themes: document.querySelectorAll("#themeGrid input").length }));
-    t("création de salle avec un script de correctif qui plante : langues (3) et thèmes (201) construits quand même", g.langs === 3 && g.sel === 0 && g.themes === 201);
+    t("création de salle avec un script de correctif qui plante : langues (3) et thèmes (232) construits quand même", g.langs === 3 && g.sel === 0 && g.themes === 232);
     t("l'erreur est consignée dans la console au lieu d'interrompre la création", N.errs.some(e => /Création de la salle/.test(e) || /boum/.test(e)));
   } catch (e) { bad++; console.log("ÉCHEC : exception", e && e.stack || e); }
   await N.browser.close();

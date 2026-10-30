@@ -365,6 +365,7 @@ Touches **1 2 3 4** (rangée du haut, pavé numérique, y compris clavier AZERTY
 - **Délai de connexion** : « L'hôte ne répond pas » après 15 s au lieu d'attendre sans fin. Si **l'hôte disparaît en pleine partie**, les invités voient « 🚪 L'hôte a quitté la partie » avec un bouton de retour (avant : ils restaient bloqués sans rien voir).
 - **Règles** : les invités voient « (2/3 ont accepté) » et, si l'hôte a perdu l'acceptation d'un joueur (reconnexion, fiche recréée), elle est renvoyée automatiquement.
 - Tests : `node tests/rooms.test.js` (décisions d'entrée, mot de passe, essais limités, données reçues, branchement du code) et, avec Playwright, `node tests/e2e/rooms.e2e.js` (deux navigateurs, réseau simulé : salle privée, verrouillage, salle pleine, joueur refusé, usurpation, fiche truquée, fermeture, réouverture, hôte qui disparaît).
+node tests/e2e/learn.e2e.js              # (facultatif, Playwright) nouveaux thèmes, partie « Trouve la différence », justification dans les journaux et le PDF
 
 ## 🏠 Places de 1 à 9 999 (∞) et nouveaux menus (`js/patches/047-v54-salles.js`, `048-v55-menus.js`, `049-v56-prereglages.js`, `css/v55.css`, `css/v56.css`)
 - **Places au choix, de 1 à 9 999, ou ∞** (carte « Ma salle ») : boutons **−** / **+**, saisie directe et bouton **∞** (illimité). 1 place = partie solo (personne ne peut rejoindre). Le nombre de places ne tombe jamais sous le nombre de joueurs présents. La valeur par défaut reste 8. **Limite honnête :** « illimité » s'arrête à **9 999 joueurs** (plafond technique) ; c'est un **plafond de réglage, pas une garantie** : la partie tourne dans le navigateur de l'hôte, le site n'a pas de serveur et chaque joueur est une connexion directe vers l'hôte, donc la capacité réelle dépend de son appareil et de sa connexion (quelques dizaines de joueurs sont réalistes, au-delà c'est à tester). Une saisie plus grande est ramenée à 9 999 avec explication ; des avertissements apparaissent au-delà d'une trentaine puis de 200 joueurs. La limite de 8 joueurs qui existait dans le cœur du jeu est levée (`js/core/14-handle-data.js`), les statistiques acceptent jusqu'à 9 999 joueurs. Le chat vocal en maillage reste prévu pour de petits groupes.
@@ -466,6 +467,20 @@ Une roue tourne **entre deux questions**. **L'hôte choisit dans le salon d'atte
 
 Un bouclier déjà obtenu annule le malus et se consomme. Les effets sont appliqués **uniquement par l'hôte** ; les joueurs ne font qu'afficher (messages réseau bornés et nettoyés). Chaque tirage est noté dans le journal de la partie (type `w_…`, le joueur est sa propre cible) : la roue apparaît donc dans l'onglet « Bonus / Malus » et dans le PDF, **comptée à part** des pouvoirs lancés / visés mais incluse dans les points gagnés / perdus et le bilan net.
 
+## 📖 Nouveaux thèmes, « Trouve la différence » et justification des bonnes réponses dans les rapports
+
+- **🔍 Trouve la différence** et **🧐 Trouve l'intrus** (`js/data/image-diff.js`) : deux images côte à côte dessinées par le jeu (SVG), une à trois choses changent
+  (couleur, forme, taille, disparition, apparition) : « qu'est-ce qui a changé ? », « où ? », « combien de différences ? », « quelle forme ? ». Questions régénérées à chaque partie.
+  Chaque question porte une explication. `tests/diff.test.js` relit la réponse dans le SVG (attributs `data-*`) et vérifie que chaque mauvaise réponse est fausse.
+- **29 thèmes de questions** (la grille passe de 201 à 232 thèmes) : acronymes (courants, informatique, institutions, science et santé, SMS, sport, culture), **dactylographie**
+  (bases et doigts, claviers AZERTY/QWERTY, raccourcis, vitesse de frappe, ergonomie, histoire de la machine à écrire, touches spéciales, accents, typographie, pangrammes),
+  jeux de cartes, jeux de lettres, codes et alphabets, conjugaison, homophones, figures de style, proverbes, étymologie, prénoms, chiffres romains, statistiques, symboles chimiques.
+  Les thèmes sans traduction restent masqués en anglais et en espagnol, comme les autres.
+- **Bonne réponse + pourquoi dans les rapports** : `V43Justif.reportNote(q)` (`js/justif/justif.js`) choisit la meilleure justification (cours > explication de la question > phrase > « À retenir »).
+  - PDF des statistiques : section **« Réviser : les bonnes réponses expliquées »** (bonne réponse, part des joueurs qui l'ont trouvée, pourquoi) ; le CSV gagne les colonnes `bonne_réponse` et `explication`.
+  - « Rapport Qui suis-je N » de l'hôte (`js/patches/013`, colle `js/patches/055-v61-rapport-justif.js`) : ligne **« Pourquoi : … »** sous chaque question ; l'export de l'historique l'affiche aussi.
+  - Le journal ne grossit que de ~400 caractères par question (réponse ≤ 100, explication ≤ 280) ; sans justification, rien ne change pour l'existant.
+
 ## ➕ Ajouter des questions ou un thème
 
 Un thème = un fichier `js/data/bank/NNN-nom.js` :
@@ -478,6 +493,9 @@ V35_BANK["🎻 Mon thème"]=[
 
 Ajoute ensuite la balise `<script src="js/data/bank/NNN-nom.js"></script>` dans `index.html`, **avant** `999-register.js`.
 La bonne réponse est toujours en premier dans le fichier : le jeu mélange les réponses à l'affichage.
+
+Un 7ᵉ champ **facultatif** donne l'explication de la bonne réponse (elle s'affiche dans « Correction » et dans les rapports) :
+`"m|Que signifie TVA ?|Taxe sur la valeur ajoutée|Faux 1|Faux 2|Faux 3|La TVA est un impôt sur la consommation."`
 
 ## 📚 Mode révision (QCM de cours) — `js/review/review.js`
 Un QCM généré depuis un cours se joue « comme les parties d'avant » (combos, classement…) mais en **mode révision** :
@@ -498,6 +516,7 @@ Réglage de l'hôte dans le salon (« 📚 Mode révision ») : **Automatique** 
 node tests/moderation.test.js            # cas à bloquer / cas légitimes
 node tests/qcm.test.js                   # générateur et lecture des fichiers de test
 node tests/bank.test.js                  # valide toutes les questions (format, doublons, réponses ambiguës)
+node tests/diff.test.js                  # « Trouve la différence » / « Trouve l'intrus » : réponses relues dans le SVG, mauvaises réponses vérifiées fausses
 node tests/bank.test.js "Football|Chess"   # ne valider que certains thèmes (expression régulière)
 node tests/media.test.js                 # liens YouTube / images, filtrage SVG, politique anti-triche
 node tests/visual.test.js                # chaque question en image est cohérente avec son dessin

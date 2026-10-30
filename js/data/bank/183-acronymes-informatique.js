@@ -1,0 +1,28 @@
+/* 💾 Acronymes informatiques — 25 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["💾 Acronymes informatiques"]=[
+  "f|Quelle est la signification de USB ?|Universal Serial Bus|Ultra Speed Board|Unified System Block|Universal Storage Box",
+  "f|Quelle est la signification de PDF ?|Portable Document Format|Printed Data File|Personal Document Folder|Public Display Format|Un PDF s'affiche de la même façon sur tous les appareils.",
+  "f|Quelle est la signification de RAM ?|Random Access Memory|Read Active Memory|Rapid Applied Module|Remote Access Mode|La RAM est la mémoire vive : elle se vide quand l'ordinateur s'éteint.",
+  "f|Quelle est la signification de URL ?|Uniform Resource Locator|Universal Remote Link|User Resource Library|Unique Routing Language|Une URL est l'adresse d'une page web.",
+  "m|Quelle est la signification de HTML ?|HyperText Markup Language|High Transfer Machine Language|Hyper Tool Making Language|Home Text Management Language|HTML décrit la structure d'une page web.",
+  "m|Quelle est la signification de CPU ?|Central Processing Unit|Computer Personal Unit|Core Power Utility|Central Program Update|Le CPU est le processeur : il exécute les instructions des programmes.",
+  "m|Quelle est la signification de GPU ?|Graphics Processing Unit|General Power Utility|Global Processing Unit|Graphic Program Update",
+  "m|Quelle est la signification de SSD ?|Solid State Drive|Super Speed Disk|System Storage Device|Serial Safe Data|Un SSD n'a pas de pièce mécanique, contrairement à un disque dur.",
+  "m|Quelle est la signification de HTTP ?|HyperText Transfer Protocol|High Tech Transfer Program|Hyper Text Translation Process|Home Terminal Transfer Page",
+  "m|Quelle est la signification de VPN ?|Virtual Private Network|Very Protected Node|Verified Public Network|Variable Packet Navigation",
+  "m|Quelle est la signification de LAN ?|Local Area Network|Large Access Node|Linked Antenna Network|Long Average Network",
+  "m|Quelle est la signification de IP dans « adresse IP » ?|Internet Protocol|Internal Port|Information Packet|Identity Pass",
+  "m|Quelle est la signification de DNS ?|Domain Name System|Digital Network Service|Data Node Server|Direct Name Signal|Le DNS traduit un nom de site en adresse IP.",
+  "m|Quelle est la signification de SQL ?|Structured Query Language|Simple Question List|System Quality Logic|Sequential Query Link",
+  "m|Quelle est la signification de OS pour un ordinateur ?|Operating System|Online Service|Output Signal|Optical Storage|Windows, macOS et Linux sont des systèmes d'exploitation.",
+  "m|Quelle est la signification de le mot « bit » ?|Binary digit, un chiffre binaire (0 ou 1)|Basic information tool|Big internal transfer|Base of integrated technology|Huit bits forment un octet.",
+  "d|Quelle est la signification de ASCII ?|American Standard Code for Information Interchange|Advanced System Code for Internet Interfaces|Automated Symbol Coding for Image Input|Applied Standard Computing Interface Index|Dans le code ASCII, la lettre « A » vaut 65.",
+  "d|Quelle est la signification de FAQ ?|Frequently Asked Questions|Fast Access Query|Free Answer Quota|File And Question",
+  "d|Quelle est la signification de CSS ?|Cascading Style Sheets|Computer Style Script|Creative Site System|Central Screen Syntax|CSS gère l'apparence d'une page web : couleurs, polices, mise en page.",
+  "d|Quelle est la signification de API ?|Application Programming Interface|Automatic Program Installation|Advanced Protocol Index|Applied Processing Input",
+  "d|Quelle est la signification de SaaS ?|Software as a Service|System and a Server|Secure Access and Storage|Single Application and Security",
+  "d|Quelle est la signification de BIOS ?|Basic Input/Output System|Binary Internal Operating Software|Base Integrated Online Service|Boot Information Output Sheet",
+  "d|Quelle est la signification de GIF ?|Graphics Interchange Format|General Image File|Graphic Input Frame|Global Internet Film",
+  "d|Quelle est la signification de JPEG ?|Joint Photographic Experts Group|Java Picture Encoding Group|Joined Pixel Editing Graphics|Joint Page Exchange Gateway",
+  "d|Quelle est la signification de CAPTCHA ?|Completely Automated Public Turing test to tell Computers and Humans Apart|Computer Access Protocol for Trusted Human Authentication|Central Automated Password Test for Computer Hardware Access|Coded Access Protection Through Checking Human Actions"
+];

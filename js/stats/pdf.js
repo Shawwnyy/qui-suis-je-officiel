@@ -713,6 +713,23 @@ var V40Pdf = (function () {
       { h: "Temps", w: 8, a: "right", f: function (r) { return secs(r.avgTime); } }
     ], A.roundStats(log), { size: 8, rh: 14 });
 
+    /* ----- Réviser : la bonne réponse de chaque question, avec sa justification (pour apprendre) ----- */
+    var learn = A.roundStats(log).filter(function (r) { return r.ans; });
+    if (learn.length) {
+      title("Réviser : les bonnes réponses expliquées", 16 * 4);
+      note("Pour chaque question : la bonne réponse, puis pourquoi. Le pourcentage est la part des joueurs qui l'ont trouvée.");
+      learn.forEach(function (r) {
+        var head = wrap(r.round + ". " + r.q, CW - 4, 9.5, true), why = r.why ? wrap("Pourquoi : " + r.why, CW - 16, 8.5, false) : [];
+        room(14 * head.length + 14 + 12 * why.length + 14);
+        W.rect(M, y - 11, 3, 14 * head.length + 14 + 12 * why.length - 2, { fill: C.accent });
+        head.forEach(function (l) { W.text(M + 10, y, l, { size: 9.5, bold: true, color: C.ink }); y += 14; });
+        W.text(M + 10, y, "Bonne réponse : " + r.ans + (r.rate === null ? "" : "   (" + pct(r.rate) + " de réussite)"), { size: 9, bold: true, color: C.good, maxW: CW - 16 });
+        y += 14;
+        why.forEach(function (l) { W.text(M + 10, y, l, { size: 8.5, color: C.sub }); y += 12; });
+        y += 12;
+      });
+    }
+
     /* ----- Infractions ----- */
     if (log.C.length) {
       title("Infractions détectées (triche)", 16 * Math.min(log.C.length + 1, 8));

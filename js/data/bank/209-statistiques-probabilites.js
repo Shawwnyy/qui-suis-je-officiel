@@ -1,0 +1,25 @@
+/* 🎲 Statistiques et probabilités — 22 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🎲 Statistiques et probabilités"]=[
+  "f|Quelle est la probabilité d'obtenir « pile » en lançant une pièce équilibrée ?|1 sur 2|1 sur 3|1 sur 4|1 sur 6",
+  "f|Quelle est la probabilité d'obtenir un 6 avec un dé équilibré à six faces ?|1 sur 6|1 sur 3|1 sur 2|1 sur 12",
+  "m|Quelle est la probabilité d'obtenir un nombre pair avec un dé à six faces ?|1 sur 2|1 sur 3|1 sur 6|2 sur 3",
+  "m|Quelle est la probabilité de tirer un as dans un jeu de 52 cartes ?|1 sur 13|1 sur 4|1 sur 52|1 sur 26",
+  "m|Quelle est la probabilité de tirer un cœur dans un jeu de 52 cartes ?|1 sur 4|1 sur 13|1 sur 2|1 sur 52",
+  "m|Quelle est la moyenne de 4, 6 et 8 ?|6|5|7|18",
+  "m|Quelle est la médiane de la série 2, 7, 9, 12, 15 ?|9|7|12|9,5",
+  "m|Quel est le mode de la série 2, 3, 3, 5, 3, 7 ?|3|2|5|7",
+  "m|Quelle est l'étendue de la série 4, 9, 15, 21 ?|17|21|4|11",
+  "m|Quelle est la moyenne de 10, 20, 30 et 40 ?|25|20|30|100",
+  "f|Que signifie « avoir une chance sur deux » ?|Une probabilité de 50 %|Une probabilité de 20 %|Une probabilité de 5 %|Une probabilité de 200 %",
+  "m|Quelle est la probabilité d'obtenir deux fois « pile » en lançant deux pièces ?|1 sur 4|1 sur 2|1 sur 3|1 sur 8",
+  "m|Combien y a-t-il de résultats possibles en lançant deux dés à six faces ?|36|12|6|24",
+  "d|Quelle somme de deux dés est la plus probable ?|7|6|8|12",
+  "d|Quelle est la probabilité d'obtenir 12 avec deux dés ?|1 sur 36|1 sur 12|1 sur 6|1 sur 24",
+  "d|Comment appelle-t-on un graphique circulaire divisé en parts ?|Un diagramme circulaire (camembert)|Un histogramme|Un nuage de points|Une courbe",
+  "d|Que mesure l'écart-type ?|La dispersion des valeurs autour de la moyenne|Le plus grand nombre|La somme des valeurs|Le nombre de valeurs",
+  "d|Qu'est-ce qu'un échantillon représentatif ?|Un groupe dont la composition reflète celle de la population étudiée|La population entière|Un seul individu|Un groupe d'amis",
+  "d|Que dit la loi des grands nombres ?|Plus on répète une expérience, plus la fréquence se rapproche de la probabilité|Les grands nombres sont premiers|Les petits nombres gagnent|Tout événement arrive une fois",
+  "d|Comment appelle-t-on la courbe en forme de cloche en statistiques ?|La courbe de Gauss (loi normale)|La courbe de Bézier|La courbe de Koch|La courbe de Peano",
+  "f|Quelle probabilité a un événement impossible ?|0|1|0,5|−1",
+  "f|Quelle probabilité a un événement certain ?|1|0|0,5|100"
+];

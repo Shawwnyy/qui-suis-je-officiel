@@ -619,7 +619,7 @@ const tm={};(s.players||[]).forEach(p=>{const t=p.team||"Sans équipe";if(!tm[t]
 Object.entries(tm).sort((a,b)=>b[1].score-a[1].score).forEach(([name,v],i)=>{text(`${ordinalV9(i+1)} — ${name} — ${v.score} pts` ,10,true);text(`Membres : ${v.members.join(", ")}`,9);});
 }
 line();text("QUESTIONS DE LA PARTIE",12,true);
-(s.log||[]).forEach(l=>{text(`${l.n}. ${l.q||""}`,9,true);text(`Thème : ${l.cat||"—"} · Niveau : ${l.diff||"—"} · Bonne réponse : ${l.a||"—"} · Ma réponse : ${l.mine===true?"correcte":l.mine===false?"incorrecte":"non répondue"}`,8);});
+(s.log||[]).forEach(l=>{text(`${l.n}. ${l.q||""}`,9,true);text(`Thème : ${l.cat||"—"} · Niveau : ${l.diff||"—"} · Bonne réponse : ${l.a||"—"} · Ma réponse : ${l.mine===true?"correcte":l.mine===false?"incorrecte":"non répondue"}`,8);if(l.why)text(`Pourquoi : ${l.why}`,8);});
 doc.setFontSize(8);doc.setTextColor(110,110,120);doc.text(`Généré par Qui suis-je ? — ${V9.version}`,margin,289);
 const safe=(s.sessionUser||s.winner||"partie").replace(/[^a-z0-9_-]+/gi,"-").slice(0,40)||"partie";
 doc.save(`qui-suis-je-${safe}-${String(s.id).slice(-8)}.pdf`);

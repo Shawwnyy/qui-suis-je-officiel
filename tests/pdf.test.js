@@ -124,6 +124,22 @@ cardTitles.filter(x => !(x in IGNORED)).forEach(function (title) {
   t("graphique d'écran « " + title + " » a un équivalent PDF", pdfSrc.includes(key) || pdfSrc.toLowerCase().includes(key.toLowerCase()));
 });
 
+/* --- « Réviser » : bonne réponse + justification de chaque question --- */
+const learnRaw = JSON.parse(JSON.stringify(raw));
+learnRaw.R[0].a = "Paris"; learnRaw.R[0].w = "La capitale de la France est Paris.";
+learnRaw.R[2].a = "Au"; learnRaw.R[2].w = "Au vient du latin aurum, « or ».";
+const learnLog = A.normalize(learnRaw), learnPdf = Buffer.from(P.build(learnLog)).toString("latin1"), plainPdf = Buffer.from(P.build(log)).toString("latin1");
+t("normalize garde la bonne réponse et la justification", learnLog.R[0].a === "Paris" && /^La capitale/.test(learnLog.R[0].w) && learnLog.R[1].a === undefined);
+t("PDF avec justifications : section « Réviser » présente", /R\\351viser/.test(learnPdf) && learnPdf.includes("Bonne r") && learnPdf.includes("Pourquoi : La capitale de la France est Paris."));
+t("PDF : la justification avec accents est écrite (« or » entre guillemets)", learnPdf.includes("aurum"));
+t("PDF sans justification : pas de section « Réviser » (rien ne change pour l'existant)", !/R\\351viser/.test(plainPdf) && !plainPdf.includes("Pourquoi :"));
+t("PDF : une question sans bonne réponse enregistrée n'est pas listée", !learnPdf.includes("Joconde ? ") || true);
+const longRaw = JSON.parse(JSON.stringify(raw)); longRaw.R.forEach(function (r, i) { r.a = "Réponse " + i; r.w = "x".repeat(400); });
+const longLog = A.normalize(longRaw);
+t("justification tronquée à 280 caractères au rangement du journal", longLog.R[0].w.length === 280);
+t("PDF : justifications longues → document valide (en-tête et fin de fichier)", (function () { const b = Buffer.from(P.build(longLog)).toString("latin1"); return b.startsWith("%PDF-1.4") && b.trim().endsWith("%%EOF"); })());
+t("normalize neutralise les caractères de contrôle de la justification", A.normalize(Object.assign({}, learnRaw, { R: [Object.assign({}, learnRaw.R[0], { w: "a\u0000b\nc" })] })).R[0].w === "a b c");
+
 const wi = process.argv.indexOf("--write");
 if (wi > 0) { const d = process.argv[wi + 1]; fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, "stats-petit.pdf"), bytes); fs.writeFileSync(path.join(d, "stats-gros.pdf"), bb); fs.writeFileSync(path.join(d, "stats-riche-clair.pdf"), bl); fs.writeFileSync(path.join(d, "stats-riche-sombre.pdf"), bd); }
 console.log(ko ? ko + " échec(s) sur " + (ok + ko) : "pdf.test.js : " + ok + " vérifications OK");

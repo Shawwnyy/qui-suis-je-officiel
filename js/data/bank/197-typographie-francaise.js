@@ -1,0 +1,27 @@
+/* 🖋️ Typographie française — 24 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🖋️ Typographie française"]=[
+  "f|Après un point, combien d'espaces met-on en français ?|Une seule|Deux|Aucune|Trois",
+  "f|Faut-il une espace avant une virgule ?|Non, la virgule se colle au mot précédent|Oui, toujours|Deux espaces|Seulement dans les titres",
+  "m|En français, que met-on avant « ? » et « ! » ?|Une espace insécable|Rien|Deux espaces|Un tiret",
+  "m|Met-on une majuscule aux jours de la semaine en français ?|Non|Oui|Seulement le lundi|Seulement le week-end",
+  "m|Met-on une majuscule aux noms de mois en français ?|Non, sauf en début de phrase|Oui, toujours|Seulement en été|Seulement pour mars",
+  "m|Met-on une majuscule au nom d'une langue (le français, l'anglais) ?|Non|Oui|Seulement pour l'anglais|Seulement dans les titres",
+  "m|Met-on une majuscule au nom d'un habitant (un Français, une Italienne) ?|Oui|Non|Seulement pour les hommes|Seulement dans les titres|Le nom de l'habitant prend une majuscule, pas l'adjectif (« la cuisine française »).",
+  "m|Comment abrège-t-on « premier » ?|1er|1ère|1°|1ier",
+  "m|Comment abrège-t-on « deuxième » ?|2e|2ème|2eme|2ième",
+  "m|Comment abrège-t-on « Madame » ?|Mme|Md.|Mdme|Mad.",
+  "m|Comment abrège-t-on « Monsieur » ?|M.|Mr|Mr.|Msr|« Mr » est l'abréviation de l'anglais « Mister ».",
+  "f|Comment appelle-t-on les guillemets « » du français ?|Guillemets français (chevrons)|Apostrophes|Accolades|Parenthèses",
+  "m|À l'intérieur de guillemets français, quelles espaces met-on ?|Une espace insécable après « et avant »|Aucune espace|Deux espaces|Un tiret",
+  "m|Quel signe sert à introduire un dialogue dans un roman français ?|Le tiret cadratin (—)|Le trait d'union|Les deux-points|La barre oblique",
+  "m|Comment écrit-on correctement l'heure « quatorze heures trente » ?|14 h 30|14:h:30|14H30|14h.30",
+  "m|Comment écrit-on correctement un grand nombre en français ?|1 000 000, avec une espace entre les groupes de trois chiffres|1,000,000|1.000.000|1000000 toujours",
+  "m|Comment écrit-on le pourcentage en français ?|50 %, avec une espace avant le signe|50% collé|50 pourcent|%50",
+  "d|Après deux-points, met-on une majuscule ?|Non, sauf nom propre ou citation|Oui, toujours|Seulement dans les titres|Seulement après un chiffre",
+  "d|Comment met-on en valeur le titre d'un livre dans un texte ?|En italique|En gras seulement|En MAJUSCULES|Entre crochets",
+  "d|Que désigne la « casse » d'un texte ?|La distinction entre majuscules et minuscules|Le nombre de mots|La couleur du texte|La taille de la police",
+  "d|Comment écrit-on correctement « numéro » en abrégé ?|n° (avec le « o » en exposant)|no.|N°.|nbr",
+  "m|Les sigles s'écrivent aujourd'hui plutôt…|Sans points (SNCF)|Avec points (S.N.C.F.)|En minuscules (sncf)|En italique",
+  "f|Met-on une espace après une virgule ?|Oui, une seule|Non|Deux|Un tiret",
+  "d|Quel signe typographique s'utilise pour les incises longues et les plages de valeurs ?|Le tiret demi-cadratin (–)|Le trait d'union (-)|Le tiret bas (_)|La barre oblique (/)"
+];

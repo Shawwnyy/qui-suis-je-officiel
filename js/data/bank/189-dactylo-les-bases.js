@@ -1,0 +1,25 @@
+/* ⌨️ Dactylographie : les bases — 22 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["⌨️ Dactylographie : les bases"]=[
+  "f|D'où vient le mot « dactylographie » ?|Du grec, « doigt » et « écriture »|Du latin, « machine » et « lettre »|De l'anglais « type » et « graph »|De l'italien « touche » et « écriture »|Dactylo vient du grec daktulos : le doigt.",
+  "f|Que signifie taper « à l'aveugle » ?|Taper sans regarder le clavier|Taper les yeux fermés|Taper avec un seul doigt|Taper uniquement des majuscules|On parle aussi de frappe tactile (touch typing).",
+  "m|Sur un clavier AZERTY, sur quelles touches pose-t-on les doigts de la main gauche au repos ?|Q, S, D, F|A, Z, E, R|W, X, C, V|T, Y, U, I|Les doigts de repos forment la rangée « de base » du clavier.",
+  "m|Sur un clavier AZERTY, sur quelles touches pose-t-on les doigts de la main droite au repos ?|J, K, L, M|U, I, O, P|H, J, K, L|N, B, V, C",
+  "m|Sur quelles touches trouve-t-on souvent un petit repère en relief ?|F et J|A et M|Q et M|S et L|Ces repères permettent de retrouver la position de repos sans regarder.",
+  "f|Quel doigt appuie sur la barre d'espace ?|Le pouce|L'index|Le majeur|L'auriculaire",
+  "f|Combien de doigts utilise-t-on pour les lettres en dactylographie classique ?|Huit (les pouces sont pour l'espace)|Dix|Quatre|Six",
+  "m|Quel doigt tape la lettre A sur un clavier AZERTY ?|L'auriculaire gauche|L'annulaire gauche|Le majeur gauche|L'index gauche",
+  "m|Quel doigt tape la lettre E sur un clavier AZERTY ?|Le majeur gauche|L'annulaire gauche|L'index gauche|L'auriculaire gauche",
+  "m|Quel doigt tape la lettre R sur un clavier AZERTY ?|L'index gauche|Le majeur gauche|L'annulaire gauche|L'auriculaire gauche",
+  "m|Quel doigt tape la lettre O sur un clavier AZERTY ?|L'annulaire droit|Le majeur droit|L'index droit|L'auriculaire droit",
+  "m|Quel doigt tape la lettre P sur un clavier AZERTY ?|L'auriculaire droit|L'annulaire droit|Le majeur droit|L'index droit",
+  "m|Quel doigt tape la lettre I sur un clavier AZERTY ?|Le majeur droit|L'annulaire droit|L'index droit|L'auriculaire droit",
+  "m|Quel doigt tape la lettre M sur un clavier AZERTY ?|L'auriculaire droit|L'annulaire droit|Le majeur droit|L'index droit",
+  "d|Quel doigt tape le chiffre 8 de la rangée du haut ?|Le majeur droit|L'index droit|L'annulaire droit|L'auriculaire droit",
+  "d|Quel doigt tape le chiffre 5 de la rangée du haut ?|L'index gauche|Le majeur gauche|L'index droit|Le majeur droit",
+  "f|À quoi sert la position de repos des doigts ?|À repartir de la même base pour atteindre chaque touche sans regarder|À reposer les poignets sur la table|À taper plus fort|À aligner l'écran",
+  "f|Où doit-on regarder en tapant à l'aveugle ?|Sur l'écran ou le texte à copier|Sur les touches|Sur ses mains|Au plafond",
+  "m|Que privilégier quand on débute en dactylographie ?|La précision d'abord, la vitesse ensuite|La vitesse d'abord, la précision ensuite|Taper avec deux doigts|Regarder le clavier le plus possible|Une frappe juste et régulière devient naturellement rapide.",
+  "m|Comment doivent être les poignets pendant la frappe ?|Dans l'axe de l'avant-bras, sans appuyer en force|Pliés vers le haut|Posés lourdement sur le bord du bureau|Tordus vers l'extérieur",
+  "m|Pourquoi faut-il frapper les touches sans insister ?|Pour garder des doigts détendus et éviter la fatigue|Pour faire plus de bruit|Pour user le clavier|Pour taper moins vite",
+  "d|Quel doigt tape la touche Entrée sur un clavier AZERTY, en général ?|L'auriculaire droit|Le pouce droit|L'index droit|Le majeur droit"
+];

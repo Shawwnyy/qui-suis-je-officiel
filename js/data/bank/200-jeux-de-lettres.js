@@ -1,0 +1,25 @@
+/* 🔠 Jeux de lettres et de mots — 22 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🔠 Jeux de lettres et de mots"]=[
+  "f|Combien de lettres un joueur a-t-il sur son chevalet au Scrabble ?|7|5|9|10",
+  "f|Combien de points vaut la lettre E au Scrabble en français ?|1|2|5|10",
+  "m|Combien de points vaut la lettre Z au Scrabble en français ?|10|4|8|5",
+  "m|Combien de lettres faut-il poser d'un coup pour faire un « scrabble » avec bonus de 50 points ?|7|5|8|6",
+  "m|Quelle est la taille de la grille du Scrabble ?|15 × 15 cases|10 × 10 cases|12 × 12 cases|20 × 20 cases",
+  "f|Qu'est-ce qu'un anagramme ?|Un mot obtenu en changeant l'ordre des lettres d'un autre mot|Un mot qui se lit dans les deux sens|Un mot sans voyelle|Un mot inventé",
+  "f|Qu'est-ce qu'un palindrome ?|Un mot ou une phrase qui se lit dans les deux sens|Un mot de dix lettres|Un mot sans consonne|Un mot en latin",
+  "f|Lequel de ces mots est un palindrome ?|Radar|Livre|Maison|Table",
+  "m|Lequel de ces mots plus longs est un palindrome ?|Ressasser|Ressortir|Rassasier|Reposer",
+  "m|Lequel de ces prénoms est un palindrome ?|Anna|Paul|Marie|Louis",
+  "m|Quel mot est un anagramme de « marie » ?|Aimer|Marin|Mairie|Aimée",
+  "m|Quel mot est un anagramme de « lame » ?|Male|Mule|Malle|Lime",
+  "f|Dans quel jeu remplit-on une grille à partir de définitions numérotées ?|Les mots croisés|Le sudoku|Le pendu|Le morpion",
+  "f|Quel jeu consiste à deviner un mot en proposant des lettres, sous peine de dessiner un bonhomme ?|Le pendu|Le morpion|Le mikado|La bataille navale",
+  "f|Comment appelle-t-on les grilles où les définitions sont placées dans les cases ?|Les mots fléchés|Les mots croisés|Les mots mêlés|Les sudokus",
+  "f|Dans quelle grille doit-on retrouver des mots cachés dans un tableau de lettres ?|Les mots mêlés|Les mots croisés|Les mots fléchés|Le sudoku",
+  "m|Quel jeu télévisé français mélange épreuves de lettres et de chiffres ?|Des chiffres et des lettres|La Roue de la fortune|Questions pour un champion|Tout le monde veut prendre sa place",
+  "m|Quel jeu de lettres se joue avec une grille de 4 × 4 dés ?|Le Boggle|Le Scrabble|Le Rummikub|Le Cluedo",
+  "d|Qu'est-ce qu'un mot-valise ?|Un mot formé en fusionnant deux mots, comme « courriel »|Un mot très long|Un mot sans accent|Un mot emprunté à l'anglais",
+  "d|Quel jeu en ligne de mots de cinq lettres est devenu très populaire à partir de 2021 ?|Wordle|Tetris|Candy Crush|Flappy Bird",
+  "d|Combien d'essais a-t-on pour trouver le mot du jour dans Wordle ?|6|5|8|10",
+  "d|Au Scrabble, quelle case multiplie par trois la valeur d'un mot ?|La case rouge (mot compte triple)|La case bleu clair|La case rose|La case centrale seulement"
+];

@@ -1,0 +1,25 @@
+/* 👂 Homophones et paronymes — 22 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["👂 Homophones et paronymes"]=[
+  "m|Complète : « … la voiture que je préfère. »|C'est|Ces|Ses|S'est",
+  "m|Complète : « Il … lavé les mains. »|s'est|c'est|ses|ces",
+  "m|Complète : « … vas-tu ? »|Où|Ou|Houx|Ouh",
+  "m|Complète : « Veux-tu du thé … du café ? »|ou|où|hou|oû",
+  "m|Complète : « Il … beaucoup de livres. »|a|à|as|ah",
+  "m|Complète : « Il va … Paris. »|à|a|as|ha",
+  "m|Complète : « Tu … vu ce film ? »|as|a|à|ah",
+  "m|Complète : « Nous … allés au cinéma. »|sommes|somme|sont|sons",
+  "m|Quel mot désigne le magistrat qui dirige une commune ?|Le maire|La mère|La mer|Le maïs",
+  "m|Quel mot désigne une étendue d'eau salée ?|La mer|La mère|Le maire|La merre",
+  "m|Quel mot signifie « privé de » ?|Sans|Cent|Sang|Sens",
+  "m|Quel mot désigne le liquide rouge qui circule dans les veines ?|Le sang|Le sans|Le cent|Le sens",
+  "f|Quel mot désigne le fruit de la vigne ?|Le raisin|La raison|La résine|Le raizin",
+  "m|Quel mot désigne la capacité de réfléchir ?|La raison|Le raisin|La résine|Le rasin",
+  "d|Quelle est la différence entre « quand » et « quant à » ?|« Quant à » signifie « en ce qui concerne » ; « quand » indique le moment|Aucune|« Quant » est le pluriel de « quand »|« Quand » est un verbe",
+  "d|Que signifie le mot « acception » ?|Le sens d'un mot|L'action d'accepter|Une exception|Une réception",
+  "d|Que signifie l'adjectif « éminent » ?|Qui se distingue par sa valeur|Qui va arriver bientôt|Très grand|Dessous",
+  "d|Que signifie l'adjectif « imminent » ?|Qui va se produire très bientôt|Qui se distingue par sa valeur|Qui est dessous|Qui est enfermé",
+  "d|Quelle est la différence entre « conjecture » et « conjoncture » ?|Une conjecture est une supposition ; une conjoncture est une situation d'ensemble|Aucune|Les deux désignent une supposition|Les deux désignent une situation",
+  "d|Quelle est la différence entre « effraction » et « infraction » ?|L'effraction est le bris d'une clôture ; l'infraction est un manquement à la loi|Aucune|L'infraction est un cambriolage seulement|L'effraction est une amende",
+  "d|Que signifie le mot « collision » ?|Un choc entre deux objets|Un accord|Une collusion secrète|Une collection",
+  "d|Que signifie le mot « collusion » ?|Une entente secrète au détriment d'autrui|Un choc entre deux objets|Une collation|Une collection"
+];

@@ -43,7 +43,7 @@ const rows=s.players.map((p,k)=>
 `<tr><td>${k+1}</td><td>${e(p.name)}${p.me?" (moi)":""}</td><td><b>${p.score}</b></td><td>${p.correct}</td><td>${p.wrong}</td><td>${p.bestCombo}</td><td>+${p.bonusPoints}</td><td>-${p.malusPoints}</td></tr>`
 ).join("");
 const qs=(s.log||[]).map(l=>
-`<tr><td>${l.n}</td><td>${e(l.cat||"")}</td><td>${e(String(l.diff||""))}</td><td>${e(l.q||"")}</td><td>${e(l.a||"")}</td><td>${l.mine===null||l.mine===undefined?"—":(l.mine?"✓":"✗")}</td><td>${e(l.all||"")}</td></tr>`
+`<tr><td>${l.n}</td><td>${e(l.cat||"")}</td><td>${e(String(l.diff||""))}</td><td>${e(l.q||"")}</td><td>${e(l.a||"")}${l.why?`<br><small>${e(l.why)}</small>`:""}</td><td>${l.mine===null||l.mine===undefined?"—":(l.mine?"✓":"✗")}</td><td>${e(l.all||"")}</td></tr>`
 ).join("");
 const good=(s.log||[]).filter(l=>l.mine===true).length;
 const answered=(s.log||[]).filter(l=>l.mine!==null&&l.mine!==undefined).length;

@@ -133,5 +133,36 @@ t("explain : avec ctx.points, les lignes « 💰 » arrivent avant les statistiq
 t("explain sans ctx.points : aucune ligne de points (rien ne change pour l'existant)", !J.explain({ question: "Capitale de la France ?", answers: ["Paris", "Rome", "Lyon", "Nice"], correct: 0 }, { mine: 0, correct: 0 }).lines.some(l => l.k === "points" || l.k === "mult" || l.k === "power"));
 t("html : les nouvelles lignes ont leur icône et leur classe", (function () { const h = J.html({ tone: "good", headline: "x", lines: [{ k: "points", t: "a" }, { k: "mult", t: "b" }, { k: "power", t: "c" }] }); return h.includes("v43-points") && h.includes("💰") && h.includes("✨") && h.includes("⚡"); })());
 
+/* --- reportNote : bonne réponse + justification pour le rapport --- */
+const rn = J.reportNote({ question: "Quelle est la capitale de la France ?", answers: ["Paris", "Lyon", "Nice", "Lille"], correct: 0 });
+t("reportNote : phrase affirmative", rn.a === "Paris" && rn.w === "La capitale de la France est Paris.");
+t("reportNote : l'explication propre à la question passe avant la phrase", J.reportNote({ question: "Quelle est la capitale de la France ?", answers: ["Paris", "Lyon", "Nice", "Lille"], correct: 0, correction: "Paris est la capitale depuis 987." }).w === "Paris est la capitale depuis 987.");
+t("reportNote : le cours passe avant tout, avec la page", /^Le cours dit : La mitose/.test(J.reportNote({ question: "Quel processus ?", answers: ["La mitose", "A", "B", "C"], correct: 0, correction: "x y z", lesson: { s: "La mitose produit deux cellules identiques.", p: 3, t: "Biologie" } }).w) && /page 3/.test(J.reportNote({ question: "Quel processus ?", answers: ["La mitose", "A", "B", "C"], correct: 0, lesson: { s: "La mitose produit deux cellules identiques.", p: 3, t: "Biologie" } }).w));
+t("reportNote : sinon « À retenir »", /^À retenir : la réponse à « Combien de pattes a une araignée \? » est « 8 »\.$/.test(J.reportNote({ question: "Combien de pattes a une araignée ?", answers: ["8", "6", "10", "4"], correct: 0 }).w));
+t("reportNote : réponse qui est déjà une phrase → pas de justification inventée", J.reportNote({ question: "Quels signes ?", answers: ["Aucun, il n'y en a pas", "A", "B", "C"], correct: 0 }).w === "");
+t("reportNote : index donné explicitement, textes bornés (100 / 280)", (function () { const r = J.reportNote({ question: "Q ?", answers: ["x", "y".repeat(300), "z", "w"], correct: 0, correction: "e ".repeat(400) }, 1); return r.a.length <= 100 && r.w.length <= 280 && /…$/.test(r.a); })());
+t("reportNote : question sans réponse valide", J.reportNote({ question: "Q ?", answers: [], correct: 0 }).a === "" && J.reportNote(null).w === "");
+
+/* --- colle navigateur : js/patches/055 pose `why` sur la dernière entrée du journal de session --- */
+(function () {
+  const vm = require("vm"), fs = require("fs"), path = require("path");
+  global.window = { V43Justif: J, __log: [{ n: 1, q: "Quelle est la capitale de la France ?", a: "Paris" }] };
+  global.currentQuestion = { question: "Quelle est la capitale de la France ?", answers: ["Paris", "Lyon", "Nice", "Lille"], correct: 0 };
+  let called = 0; global.showQuestionResult = function () { called++; return "base"; };
+  vm.runInThisContext(fs.readFileSync(path.join(__dirname, "../js/patches/055-v61-rapport-justif.js"), "utf8"));
+  const r = global.showQuestionResult({ correct: 0 });
+  t("055 : appelle la fonction d'origine et renvoie son résultat", called === 1 && r === "base");
+  t("055 : la dernière entrée du journal reçoit sa justification", window.__log[0].why === "La capitale de la France est Paris.");
+  window.__log.push({ n: 2, q: "Autre question ?", a: "x" });
+  global.showQuestionResult({ correct: 0 });
+  t("055 : une entrée qui n'est pas la question courante n'est pas modifiée", !("why" in window.__log[1]));
+  window.__log[0].why = "déjà";
+  window.__log.pop(); global.showQuestionResult({ correct: 0 });
+  t("055 : une justification déjà posée n'est pas écrasée", window.__log[0].why === "déjà");
+  const src013 = fs.readFileSync(path.join(__dirname, "../js/patches/013-v161-report-fix.js"), "utf8");
+  t("rapport « Rapport Qui suis-je N » : écrit « Pourquoi » quand l'entrée a une justification", /if\(q\.why\)write\("Pourquoi : "\+q\.why/.test(src013));
+  delete global.window; delete global.currentQuestion; delete global.showQuestionResult;
+})();
+
 console.log("Justifications et voix off : " + ok + " OK, " + ko + " échec(s)");
 process.exit(ko ? 1 : 0);

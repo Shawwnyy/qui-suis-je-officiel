@@ -1,0 +1,26 @@
+/* 🏛️ Sigles des institutions — 23 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["🏛️ Sigles des institutions"]=[
+  "f|Que signifie ONU ?|Organisation des Nations unies|Organisation nationale universelle|Office des nations unifiées|Ordre des nations unies",
+  "f|Que veut dire OTAN ?|Organisation du traité de l'Atlantique Nord|Organisation des transports aériens nationaux|Office du traité des armées nordiques|Organisation technique des alliances nationales",
+  "f|Que signifie UE ?|Union européenne|Union économique|Union des États|Unité européenne",
+  "f|Que veut dire OMS ?|Organisation mondiale de la santé|Office médical des soins|Organisation mondiale des sciences|Observatoire mondial de la santé",
+  "f|Que veut dire UNESCO ?|Organisation des Nations unies pour l'éducation, la science et la culture|Union nationale des écoles et centres d'observation|Union des nations européennes pour la science et la culture|Office national pour l'éducation, la science et le commerce|L'UNESCO tient la liste du patrimoine mondial.",
+  "m|Que veut dire FMI ?|Fonds monétaire international|Forum mondial de l'investissement|Fédération des marchés internationaux|Fonds multilatéral d'infrastructures",
+  "m|Que veut dire OMC ?|Organisation mondiale du commerce|Office mondial des changes|Organisation des marchés communs|Observatoire mondial des capitaux",
+  "m|Que signifie CIO ?|Comité international olympique|Conseil international des organisations|Centre d'information officiel|Comité des institutions olympiennes|Le CIO est installé à Lausanne, en Suisse.",
+  "m|Que signifie FIFA ?|Fédération internationale de football association|Fédération indépendante des fans d'athlétisme|Fonds international du football amateur|Fédération internationale des fédérations d'athlétisme",
+  "m|Que signifie UEFA ?|Union des associations européennes de football|Union européenne des fédérations d'athlétisme|Union des équipes françaises et autrichiennes|Union européenne des fans d'activités sportives",
+  "m|Que signifie NASA ?|National Aeronautics and Space Administration|National Association of Space Agencies|North American Satellite Authority|National Aerospace Science Alliance",
+  "m|Que signifie ESA en anglais ?|European Space Agency|European Science Alliance|Electronic Satellite Association|Eastern Space Authority|L'ESA est l'Agence spatiale européenne.",
+  "m|Que signifie FBI ?|Federal Bureau of Investigation|Federal Board of Intelligence|First Bureau of Inquiry|Federal Brigade of Interpol",
+  "m|Que signifie CIA ?|Central Intelligence Agency|Civil Investigation Authority|Central Interior Affairs|Criminal Intelligence Alliance",
+  "d|Que signifie CNRS ?|Centre national de la recherche scientifique|Conseil national des recherches sociales|Centre national des relations scientifiques|Comité national de recherche et de sciences",
+  "d|Que signifie ADEME ?|Agence de la transition écologique (ancienne Agence de l'environnement et de la maîtrise de l'énergie)|Association de défense de l'environnement et de la mer|Autorité de développement économique et maritime|Agence de défense des espaces menacés",
+  "d|Que veut dire OPEP ?|Organisation des pays exportateurs de pétrole|Organisation des producteurs européens de pétrole|Office des pays exploitants de pétrole|Organisation publique de l'énergie et du pétrole",
+  "d|Que signifie UNICEF ?|Fonds des Nations unies pour l'enfance|Union internationale contre la faim|Union nationale pour l'instruction des enfants francophones|Fédération des Nations unies pour l'enfance et la famille|L'UNICEF s'est d'abord appelé Fonds international de secours à l'enfance.",
+  "d|Que signifie HCR dans « Haut-commissariat des Nations unies » ?|Haut-commissariat pour les réfugiés|Haut-commissariat pour la recherche|Haut conseil de la reconstruction|Haut-commissariat pour la ruralité",
+  "d|Que signifie OIT ?|Organisation internationale du travail|Organisation internationale du tourisme|Office international des transports|Observatoire des investissements transfrontaliers",
+  "d|Que signifie AIEA ?|Agence internationale de l'énergie atomique|Association internationale des écoles d'architecture|Agence internationale des énergies alternatives|Alliance internationale des économies africaines",
+  "f|Que signifie CE dans l'expression « marquage CE » ?|Conformité européenne|Contrôle économique|Certificat d'entreprise|Commerce extérieur",
+  "d|Que signifie CPI ?|Cour pénale internationale|Conseil de paix internationale|Commission politique internationale|Cour permanente d'investigation"
+];

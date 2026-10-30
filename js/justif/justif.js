@@ -233,6 +233,21 @@ var V43Justif = (function () {
     return out;
   }
 
+  /* ---------- Rapport : « bonne réponse + pourquoi » d'une question, courts et sans chiffres de la partie ----------
+     reportNote(q) → { a: bonne réponse, w: justification } (w peut être vide si rien de sensé à dire).
+     Ordre : le cours (phrase source) > l'explication propre à la question > la phrase affirmative > « À retenir ». */
+  function cut(s, n) { s = strip(s); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…" : s; }
+  function reportNote(q, ci) {
+    var answers = (q && q.answers) || [], i = typeof ci === "number" ? ci : (q && typeof q.correct === "number" ? q.correct : -1);
+    var right = strip(answers[i]); if (!right) return { a: "", w: "" };
+    var L = lessonOf(q), exp = L ? "" : specificCorrection(q), sen = sentence(q && q.question, right), w = "";
+    if (L) w = "Le cours dit : " + L.s + where(L);
+    else if (exp) w = endDot(exp);
+    else if (sen) w = sen;
+    else if (!sentenceLike(right)) w = "À retenir : la réponse à « " + strip(q && q.question).replace(/\s*\?$/, "") + " ? » est « " + right + " ».";
+    return { a: cut(right, 100), w: cut(w, 280) };
+  }
+
   /* ---------- Affichage (navigateur) ---------- */
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
   var ICON = { points: "💰", mult: "✨", power: "⚡", lesson: "📖", answer: "🎯", sentence: "💡", explain: "📘", why: "🔎", related: "🔀", remember: "🧠", bonus: "⭐", stats: "📊" };
@@ -249,7 +264,7 @@ var V43Justif = (function () {
     return '<div class="v43j ' + ex.tone + '" role="group" aria-label="Justification de la réponse"><div class="v43j-head">' + esc(ex.headline) + "</div><ul>"
       + ex.lines.map(function (l) { return '<li class="v43-' + l.k + '"><span aria-hidden="true">' + (ICON[l.k] || "•") + "</span> " + esc(l.t) + (l.quote ? " <q>" + mark(l.quote, l.hl) + "</q>" : "") + "</li>"; }).join("") + "</ul></div>";
   }
-  return { explain: explain, lessonOf: lessonOf, mark: mark, buildIndex: buildIndex, related: related, sentence: sentence, roundStats: roundStats, pointsFromLog: pointsFromLog, pointsLines: pointsLines, sentenceLike: sentenceLike, gap: gap, num: num, html: html, specificCorrection: specificCorrection };
+  return { explain: explain, lessonOf: lessonOf, mark: mark, buildIndex: buildIndex, related: related, sentence: sentence, roundStats: roundStats, pointsFromLog: pointsFromLog, pointsLines: pointsLines, sentenceLike: sentenceLike, reportNote: reportNote, gap: gap, num: num, html: html, specificCorrection: specificCorrection };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V43Justif;
 if (typeof window !== "undefined") {

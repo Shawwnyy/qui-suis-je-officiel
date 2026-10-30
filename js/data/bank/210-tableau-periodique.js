@@ -1,0 +1,28 @@
+/* ⚗️ Symboles du tableau périodique — 25 questions (6 champs : difficulté|question|bonne|faux|faux|faux ; 7e facultatif : explication) */
+V35_BANK["⚗️ Symboles du tableau périodique"]=[
+  "f|Quel élément chimique a pour symbole O ?|L'oxygène|L'or|L'osmium|L'étain",
+  "f|Quel élément chimique a pour symbole H ?|L'hydrogène|L'hélium|Le mercure|Le sodium",
+  "f|Quel élément chimique a pour symbole Au ?|L'or|L'argent|L'aluminium|L'argon",
+  "f|Quel élément chimique a pour symbole Ag ?|L'argent|L'argon|L'aluminium|L'arsenic",
+  "f|Quel élément chimique a pour symbole Fe ?|Le fer|Le fluor|Le francium|Le plomb",
+  "m|Quel élément chimique a pour symbole Na ?|Le sodium|L'azote|Le néon|Le nickel",
+  "m|Quel élément chimique a pour symbole K ?|Le potassium|Le krypton|Le calcium|Le carbone",
+  "m|Quel élément chimique a pour symbole Pb ?|Le plomb|Le platine|Le phosphore|Le polonium",
+  "m|Quel élément chimique a pour symbole Sn ?|L'étain|Le soufre|Le strontium|Le sélénium",
+  "m|Quel élément chimique a pour symbole Hg ?|Le mercure|L'hydrogène|L'hélium|Le holmium",
+  "m|Quel élément chimique a pour symbole Cu ?|Le cuivre|Le cobalt|Le chrome|Le calcium",
+  "m|Quel élément chimique a pour symbole C ?|Le carbone|Le calcium|Le chlore|Le cuivre",
+  "m|Quel élément chimique a pour symbole N ?|L'azote|Le néon|Le nickel|Le sodium",
+  "m|Quel élément chimique a pour symbole He ?|L'hélium|L'hydrogène|Le hafnium|Le holmium",
+  "m|Quel élément chimique a pour symbole Ca ?|Le calcium|Le carbone|Le chlore|Le cuivre",
+  "d|Quel est le symbole chimique du tungstène ?|W|T|Tu|Tn",
+  "d|Quel est le symbole chimique de l'antimoine ?|Sb|An|At|Am",
+  "f|Quel est l'élément chimique le plus léger ?|L'hydrogène|L'hélium|Le lithium|L'oxygène",
+  "m|Quel gaz rare remplit les ballons qui s'envolent ?|L'hélium|L'argon|Le néon|Le radon",
+  "m|Quel est le seul métal liquide à température ambiante, avec le gallium proche ?|Le mercure|Le plomb|Le fer|L'étain",
+  "d|Quel élément a pour numéro atomique 1 ?|L'hydrogène|L'hélium|Le carbone|L'oxygène",
+  "d|Quel élément a pour numéro atomique 6 ?|Le carbone|L'oxygène|L'azote|Le bore",
+  "d|Quel élément a pour numéro atomique 8 ?|L'oxygène|Le carbone|L'azote|Le fluor",
+  "d|Qui a publié la première version du tableau périodique en 1869 ?|Dmitri Mendeleïev|Marie Curie|Antoine Lavoisier|Niels Bohr",
+  "d|Quel élément doit son nom à la Pologne, pays natal de Marie Curie ?|Le polonium|Le francium|Le germanium|L'américium"
+];

@@ -27,6 +27,9 @@ var V40Analysis = (function () {
     r = r || {};
     var d = DIFFS.indexOf(r.d) >= 0 ? r.d : "moyen";
     var row = { q: str(r.q, 160), c: str(r.c, 60), d: d, m: r.m ? 1 : 0, r: [] };
+    var ans = str(r.a, 100).trim(), why = str(r.w, 280).trim();          /* bonne réponse + explication (rapport de révision), facultatives */
+    if (ans) row.a = ans;
+    if (why) row.w = why;
     var src = Array.isArray(r.r) ? r.r : [];
     for (var k = 0; k < np; k++) {
       var e = Array.isArray(src[k]) ? src[k] : [0, 0, 0];
@@ -411,7 +414,7 @@ var V40Analysis = (function () {
     return log.R.map(function (R, i) {
       var a = 0, c = 0, tSum = 0, tN = 0;
       R.r.forEach(function (e) { if (!isAnswer(e[0])) return; a++; if (e[0] === 1) c++; if (e[0] === 1 || e[0] === 2) { tSum += e[1]; tN++; } });
-      return { round: i + 1, q: R.q, c: R.c, d: R.d, m: R.m, answers: a, correct: c, rate: a ? c / a : null, avgTime: tN ? tSum / tN : null };
+      return { round: i + 1, q: R.q, c: R.c, d: R.d, m: R.m, ans: R.a || "", why: R.w || "", answers: a, correct: c, rate: a ? c / a : null, avgTime: tN ? tSum / tN : null };
     });
   }
   function hardest(log, n) {
@@ -842,10 +845,10 @@ var V40Analysis = (function () {
   }
   function toCSV(log) {
     var names = { 0: "hors partie", 1: "bonne réponse", 2: "mauvaise réponse", 3: "pas de réponse" };
-    var lines = [["question", "thème", "difficulté", "média", "joueur", "résultat", "temps_s", "score_cumulé"].join(";")];
+    var lines = [["question", "thème", "difficulté", "média", "joueur", "résultat", "temps_s", "score_cumulé", "bonne_réponse", "explication"].join(";")];
     log.R.forEach(function (R, i) {
       R.r.forEach(function (e, k) {
-        lines.push([i + 1 + ". " + R.q, R.c, R.d, R.m ? "oui" : "non", log.P[k].n, names[e[0]], e[0] === 1 || e[0] === 2 ? String(e[1]).replace(".", ",") : "", e[2]].map(csvCell).join(";"));
+        lines.push([i + 1 + ". " + R.q, R.c, R.d, R.m ? "oui" : "non", log.P[k].n, names[e[0]], e[0] === 1 || e[0] === 2 ? String(e[1]).replace(".", ",") : "", e[2], R.a || "", R.w || ""].map(csvCell).join(";"));
       });
     });
     return lines.join("\r\n");
