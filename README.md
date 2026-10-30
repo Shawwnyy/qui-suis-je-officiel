@@ -7,7 +7,7 @@ Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **a
 - **🎙️ Chat vocal à plusieurs** dans la salle (bouton en bas à gauche) : rien à installer, aucun serveur à toi — voir « Chat vocal » plus bas
 - **🔗 Lien d'invitation** : l'hôte copie un lien `…/?room=123456`, le camarade l'ouvre et n'a plus qu'à entrer son prénom
 
-- **201 thèmes**, environ **14 100 questions** de texte (181 fichiers de banque), plus des milliers de questions avec image : **16 thèmes dessinés par le jeu** et **≈ 700 questions avec image ajoutées à tous les thèmes** (tirées à chaque partie) (4 niveaux : facile, moyen, difficile, impossible)
+- **232 thèmes**, environ **14 800 questions** de texte (210 fichiers de banque), soit **≈ 18 400 questions** au total une fois les questions avec image comptées (mesuré au chargement de la page) : **16 thèmes dessinés par le jeu** et **≈ 700 questions avec image ajoutées à tous les thèmes** (tirées à chaque partie) (4 niveaux : facile, moyen, difficile, impossible)
 - Tes propres questions (gestionnaire intégré) et **des QCM générés à partir d'un cours** (PDF, Word, PowerPoint, ODP, Excel, EPUB, page web, audio, vidéo…), **avec les images du cours** pour les PDF
 - **Modération stricte** du chat (voir plus bas)
 - **Anti-triche progressif** : avertissements, malus, puis exclusion jusqu'à la fin de la partie
