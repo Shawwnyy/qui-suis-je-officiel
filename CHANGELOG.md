@@ -10,7 +10,7 @@ Les chiffres de version « V… » sont ceux des fichiers du dépôt (`js/patche
 
 ## Samedi 31 octobre 2026
 
-### 🗣️ V64.1 — La voix grave suit enfin le vrai compte à rebours — 🔖 `COMMIT2` (18 h 50)
+### 🗣️ V64.1 — La voix grave suit enfin le vrai compte à rebours — 🔖 `4e693dd` (18 h 50)
 - **Correctif** : la voix de départ n'était branchée que sur un ancien compte à rebours (inutilisé depuis la V32) ; elle ne parlait donc jamais en vrai. Elle suit maintenant le compte à rebours réellement affiché : « La partie commence dans trois secondes… Deux… Un… Zéro… **Bonne chance à toutes et à tous !** », puis la question est lue.
 - La voix est « débloquée » au premier clic/toucher (exigence des navigateurs), évite le bug Chrome du `cancel()` suivi de `speak()`, et **Son ON** dit « Voix activée. » pour vérifier qu'elle marche.
 - La lecture des questions à voix haute (V43) n'interrompt plus l'annonceur et ne se fait plus couper par lui.
