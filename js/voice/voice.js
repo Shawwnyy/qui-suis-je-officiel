@@ -53,7 +53,9 @@ var V43Voice = (function () {
     return (nice[0] || pool[0]);
   }
   function soundOn() { try { return typeof soundEnabled === "undefined" || !!soundEnabled; } catch (e) { return true; } }
-  function stop() { if (!supported) return; try { window.speechSynthesis.cancel(); } catch (e) {} }
+  /* la voix grave de l'annonceur (059-v64) passe avant : tant qu'elle parle, la lecture des questions attend son tour au lieu de la couper */
+  function annonceurBusy() { try { return !!(window.V64Glue && window.V64Glue.busy && window.V64Glue.busy()); } catch (e) { return false; } }
+  function stop() { if (!supported || annonceurBusy()) return; try { window.speechSynthesis.cancel(); } catch (e) {} }
   /* queue = true : on ajoute à la suite (explication après le narrateur « Bonne réponse ») au lieu de couper la parole */
   function say(list, queue) {
     if (!supported || !prefs.on || !soundOn() || !list || !list.length) return false;

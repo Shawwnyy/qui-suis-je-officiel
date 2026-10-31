@@ -26,13 +26,16 @@ function t(label, cond) { if (cond) ok++; else { bad++; console.log("ÉCHEC :", 
     await H.locator("#v63FxToggle").click(); await H.waitForTimeout(100);
     t("les boutons déplacés restent cliquables (Effets OFF)", /Effets OFF/.test(await H.locator("#v63FxToggle").textContent()));
     await H.locator("#v63FxToggle").click();
-    /* 3 · voix grave : annonce de départ */
-    await H.evaluate(() => { window.__sp = []; speechSynthesis.speak = u => window.__sp.push({ t: u.text, p: u.pitch, r: u.rate, l: u.lang }); speechSynthesis.cancel = () => {}; soundEnabled = true; });
-    await H.evaluate(() => showStartCountdown(5, () => {}));
-    await H.waitForFunction(() => window.__sp.some(s => s.t === "Bonne chance !"), { timeout: 9000 });
+    /* 3 · voix grave : vrai lancement de partie (compte à rebours de 5 s à l'écran) */
+    await H.evaluate(() => { window.__sp = []; window.__t0 = 0; speechSynthesis.speak = u => { if (u.volume !== 0) window.__sp.push({ t: u.text, p: u.pitch, r: u.rate, l: u.lang, at: Math.round(performance.now() - window.__t0), n: (document.getElementById("startCountdownNum") || {}).textContent }); }; speechSynthesis.cancel = () => {}; soundEnabled = true;
+      const r = document.getElementById("roundCount"); r.value = "5"; r.dispatchEvent(new Event("change", { bubbles: true })); acceptRules(); window.__t0 = performance.now(); startGame(); });
+    await H.waitForFunction(() => window.__sp.some(s => /^Bonne chance/.test(s.t)), null, { timeout: 12000 });
     const spk = await H.evaluate(() => window.__sp.slice());
-    t("départ : « La partie commence. », « Trois. », « Deux. », « Un. », « Bonne chance ! » dans l'ordre", spk.map(s => s.t).join("|") === "La partie commence.|Trois.|Deux.|Un.|Bonne chance !");
-    t("voix grave : hauteur au minimum (0), débit lent, en français", spk.every(s => s.p === 0 && s.r < 1 && /^fr/.test(s.l)));
+    t("départ réel : « La partie commence dans trois secondes. », « Deux. », « Un. », « Zéro. », « Bonne chance à toutes et à tous ! » dans l'ordre", spk.map(s => s.t).slice(0, 5).join("|") === "La partie commence dans trois secondes.|Deux.|Un.|Zéro.|Bonne chance à toutes et à tous !");
+    t("départ réel : la phrase démarre avant le « 3 » affiché, Deux ≈ 3 s, Un ≈ 4 s, Zéro et Bonne chance ≈ 5 s", spk[0].at < 1500 && Math.abs(spk[1].at - 3000) < 500 && Math.abs(spk[2].at - 4000) < 500 && Math.abs(spk[3].at - 5000) < 600 && Math.abs(spk[4].at - 5000) < 700);
+    t("voix grave : hauteur au minimum (0), débit lent, en français (annonceur)", spk.slice(0, 5).every(s => s.p === 0 && s.r < 1 && /^fr/.test(s.l)));
+    t("la lecture de la question (voix off) vient APRÈS « Bonne chance à toutes et à tous ! », jamais avant", (() => { const i = spk.findIndex(s => /^Bonne chance/.test(s.t)), q = spk.findIndex(s => /\?$/.test(s.t)); return q === -1 || q > i; })());
+    await H.waitForSelector(".answer", { timeout: 20000 });
     await H.evaluate(() => { window.__sp = []; soundEnabled = false; V64Glue.say("test"); });
     t("« Son OFF » : la voix se tait", (await H.evaluate(() => window.__sp.length)) === 0);
     await H.evaluate(() => { soundEnabled = true; });

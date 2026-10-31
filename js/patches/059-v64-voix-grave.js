@@ -1,6 +1,6 @@
 /* =============================================================================
    V64 — 🗣️ Voix grave de l'annonceur, 🔥 flammes de série, 💣 « Bombe » et ⚡ « Vitesse », commandes son / effets / micro à droite.
-   • Voix grave : « La partie commence. Trois. Deux. Un. » (à partir de 3 secondes avant le départ), puis « Bonne chance ! » ; aussi
+   • Voix grave : « La partie commence dans trois secondes… Deux. Un. Zéro. » puis « Bonne chance à toutes et à tous ! », calées sur le compte à rebours affiché ; aussi
      « Dernière question ! » et l'annonce des questions spéciales. Voix du navigateur la plus grave possible (hauteur au minimum, débit lent).
    • 🔥 Flammes : à partir de 3 bonnes réponses d'affilée, l'écran de jeu s'enflamme (3, 5 puis 8 d'affilée).
    • Nouvelles questions spéciales (hôte, case « événements » cochée, jamais deux de suite) :
@@ -18,13 +18,24 @@ var V64Voice = (function () {
     var deep = list.filter(function (v) { return DEEP.test(String(v.name || "")); });
     return (deep[0] || list[0]);
   }
-  /* départ : [{ at (secondes après le début du compte à rebours), text }] — les chiffres sont dits à partir de 3 s avant le départ */
-  function countdownLines(seconds) {
-    var n = Math.floor(Number(seconds)); if (!(n >= 1)) return [];
-    var W = { 3: "Trois.", 2: "Deux.", 1: "Un." }, lead = "La partie commence.", out = [], k;
-    if (n >= 4) out.push({ at: n - 4, text: lead });
-    for (k = Math.min(3, n); k >= 1; k--) out.push({ at: n - k, text: (n < 4 && k === Math.min(3, n) ? lead + " " : "") + W[k] });
-    out.push({ at: n, text: "Bonne chance !" });
+  /* Départ de partie, synchronisé sur le VRAI compte à rebours affiché (#v32Launch / #v32Count, côté hôte comme côté invités).
+     launchTick(état, vue) → { st: nouvel état, say: [{ text, delay?, queue? }] }.  vue = { shown: bool, text: chiffre affiché }.
+     « La partie commence dans trois secondes. » démarre juste après l'apparition du compte à rebours (pour tomber sur le « 3 »), puis « Deux. » quand « 2 » s'affiche,
+     « Un. » à « 1 », puis, quand le compte à rebours se ferme après le 1 : « Zéro. » suivi de « Bonne chance à toutes et à tous ! ». Un lancement annulé reste muet. */
+  var LEAD = "La partie commence dans trois secondes.", LUCK = "Bonne chance à toutes et à tous !";
+  function launchTick(st, v) {
+    var on = !!(st && st.on), last = st && st.last != null ? String(st.last) : "", zero = !!(st && st.zero), shown = !!(v && v.shown), txt = String(v && v.text != null ? v.text : "").trim(), n = Number(txt);
+    var out = { st: { on: shown, last: shown ? txt : "", zero: shown && on ? zero : false }, say: [], cancelled: false };
+    if (shown && !on) {
+      if (n >= 4) out.say.push({ text: LEAD, delay: 400, rate: 0.88 }); else if (n === 3) out.say.push({ text: LEAD, delay: 0, rate: 0.95 });
+    } else if (shown && on && txt !== last) {
+      if (n === 2) out.say.push({ text: "Deux.", rate: 0.82 });
+      else if (n === 1) {   /* « Zéro » et « Bonne chance » partent à la fin de cette seconde, juste avant la 1re question (qui sera lue après) */
+        out.say.push({ text: "Un.", rate: 0.82 }, { text: "Zéro.", delay: 880, rate: 0.8 }, { text: LUCK, delay: 880, queue: true, rate: 0.82 }); out.st.zero = true;
+      }
+    } else if (!shown && on) {
+      if (Number(last) === 1) { if (!zero) out.say.push({ text: "Zéro.", rate: 0.8 }, { text: LUCK, queue: true, rate: 0.82 }); } else out.cancelled = true;
+    }
     return out;
   }
   /* annonce d'une question : { say, banner } ou null */
@@ -57,7 +68,7 @@ var V64Voice = (function () {
   var BOMB_LOSS = 400, SPEED_EXTRA = 50;
   function bombLoss(score) { return Math.min(Math.max(0, Math.round(Number(score) || 0)), BOMB_LOSS); }
   function speedExtra(time, qTime) { var t = Math.max(0, Math.min(Number(time) || 0, Number(qTime) || 0)); return Math.round(t * SPEED_EXTRA); }
-  var api = { pickVoice: pickVoice, countdownLines: countdownLines, announce: announce, fireLevel: fireLevel, newEvent: newEvent, bombLoss: bombLoss, speedExtra: speedExtra, BOMB_LOSS: BOMB_LOSS, SPEED_EXTRA: SPEED_EXTRA, NEW_CHANCE: NEW_CHANCE };
+  var api = { pickVoice: pickVoice, launchTick: launchTick, announce: announce, fireLevel: fireLevel, newEvent: newEvent, bombLoss: bombLoss, speedExtra: speedExtra, BOMB_LOSS: BOMB_LOSS, SPEED_EXTRA: SPEED_EXTRA, NEW_CHANCE: NEW_CHANCE };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   return api;
 })();
@@ -72,28 +83,65 @@ var V64Voice = (function () {
   var voice = null;
   function loadVoice() { try { voice = V.pickVoice(window.speechSynthesis.getVoices()); } catch (e) { voice = null; } }
   try { if (window.speechSynthesis) { loadVoice(); window.speechSynthesis.addEventListener("voiceschanged", loadVoice); } } catch (e) {}
+  /* La voix du navigateur est capricieuse : (1) elle doit être « débloquée » par un premier geste de l'utilisateur (iPhone, Android, Chrome),
+     (2) un speak() collé à un cancel() est parfois avalé par Chrome, (3) une phrase non référencée peut être ramassée avant d'être dite. */
+  var KEEP = [], pendingQ = [], drainT = 0, unlocked = false, warned = false;
+  function speakNow(it) {
+    try {
+      var u = new SpeechSynthesisUtterance(it.text); u.lang = "fr-FR"; if (voice) u.voice = voice;
+      u.pitch = 0; u.rate = it.rate || 0.82; u.volume = 1;
+      u.onend = u.onerror = function (ev) { var i = KEEP.indexOf(u); if (i >= 0) KEEP.splice(i, 1); if (ev && ev.error === "not-allowed") needGesture(); };
+      u.__t = Date.now(); KEEP.push(u); window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function needGesture() {
+    unlocked = false; armUnlock();
+    if (!warned) { warned = true; try { if (typeof showBanner === "function") showBanner("🔈 Touche l'écran une fois pour activer la voix"); } catch (e) {} }
+  }
   function say(text, o) {
     try {
-      if (!window.speechSynthesis || (typeof soundEnabled !== "undefined" && !soundEnabled) || !text) return false;
+      var ss = window.speechSynthesis;
+      if (!ss || (typeof soundEnabled !== "undefined" && !soundEnabled) || !text) return false;
       if (!voice) loadVoice();
-      var u = new SpeechSynthesisUtterance(text); u.lang = "fr-FR"; if (voice) u.voice = voice;
-      u.pitch = 0; u.rate = (o && o.rate) || 0.82; u.volume = 1;
-      if (!o || !o.queue) window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(u); return true;
+      var wait = 0, it = { text: text, rate: (o && o.rate) || 0.82 };
+      if (!o || !o.queue) {
+        pendingQ = []; clearTimeout(drainT); drainT = 0;
+        if (ss.speaking || ss.pending) { ss.cancel(); wait = 70; }
+      }
+      if (ss.paused) ss.resume();
+      pendingQ.push(it);
+      if (!drainT) drainT = setTimeout(function () { drainT = 0; var q = pendingQ; pendingQ = []; q.forEach(speakNow); }, wait);
+      return true;
     } catch (e) { return false; }
   }
-  var cdTimers = [];
-  if (typeof showStartCountdown === "function") {
-    var baseCd = showStartCountdown;
-    showStartCountdown = function (seconds, onDone) {
-      var r = baseCd.apply(this, arguments);
-      try {
-        cdTimers.forEach(clearTimeout); cdTimers = [];
-        V.countdownLines(seconds).forEach(function (l) { cdTimers.push(setTimeout(function () { say(l.text, { rate: 0.8 }); }, l.at * 1000)); });
-      } catch (e) {}
-      return r;
-    };
+  /* vrai tant qu'une de nos phrases est en cours ou en attente : la lecture des questions (voice.js) ne doit alors ni la couper ni passer devant */
+  function busy() { var now = Date.now(); return pendingQ.length > 0 || !!drainT || KEEP.some(function (u) { return now - (u.__t || 0) < 12000; }); }
+  function unlock() {
+    if (unlocked) return; unlocked = true;
+    try { var u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "fr-FR"; window.speechSynthesis.speak(u); } catch (e) {}
   }
+  function armUnlock() { ["pointerdown", "touchend", "keydown", "click"].forEach(function (ev) { document.addEventListener(ev, unlock, { once: true, passive: true, capture: true }); }); }
+  if (window.speechSynthesis) armUnlock();
+  /* « Son ON » : une petite phrase confirme que la voix marche */
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest ? e.target.closest("#soundToggle") : null; if (!b) return;
+    setTimeout(function () { try { if (typeof soundEnabled !== "undefined" && soundEnabled) say("Voix activée.", { rate: 0.8 }); else if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {} }, 80);
+  }, true);
+  /* ---- compte à rebours de lancement : on suit celui qui s'affiche vraiment (31-v32 : #v32Launch / #v32Count) ---- */
+  var LS = { st: null, ts: [] };
+  function pollLaunch() {
+    try {
+      var o = $("v32Launch"), c = $("v32Count");
+      var r = V.launchTick(LS.st, { shown: !!(o && o.classList.contains("show")), text: c ? c.textContent : "" });
+      LS.st = r.st;
+      if (r.cancelled) { LS.ts.forEach(clearTimeout); LS.ts = []; }
+      r.say.forEach(function (a) {
+        if (a.delay) LS.ts.push(setTimeout(function () { say(a.text, { rate: a.rate, queue: !!a.queue }); }, a.delay));
+        else say(a.text, { rate: a.rate, queue: !!a.queue });
+      });
+    } catch (e) {}
+  }
+  setInterval(pollLaunch, 120);
   /* ---- annonces de question ---- */
   var baseDisplay = displayQuestion;
   displayQuestion = function (question, round) {
@@ -154,5 +202,5 @@ var V64Voice = (function () {
     ["vcFab", "soundToggle", "v63FxToggle"].forEach(function (id) { var e = $(id); if (e && e.parentNode !== box) box.appendChild(e); });
   }
   side(); document.addEventListener("DOMContentLoaded", side); setInterval(side, 1500);
-  window.V64Glue = { say: say, side: side };
+  window.V64Glue = { say: say, side: side, busy: busy };
 })();

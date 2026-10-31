@@ -2,12 +2,16 @@
 const V = require("../js/patches/059-v64-voix-grave.js");
 let ok = 0, ko = 0;
 function t(label, cond) { if (cond) ok++; else { ko++; console.log("ÉCHEC :", label); } }
-const L5 = V.countdownLines(5);
-t("départ 5 s : « La partie commence » puis Trois, Deux, Un, puis « Bonne chance ! »", L5.map(l => l.text).join("|") === "La partie commence.|Trois.|Deux.|Un.|Bonne chance !");
-t("départ 5 s : les chiffres tombent à 3 s, 2 s et 1 s avant le départ", L5[1].at === 2 && L5[2].at === 3 && L5[3].at === 4 && L5[4].at === 5);
-const L3 = V.countdownLines(3);
-t("départ 3 s : « La partie commence. Trois. » ensemble, puis Deux, Un, Bonne chance", L3[0].text === "La partie commence. Trois." && L3[0].at === 0 && L3.length === 4 && L3[3].text === "Bonne chance !" && L3[3].at === 3);
-t("départ : temps ordonnés, jamais négatifs ; durée invalide → rien", [1, 2, 3, 4, 5, 8].every(n => { const l = V.countdownLines(n); return l.every((x, i) => x.at >= 0 && x.at <= n && (i === 0 || x.at >= l[i - 1].at)); }) && V.countdownLines(0).length === 0 && V.countdownLines("x").length === 0);
+const run = seq => { let st = null; const out = []; seq.forEach(v => { const r = V.launchTick(st, v); st = r.st; r.say.forEach(x => out.push(x)); if (r.cancelled) out.push({ cancelled: true }); }); return out; };
+const full = [{ shown: true, text: "5" }, { shown: true, text: "5" }, { shown: true, text: "4" }, { shown: true, text: "3" }, { shown: true, text: "2" }, { shown: true, text: "2" }, { shown: true, text: "1" }, { shown: false, text: "1" }, { shown: false, text: "" }];
+const sp = run(full);
+t("départ : « La partie commence dans trois secondes. », Deux, Un, Zéro, puis « Bonne chance à toutes et à tous ! »", sp.map(x => x.text).join("|") === "La partie commence dans trois secondes.|Deux.|Un.|Zéro.|Bonne chance à toutes et à tous !");
+t("départ : la phrase d'ouverture part à l'apparition du compte à rebours (avec un petit délai), chaque chiffre une seule fois", sp[0].delay === 400 && sp.filter(x => x.text === "Deux.").length === 1 && sp.filter(x => x.text === "Un.").length === 1);
+t("« Bonne chance » est mise à la suite du zéro (file)", sp[4].queue === true && !sp[3].queue);
+t("lancement annulé (fermé avant le 1) : rien d'annoncé, signalé comme annulé", run([{ shown: true, text: "5" }, { shown: true, text: "4" }, { shown: false, text: "4" }]).filter(x => x.text && x.text !== "La partie commence dans trois secondes.").length === 0 && run([{ shown: true, text: "5" }, { shown: false, text: "5" }]).some(x => x.cancelled));
+t("arrivée tardive : affiché à 3 → phrase sans délai ; à 2 → rien avant « Deux » ; rien quand rien n'est affiché", run([{ shown: true, text: "3" }])[0].delay === 0 && run([{ shown: true, text: "2" }]).length === 0 && run([{ shown: false, text: "" }, { shown: false, text: "" }]).length === 0);
+t("deux lancements de suite : tout est annoncé à chaque fois", run(full.concat(full)).length === 10);
+t("entrées bizarres : pas d'exception", V.launchTick(null, null).say.length === 0 && V.launchTick({ on: true, last: undefined }, { shown: false }).say.length === 0 && V.launchTick(undefined, { shown: true, text: "abc" }).say.length === 0);
 const fr = { lang: "fr-FR", name: "Amelie" }, frM = { lang: "fr-FR", name: "Thomas" }, en = { lang: "en-US", name: "Daniel" };
 t("voix : française et masculine d'abord, sinon française, sinon rien", V.pickVoice([en, fr, frM]) === frM && V.pickVoice([en, fr]) === fr && V.pickVoice([en]) === null && V.pickVoice(null) === null && V.pickVoice([null, {}]) === null);
 t("annonce : dernière question", V.announce({}, 10, 10).say.startsWith("Dernière question") && V.announce({}, 9, 10) === null);
