@@ -10,7 +10,7 @@ Les chiffres de version « V… » sont ceux des fichiers du dépôt (`js/patche
 
 ## Samedi 31 octobre 2026
 
-### 🗣️ V64 — Voix grave, boutons à droite, flammes, Vitesse/Bombe et 140 questions par thème — 🔖 `2d6697c` (18 h)
+### 🗣️ V64 — Voix grave, boutons à droite, flammes, Vitesse/Bombe et 140 questions par thème — 🔖 `55d1da9` (18 h)
 - **Voix grave** : « La partie commence. Trois. Deux. Un. » dans les 3 dernières secondes avant le départ, puis « Bonne chance ! » ; elle annonce aussi la dernière question et les tours spéciaux.
 - **Son, Effets et micro** regroupés en bas à droite.
 - **🔥 Flammes de série** (3, 5, 8 bonnes réponses d'affilée), **⚡ Question Vitesse** (bonus de rapidité ×3) et **💣 Question Bombe** (−400 pts si on se trompe).
