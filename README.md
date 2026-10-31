@@ -14,6 +14,8 @@ Les joueurs sont reliés en pair-à-pair via [PeerJS](https://peerjs.com/) : **a
 - **Questions avec image ou vidéo YouTube** (agrandissables), dont quatre thèmes dessinés par le jeu : questions en images (« de quelle couleur est le pull ? »), **Code de la route en images** (panneaux, feux, priorités à une intersection, rond-point, vitesse selon la météo), **Drapeaux en images** et **Lire l'heure** (horloge à aiguilles)
 - **Statistiques et graphiques** de chaque partie (classement, évolution des scores, séries de bonnes réponses, réponses les plus rapides, répartition des temps, faits marquants, **analyses avancées** : course au classement, forme du moment, qui a mené la partie), historique des 12 dernières parties, export **PDF clair ou sombre** (tableaux + tous les graphiques) et CSV
 
+> 📜 L'historique de toutes les mises à jour est dans [CHANGELOG.md](CHANGELOG.md).
+
 ## ▶️ Lancer le jeu
 
 Ouvre simplement `index.html` dans un navigateur, ou publie le dossier tel quel (GitHub Pages, n'importe quel hébergement statique).
