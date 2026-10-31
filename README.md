@@ -494,6 +494,16 @@ Un bouclier déjà obtenu annule le malus et se consomme. Les effets sont appliq
 - **Temps restant visible après ta réponse** : le chrono continue de descendre (« Il reste N s pour les autres ») et les autres joueurs voient « Léo a répondu · il reste N s » (sans savoir quoi).
   Tests : `tests/readtime.test.js`, `tests/e2e/clock.e2e.js`, `tests/e2e/finaljustif.e2e.js`.
 
+## 🎆 Feu d'artifice, rattrapage et fiches (`js/patches/058-v63-feux-artifice.js`, `js/justif/fiches.js`)
+
+- **Bruit de feu d'artifice** à chaque réponse : sifflement qui monte → explosion sourde → crépitement, synthétisé par Web Audio (aucun fichier). **Bonne réponse** = tir complet en 2 bouquets ;
+  **mauvaise réponse** = petit tir plus grave et plus court ; **fin de partie** = salve de 10 tirs + final de 3. Il respecte le bouton « Son ON/OFF ».
+- **Étincelles** à l'écran (canvas, aucune interaction bloquée), **secousse** de l'écran et **vibration** sur une erreur. Le bouton **« 🎆 Effets ON/OFF »** (à côté du bouton Son) coupe les étincelles, la secousse
+  et la vibration ; le système « moins d'animations » les coupe aussi. La recette sonore est pure et testée (`V63Fx.plan`, `tests/fireworks.test.js`).
+- **Sur la carte « 📚 Justifications »** : **🔁 Refais tes erreurs** (mini-quiz sur tes questions ratées, réponses mélangées, explication à chaque réponse, feu d'artifice), **📤 Partager mon score**
+  (🟩🟥⬜ façon Wordle + lien), **📋 Copier mes fiches** et **⬇️ Télécharger** (fiches de révision en .txt), **🎆 Feu d'artifice** (rejoue la salve), **🔊 Lire** (lecture à voix haute d'une question et de ses justifications).
+  Logique pure dans `V63Fiches` (`tests/fireworks.test.js`) ; essais de bout en bout : `tests/e2e/fx.e2e.js` (compte les sons réellement créés) et `tests/e2e/finaljustif.e2e.js`.
+
 ## ➕ Ajouter des questions ou un thème
 
 Un thème = un fichier `js/data/bank/NNN-nom.js` :
@@ -529,6 +539,7 @@ Réglage de l'hôte dans le salon (« 📚 Mode révision ») : **Automatique** 
 node tests/moderation.test.js            # cas à bloquer / cas légitimes
 node tests/qcm.test.js                   # générateur et lecture des fichiers de test
 node tests/bank.test.js                  # valide toutes les questions (format, doublons, réponses ambiguës)
+node tests/fireworks.test.js            # recette du feu d'artifice, gerbes, fiches (partage, copie, rattrapage)
 node tests/readtime.test.js              # temps de lecture avant le chrono, « X a répondu · il reste N s »
 node tests/diff.test.js                  # « Trouve la différence » / « Trouve l'intrus » : réponses relues dans le SVG, mauvaises réponses vérifiées fausses
 node tests/bank.test.js "Football|Chess"   # ne valider que certains thèmes (expression régulière)
