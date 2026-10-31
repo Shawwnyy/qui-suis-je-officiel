@@ -69,7 +69,17 @@ var V43Voice = (function () {
     try { if (window.speechSynthesis.paused) window.speechSynthesis.resume(); } catch (e) {}
     return true;
   }
-  function readQuestion(q) { return say(questionScript(q, { answers: prefs.answers })); }
+  /* si l'annonceur parle encore (« Zéro. Bonne chance à toutes et à tous ! »), la question est lue juste après lui, sans le couper */
+  function readQuestion(q) {
+    if (!annonceurBusy()) return say(questionScript(q, { answers: prefs.answers }));
+    var tries = 0;
+    (function wait() {
+      if (annonceurBusy() && ++tries < 40) { setTimeout(wait, 250); return; }
+      var cur = typeof currentQuestion !== "undefined" ? currentQuestion : null;
+      if (!cur || cur === q) say(questionScript(q, { answers: prefs.answers }));
+    })();
+    return true;
+  }
   function readExplanation(text) { if (!prefs.explain) return false; var t = prepare(text); return t ? say([t], true) : false; }
 
   /* ---------- Interface ---------- */

@@ -31,7 +31,7 @@ var V64Voice = (function () {
     } else if (shown && on && txt !== last) {
       if (n === 2) out.say.push({ text: "Deux.", rate: 0.82 });
       else if (n === 1) {   /* « Zéro » et « Bonne chance » partent à la fin de cette seconde, juste avant la 1re question (qui sera lue après) */
-        out.say.push({ text: "Un.", rate: 0.82 }, { text: "Zéro.", delay: 880, rate: 0.8 }, { text: LUCK, delay: 880, queue: true, rate: 0.82 }); out.st.zero = true;
+        out.say.push({ text: "Un.", rate: 0.82 }, { text: "Zéro.", delay: 600, rate: 0.8 }, { text: LUCK, delay: 600, queue: true, rate: 0.82 }); out.st.zero = true;
       }
     } else if (!shown && on) {
       if (Number(last) === 1) { if (!zero) out.say.push({ text: "Zéro.", rate: 0.8 }, { text: LUCK, queue: true, rate: 0.82 }); } else out.cancelled = true;
@@ -115,7 +115,8 @@ var V64Voice = (function () {
     } catch (e) { return false; }
   }
   /* vrai tant qu'une de nos phrases est en cours ou en attente : la lecture des questions (voice.js) ne doit alors ni la couper ni passer devant */
-  function busy() { var now = Date.now(); return pendingQ.length > 0 || !!drainT || KEEP.some(function (u) { return now - (u.__t || 0) < 12000; }); }
+  var pend = false;   /* « Zéro / Bonne chance » programmés mais pas encore dits */
+  function busy() { var now = Date.now(); return pend || pendingQ.length > 0 || !!drainT || KEEP.some(function (u) { return now - (u.__t || 0) < 12000; }); }
   function unlock() {
     if (unlocked) return; unlocked = true;
     try { var u = new SpeechSynthesisUtterance(" "); u.volume = 0; u.lang = "fr-FR"; window.speechSynthesis.speak(u); } catch (e) {}
@@ -134,10 +135,13 @@ var V64Voice = (function () {
       var o = $("v32Launch"), c = $("v32Count");
       var r = V.launchTick(LS.st, { shown: !!(o && o.classList.contains("show")), text: c ? c.textContent : "" });
       LS.st = r.st;
-      if (r.cancelled) { LS.ts.forEach(clearTimeout); LS.ts = []; }
+      if (r.cancelled) { LS.ts.forEach(clearTimeout); LS.ts = []; pend = false; }
       r.say.forEach(function (a) {
-        if (a.delay) LS.ts.push(setTimeout(function () { say(a.text, { rate: a.rate, queue: !!a.queue }); }, a.delay));
-        else say(a.text, { rate: a.rate, queue: !!a.queue });
+        var go = function () {
+          say(a.text, { rate: a.rate, queue: !!a.queue });
+          if (a.queue) { pend = false; try { if (typeof showBanner === "function") showBanner("🍀 " + a.text); } catch (e) {} }
+        };
+        if (a.delay) { if (/^Zéro/.test(a.text)) pend = true; LS.ts.push(setTimeout(go, a.delay)); } else go();
       });
     } catch (e) {}
   }

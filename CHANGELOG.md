@@ -10,6 +10,10 @@ Les chiffres de version « V… » sont ceux des fichiers du dépôt (`js/patche
 
 ## Samedi 31 octobre 2026
 
+### 🗣️ V64.2 — « Zéro. Bonne chance à toutes et à tous ! » avant la 1re question (essayé sur le site en ligne) — 🔖 voir `git log` (19 h)
+- Essai réel dans un navigateur Windows : la voix de départ parlait bien, mais « Zéro. Bonne chance… » partait *après* le début de la 1re question et se faisait lire après elle. Ils partent maintenant 0,6 s après l'affichage du « 1 », et la lecture de la question attend la fin de l'annonceur.
+- Une bannière « 🍀 Bonne chance à toutes et à tous ! » s'affiche aussi à l'écran (au cas où le son de l'appareil est coupé).
+
 ### 🗣️ V64.1 — La voix grave suit enfin le vrai compte à rebours — 🔖 `4e693dd` (18 h 50)
 - **Correctif** : la voix de départ n'était branchée que sur un ancien compte à rebours (inutilisé depuis la V32) ; elle ne parlait donc jamais en vrai. Elle suit maintenant le compte à rebours réellement affiché : « La partie commence dans trois secondes… Deux… Un… Zéro… **Bonne chance à toutes et à tous !** », puis la question est lue.
 - La voix est « débloquée » au premier clic/toucher (exigence des navigateurs), évite le bug Chrome du `cancel()` suivi de `speak()`, et **Son ON** dit « Voix activée. » pour vérifier qu'elle marche.
