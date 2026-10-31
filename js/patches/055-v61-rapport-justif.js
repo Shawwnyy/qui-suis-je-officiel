@@ -13,7 +13,7 @@
     try {
       var log = window.__log, last = Array.isArray(log) && log.length ? log[log.length - 1] : null;
       if (last && !last.why && typeof currentQuestion !== "undefined" && currentQuestion && last.q === currentQuestion.question) {
-        var note = window.V43Justif.reportNote(currentQuestion, data && typeof data.correct === "number" ? data.correct : undefined);
+        var note = window.V43Justif.reportNote(currentQuestion, data && typeof data.correct === "number" ? data.correct : undefined, window.V43Justif.auto ? window.V43Justif.auto() : null);
         if (note && note.w) last.why = note.w;
       }
     } catch (e) { if (window.console) console.error("V61 rapport", e); }

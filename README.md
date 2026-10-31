@@ -479,7 +479,20 @@ Un bouclier déjà obtenu annule le malus et se consomme. Les effets sont appliq
 - **Bonne réponse + pourquoi dans les rapports** : `V43Justif.reportNote(q)` (`js/justif/justif.js`) choisit la meilleure justification (cours > explication de la question > phrase > « À retenir »).
   - PDF des statistiques : section **« Réviser : les bonnes réponses expliquées »** (bonne réponse, part des joueurs qui l'ont trouvée, pourquoi) ; le CSV gagne les colonnes `bonne_réponse` et `explication`.
   - « Rapport Qui suis-je N » de l'hôte (`js/patches/013`, colle `js/patches/055-v61-rapport-justif.js`) : ligne **« Pourquoi : … »** sous chaque question ; l'export de l'historique l'affiche aussi.
-  - Le journal ne grossit que de ~400 caractères par question (réponse ≤ 100, explication ≤ 280) ; sans justification, rien ne change pour l'existant.
+  - Le journal ne grossit que de ~400 caractères par question (réponse ≤ 100, explication ≤ 560 avec les ajouts « Ne confonds pas » / « même thème ») ; sans justification, rien ne change pour l'existant.
+
+## 📚 Justifications pour apprendre, écran bonus/malus en grand, chrono après la lecture
+
+- **📚 Carte « Justifications » sur l'écran final** (`js/patches/056-v62-justifications.js`, `css/v62.css`) : juste après le classement détaillé, UNE ligne par question de la partie
+  (juste ✅, fausse ❌ ou sans réponse ⏱️), à ouvrir. Chaque ligne donne, même pour une bonne réponse : la bonne réponse, la phrase ou l'explication de la question, ce que tu avais répondu,
+  un **« Ne confonds pas »** (ta mauvaise proposition est la bonne réponse d'une AUTRE question de la banque), un **« Repère »** pour les nombres, **une question voisine du même thème**
+  avec sa réponse, et un mot d'encouragement. Filtres « Toutes / À revoir », « Tout ouvrir ». Tout vient de la banque : rien n'est inventé (`V43Justif.learn()`, `tests/justif.test.js`).
+- La carte « Correction » entre les questions et les rapports (PDF « Réviser », CSV, « Rapport Qui suis-je N ») reprennent ces compléments.
+- **Écran bonus / malus en grand** (`css/v62.css`) : plein écran **vert** pour un bonus, **rouge** pour un malus (violet si le malus est bloqué), énorme émoji, texte géant, un clic n'importe où le ferme.
+- **Le chrono démarre après la lecture** (`js/patches/057-v62-lecture-chrono.js`, `V62Time`) : les réponses sont verrouillées 2 à 7 s selon la longueur de la question (1,5 s en mode 5 secondes) avec
+  un bandeau « 📖 Lis la question… le chrono démarre dans N s » ; l'hôte fixe la durée (`readMs`) pour tout le monde et décale la fin de question d'autant. Les tours spéciaux (piège ×5, or ×2, éclair, chance) y sont annoncés en grand.
+- **Temps restant visible après ta réponse** : le chrono continue de descendre (« Il reste N s pour les autres ») et les autres joueurs voient « Léo a répondu · il reste N s » (sans savoir quoi).
+  Tests : `tests/readtime.test.js`, `tests/e2e/clock.e2e.js`, `tests/e2e/finaljustif.e2e.js`.
 
 ## ➕ Ajouter des questions ou un thème
 
@@ -516,6 +529,7 @@ Réglage de l'hôte dans le salon (« 📚 Mode révision ») : **Automatique** 
 node tests/moderation.test.js            # cas à bloquer / cas légitimes
 node tests/qcm.test.js                   # générateur et lecture des fichiers de test
 node tests/bank.test.js                  # valide toutes les questions (format, doublons, réponses ambiguës)
+node tests/readtime.test.js              # temps de lecture avant le chrono, « X a répondu · il reste N s »
 node tests/diff.test.js                  # « Trouve la différence » / « Trouve l'intrus » : réponses relues dans le SVG, mauvaises réponses vérifiées fausses
 node tests/bank.test.js "Football|Chess"   # ne valider que certains thèmes (expression régulière)
 node tests/media.test.js                 # liens YouTube / images, filtrage SVG, politique anti-triche

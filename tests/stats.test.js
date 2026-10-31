@@ -410,7 +410,7 @@ const logLearn = A.normalize(rawLearn);
 t("journal : a / w conservés sur la question qui les porte, absents des autres", logLearn.R[0].a === "Paris" && logLearn.R[0].w.startsWith("La capitale") && !("a" in logLearn.R[1]) && !("w" in logLearn.R[1]));
 t("roundStats expose ans et why (vides si absents)", A.roundStats(logLearn)[0].ans === "Paris" && A.roundStats(logLearn)[0].why.length > 5 && A.roundStats(logLearn)[1].ans === "" && A.roundStats(logLearn)[1].why === "");
 t("CSV : colonnes bonne_réponse et explication", A.toCSV(logLearn).split("\r\n")[0].endsWith(";bonne_réponse;explication") && A.toCSV(logLearn).split("\r\n")[1].endsWith(";Paris;La capitale de la France est Paris.") && A.toCSV(log).split("\r\n")[1].endsWith(";;"));
-t("journal : a limité à 100 caractères, w à 280", (function () { const r = JSON.parse(JSON.stringify(raw)); r.R[0].a = "a".repeat(300); r.R[0].w = "w".repeat(900); const l = A.normalize(r); return l.R[0].a.length === 100 && l.R[0].w.length === 280; })());
+t("journal : a limité à 100 caractères, w à 560", (function () { const r = JSON.parse(JSON.stringify(raw)); r.R[0].a = "a".repeat(300); r.R[0].w = "w".repeat(900); const l = A.normalize(r); return l.R[0].a.length === 100 && l.R[0].w.length === 560; })());
 t("journal : a / w non textuels ignorés", (function () { const r = JSON.parse(JSON.stringify(raw)); r.R[0].a = 12; r.R[0].w = { x: 1 }; const l = A.normalize(r); return !("a" in l.R[0]) && !("w" in l.R[0]); })());
 
 console.log("Stats : " + ok + " OK, " + ko + " échec(s)");

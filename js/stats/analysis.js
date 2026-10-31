@@ -27,7 +27,7 @@ var V40Analysis = (function () {
     r = r || {};
     var d = DIFFS.indexOf(r.d) >= 0 ? r.d : "moyen";
     var row = { q: str(r.q, 160), c: str(r.c, 60), d: d, m: r.m ? 1 : 0, r: [] };
-    var ans = str(r.a, 100).trim(), why = str(r.w, 280).trim();          /* bonne réponse + explication (rapport de révision), facultatives */
+    var ans = str(r.a, 100).trim(), why = str(r.w, 560).trim();          /* bonne réponse + explication (rapport de révision), facultatives */
     if (ans) row.a = ans;
     if (why) row.w = why;
     var src = Array.isArray(r.r) ? r.r : [];

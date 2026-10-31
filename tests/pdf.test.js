@@ -134,9 +134,9 @@ t("PDF avec justifications : section « Réviser » présente", /R\\351viser/.te
 t("PDF : la justification avec accents est écrite (« or » entre guillemets)", learnPdf.includes("aurum"));
 t("PDF sans justification : pas de section « Réviser » (rien ne change pour l'existant)", !/R\\351viser/.test(plainPdf) && !plainPdf.includes("Pourquoi :"));
 t("PDF : une question sans bonne réponse enregistrée n'est pas listée", !learnPdf.includes("Joconde ? ") || true);
-const longRaw = JSON.parse(JSON.stringify(raw)); longRaw.R.forEach(function (r, i) { r.a = "Réponse " + i; r.w = "x".repeat(400); });
+const longRaw = JSON.parse(JSON.stringify(raw)); longRaw.R.forEach(function (r, i) { r.a = "Réponse " + i; r.w = "x".repeat(900); });
 const longLog = A.normalize(longRaw);
-t("justification tronquée à 280 caractères au rangement du journal", longLog.R[0].w.length === 280);
+t("justification tronquée à 560 caractères au rangement du journal", longLog.R[0].w.length === 560);
 t("PDF : justifications longues → document valide (en-tête et fin de fichier)", (function () { const b = Buffer.from(P.build(longLog)).toString("latin1"); return b.startsWith("%PDF-1.4") && b.trim().endsWith("%%EOF"); })());
 t("normalize neutralise les caractères de contrôle de la justification", A.normalize(Object.assign({}, learnRaw, { R: [Object.assign({}, learnRaw.R[0], { w: "a\u0000b\nc" })] })).R[0].w === "a b c");
 

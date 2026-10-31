@@ -164,5 +164,34 @@ t("reportNote : question sans réponse valide", J.reportNote({ question: "Q ?", 
   delete global.window; delete global.currentQuestion; delete global.showQuestionResult;
 })();
 
+/* --- learn : justifications étoffées (écran final, rapports) --- */
+const LQ = [
+  { category: "💻 Informatique", question: "Quelle loi prévoit un doublement du nombre de transistors tous les deux ans environ ?", answers: ["La loi de Moore", "La loi d'Ohm", "La loi de Murphy", "La loi de Kepler"], correct: 0 },
+  { category: "💻 Informatique", question: "Quelle loi décrit la tension, l'intensité et la résistance ?", answers: ["La loi d'Ohm", "La loi de Moore", "La loi de Hooke", "La loi de Boyle"], correct: 0 },
+  { category: "💻 Informatique", question: "Quelle loi dit que tout ce qui peut mal tourner tournera mal ?", answers: ["La loi de Murphy", "La loi d'Ohm", "La loi de Moore", "La loi de Kepler"], correct: 0 },
+  { category: "💻 Informatique", question: "En quelle année est sorti le premier iPhone ?", answers: ["2007", "2005", "2010", "2003"], correct: 0 },
+  { category: "💻 Informatique", question: "Quel est cet appareil ?", media: { type: "svg", svg: "<svg/>" }, answers: ["Une radio", "Un four", "Un téléphone", "Une lampe"], correct: 2 }
+];
+const LI = J.buildIndex(LQ), LT = J.buildThemeIndex(LQ);
+const L0 = J.learn(LQ[0], { mine: 1, idx: LI, theme: LT, coda: true, leurres: true });
+t("learn : la bonne réponse arrive en premier", L0[0].k === "answer" && /La loi de Moore/.test(L0[0].t));
+t("learn : « Ne confonds pas » cite la vraie autre question dont la mauvaise réponse est la bonne", L0.some(l => l.k === "related" && /La loi d'Ohm/.test(l.t) && /tension, l'intensité/.test(l.t)));
+t("learn : au plus 2 « Ne confonds pas »", L0.filter(l => l.k === "related").length <= 2);
+t("learn : ta mauvaise réponse est expliquée (« Tu avais répondu »)", L0.some(l => l.k === "why" && /Tu avais répondu « La loi d'Ohm »/.test(l.t)));
+t("learn : question voisine du même thème, jamais la question elle-même ni la même réponse", L0.some(l => l.k === "vein" && /Informatique/.test(l.t) && !/doublement/.test(l.t) && !/→ La loi de Moore/.test(l.t)));
+t("learn : une phrase d'encouragement est ajoutée (coda)", L0[L0.length - 1].k === "coda" && L0[L0.length - 1].t.length > 20);
+t("learn : même une bonne réponse est justifiée (coda « bonne » et aucune ligne « Tu avais répondu »)", (function () { const g = J.learn(LQ[0], { mine: 0, idx: LI, theme: LT, coda: true }); return g.length >= 3 && !g.some(l => l.k === "why") && /graver|Bien joué|souffler|validée/.test(g[g.length - 1].t); })());
+t("learn : sans réponse (temps écoulé) → coda « temps »", /temps a filé|Pas de réponse/.test(J.learn(LQ[0], { mine: null, coda: true }).pop().t));
+t("learn : réponses chiffrées → « Repère » sans « Ne confonds pas » ni leurres", (function () { const n = J.learn(LQ[3], { mine: 1, idx: LI, theme: LT, leurres: true }); return n.some(l => l.k === "num" && /plus petites?/.test(l.t)) && !n.some(l => l.k === "traps"); })());
+t("learn : sans index → leurres génériques seulement si demandés", !J.learn(LQ[0], { mine: 1 }).some(l => l.k === "traps") && J.learn(LQ[0], { mine: 1, leurres: true }).some(l => l.k === "traps" && /leurres/.test(l.t)));
+t("learn : l'explication propre à la question (7e champ) est reprise", J.learn({ question: "Que signifie RGPD ?", answers: ["Règlement général sur la protection des données", "A", "B", "C"], correct: 0, correction: "Le RGPD protège les données personnelles dans l'Union européenne." }, {}).some(l => l.k === "explain" && /Union européenne/.test(l.t)));
+t("learn : question illustrée ou à image jamais proposée comme « même veine »", !LT["💻 Informatique"].some(o => /appareil/.test(o.q)));
+t("learn : question sans réponse valide → []", J.learn({ question: "Q ?", answers: [], correct: 0 }, {}).length === 0 && J.learn(null).length === 0);
+t("learn : déterministe (même question → mêmes lignes)", JSON.stringify(J.learn(LQ[0], { mine: 1, idx: LI, theme: LT, coda: true })) === JSON.stringify(J.learn(LQ[0], { mine: 1, idx: LI, theme: LT, coda: true })));
+t("lineHtml : échappe le HTML et met l'icône", (function () { const h = J.lineHtml({ k: "vein", t: "<b>x</b>" }); return h.includes("&lt;b&gt;") && h.includes("🔗") && h.includes("v43-vein"); })());
+t("reportNote étoffé : ajoute « Ne confonds pas » et « Dans le même thème », 560 caractères au plus", (function () { const r = J.reportNote(LQ[0], undefined, { idx: LI, theme: LT }); return /Ne confonds pas/.test(r.w) && /Dans le même/.test(r.w) && r.w.length <= 560; })());
+t("reportNote sans index : inchangé (rien d'ajouté, 280 au plus)", J.reportNote(LQ[0]).w === "À retenir : la réponse à « Quelle loi prévoit un doublement du nombre de transistors tous les deux ans environ ? » est « La loi de Moore »." );
+t("explain : ctx.theme ajoute une ligne « même veine / même thème » sans toucher au reste", (function () { const a = J.explain(LQ[0], { mine: 0, correct: 0 }), b = J.explain(LQ[0], { mine: 0, correct: 0, theme: LT }); return b.lines.length === a.lines.length + 1 && b.lines.some(l => l.k === "vein"); })());
+
 console.log("Justifications et voix off : " + ok + " OK, " + ko + " échec(s)");
 process.exit(ko ? 1 : 0);

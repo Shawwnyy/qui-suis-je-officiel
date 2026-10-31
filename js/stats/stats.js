@@ -85,7 +85,7 @@
     var grew = live.P.length > before;
     var q = currentQuestion || {}, gone = [];
     var entry = { q: String(q.question || "").slice(0, 160), c: String(q.category || "").slice(0, 60), d: q.difficulty || "moyen", m: q.media ? 1 : 0, r: [] };
-    try { var note = window.V43Justif && q.answers ? window.V43Justif.reportNote(q) : null; if (note && note.a) { entry.a = note.a; if (note.w) entry.w = note.w; } } catch (e) {}
+    try { var note = window.V43Justif && q.answers ? window.V43Justif.reportNote(q, undefined, window.V43Justif.auto ? window.V43Justif.auto() : null) : null; if (note && note.a) { entry.a = note.a; if (note.w) entry.w = note.w; } } catch (e) {}
     live.P.forEach(function (P, k) {
       var p = players[P.i];
       if (!p) { entry.r.push([0, 0, 0]); if (!P.x) { P.x = 1; gone.push(k); } return; }

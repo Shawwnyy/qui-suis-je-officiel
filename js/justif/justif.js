@@ -218,6 +218,7 @@ var V43Justif = (function () {
     }
     if (L && !ok) out.lines.push({ k: "remember", t: "À réviser : " + (L.p ? "page " + L.p + " de " : "") + (L.t ? "« " + L.t + " »" : "le cours") + "." });
     if (!sen && !exp && !L && !sentenceLike(right)) out.lines.push({ k: "remember", t: "À retenir : la réponse à « " + strip(q && q.question).replace(/\s*\?$/, "") + " ? » est « " + right + " »." });
+    if (ctx.theme) { var vn = sameVein(ctx.theme, q, right); if (vn) out.lines.push({ k: "vein", t: (vn.s > 0 ? "Dans la même veine" : "Dans le même thème") + " : « " + vn.q + " » → " + vn.a + "." }); }
     if (ok && hard) out.lines.push({ k: "bonus", t: "Bravo : c'était une question " + q.difficulty + "." });
     if (!ok && !none && hard) out.lines.push({ k: "bonus", t: "Pas de honte : c'était une question " + q.difficulty + "." });
     if (ctx.points) pointsLines(q, ok, none, ctx.points).forEach(function (l) { out.lines.push(l); });
@@ -237,7 +238,8 @@ var V43Justif = (function () {
      reportNote(q) → { a: bonne réponse, w: justification } (w peut être vide si rien de sensé à dire).
      Ordre : le cours (phrase source) > l'explication propre à la question > la phrase affirmative > « À retenir ». */
   function cut(s, n) { s = strip(s); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, "") + "…" : s; }
-  function reportNote(q, ci) {
+  /* o (facultatif) = { idx, theme } venant de auto() : ajoute « Ne confonds pas… » et « Dans la même veine… » (justification étoffée, 560 car. au plus) */
+  function reportNote(q, ci, o) {
     var answers = (q && q.answers) || [], i = typeof ci === "number" ? ci : (q && typeof q.correct === "number" ? q.correct : -1);
     var right = strip(answers[i]); if (!right) return { a: "", w: "" };
     var L = lessonOf(q), exp = L ? "" : specificCorrection(q), sen = sentence(q && q.question, right), w = "";
@@ -245,12 +247,110 @@ var V43Justif = (function () {
     else if (exp) w = endDot(exp);
     else if (sen) w = sen;
     else if (!sentenceLike(right)) w = "À retenir : la réponse à « " + strip(q && q.question).replace(/\s*\?$/, "") + " ? » est « " + right + " ».";
+    if (o && (o.idx || o.theme)) {
+      var more = learn(q, { correct: i, idx: o.idx, theme: o.theme }).filter(function (l) { return l.k === "related" || l.k === "vein"; }).map(function (l) { return endDot(l.t); });
+      if (more.length) w = (w ? w + " " : "") + more.join(" ");
+      return { a: cut(right, 100), w: cut(w, 560) };
+    }
     return { a: cut(right, 100), w: cut(w, 280) };
+  }
+
+  /* ---------- 🎓 Apprendre : justifications étoffées (écran final, rapports) ----------
+     learn(q, { mine, correct, idx, theme, coda, leurres }) → [{ k, t, quote?, hl? }]
+       • la bonne réponse, sa phrase, l'explication propre à la question, le cours ;
+       • « Repère » : place de la bonne valeur parmi des propositions chiffrées ;
+       • « Ne confonds pas » : une proposition fausse qui est la bonne réponse d'une AUTRE question de la banque ;
+       • « Dans la même veine » : une autre question du même thème (la plus proche par les mots), avec sa réponse ;
+       • coda : une petite phrase d'encouragement, même quand c'est juste. Rien n'est inventé : tout vient de la banque. */
+  var STOP = Object.create(null);
+  "dans avec pour quel quelle quels quelles sont cette cela comme plus moins entre leur leurs mais donc tout tous toute toutes aussi faire fait peut avoir etre etait nombre appelle appelee combien quand quoi dont ainsi apres avant selon sans sous vers chez elle elles nous vous ils votre notre cest".split(" ").forEach(function (w) { STOP[w] = 1; });
+  function toks(s) { var o = Object.create(null), n = 0; nrm(s).split(/[^a-z0-9]+/).forEach(function (w) { if (w.length >= 4 && !STOP[w] && n < 40) { o[w] = 1; n++; } }); return o; }
+  var NEEDS_IMG = /\b(cette|cet|ce) (image|dessin|illustration|photo|figure|sch[eé]ma|animal|drapeau|forme|panneau|logo|silhouette)\b|ci-dessous|ci-dessus|sur l'image|sur la photo|sur le dessin/i;
+  function buildThemeIndex(questions) {
+    var by = Object.create(null);
+    (questions || []).forEach(function (q) {
+      if (!q || q.media || q.v26Expanded || q.v42Mix || q.v41Img || q.v41Road || q.v47More || !Array.isArray(q.answers) || typeof q.correct !== "number") return;
+      var text = strip(q.question), a = strip(q.answers[q.correct]);
+      if (!text || !a || text.length > 130 || a.length > 60 || NEEDS_IMG.test(text)) return;
+      var cat = q.category || "", l = by[cat] || (by[cat] = []);
+      if (l.length < 600) l.push({ q: text, a: a, t: toks(text + " " + a) });
+    });
+    return by;
+  }
+  function hash(s) { var h = 5381; s = String(s); for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return Math.abs(h); }
+  function sameVein(theme, q, right) {
+    var list = theme && theme[(q && q.category) || ""]; if (!list || list.length < 2) return null;
+    var here = strip(q.question).toLowerCase(), ta = toks(strip(q.question) + " " + right), best = null, bs = -1, start = hash(q.question) % list.length;
+    for (var k = 0; k < list.length; k++) {
+      var o = list[(start + k) % list.length];
+      if (o.q.toLowerCase() === here || nrm(o.a) === nrm(right)) continue;
+      var s = 0; for (var w in o.t) if (ta[w]) s++;
+      if (s > bs) { best = o; bs = s; }
+    }
+    return best ? { q: best.q, a: best.a, s: bs } : null;
+  }
+  function numRank(answers, ci) {
+    var v = answers.map(function (a) { return num(a); });
+    if (v.length < 3 || v.some(function (x) { return x === null; })) return "";
+    var me = v[ci], lower = v.filter(function (x) { return x < me; }).length, higher = v.filter(function (x) { return x > me; }).length;
+    if (lower + higher < 2) return "";
+    if (!lower) return "Repère : parmi les propositions, c'était la plus petite valeur.";
+    if (!higher) return "Repère : parmi les propositions, c'était la plus grande valeur.";
+    return "Repère : " + plural(lower, "proposition était", "propositions étaient") + " plus petite" + (lower > 1 ? "s" : "") + " et " + plural(higher, "plus grande", "plus grandes") + ".";
+  }
+  var CODA = {
+    good: ["Tu l'avais trouvée : répète-la à voix haute pour la graver.", "Bien joué ! Un souvenir de plus au chaud.", "Facile pour toi : tu peux la souffler à un copain.", "Réponse validée : essaie de l'expliquer avec tes mots."],
+    bad: ["Maintenant tu la connais : la prochaine fois, c'est pour toi !", "Une erreur utile : c'est en se trompant qu'on retient le mieux.", "Pas grave : relis la phrase ci-dessus et elle ne t'échappera plus.", "Cette question reviendra : tu seras prêt."],
+    none: ["Le temps a filé, mais te voilà armé pour la prochaine fois !", "Pas de réponse cette fois : lis l'explication, elle te servira."]
+  };
+  function learn(q, o) {
+    o = o || {};
+    var answers = (q && q.answers) || [], ci = typeof o.correct === "number" ? o.correct : (q && typeof q.correct === "number" ? q.correct : -1), right = strip(answers[ci]);
+    if (!right) return [];
+    var mineIdx = typeof o.mine === "number" ? o.mine : null, none = mineIdx === null || mineIdx < 0, ok = mineIdx === ci, mine = !none && !ok ? strip(answers[mineIdx]) : "";
+    var out = [], L = lessonOf(q), sen = sentence(q && q.question, right), exp = L ? "" : specificCorrection(q);
+    out.push({ k: "answer", t: "La bonne réponse : « " + right + " »." });
+    if (L) out.push({ k: "lesson", t: "Ce que dit le cours" + where(L) + " :", quote: L.s, hl: right });
+    if (sen) out.push({ k: "sentence", t: sen });
+    if (exp) out.push({ k: "explain", t: endDot(exp) });
+    if (!sen && !exp && !L && !sentenceLike(right) && !(o.idx || o.theme || o.leurres)) out.push({ k: "remember", t: "À retenir : la réponse à « " + strip(q && q.question).replace(/\s*\?$/, "") + " ? » est « " + right + " »." });
+    if (mine) {
+      var g = gap(mine, right, strip(q && q.question));
+      out.push({ k: "why", t: g || ("Tu avais répondu « " + mine + " » : ce n'est pas lui qui répond à la question, seule « " + right + " » convient.") });
+    }
+    var rank = numRank(answers, ci); if (rank) out.push({ k: "num", t: rank });
+    var order = []; answers.forEach(function (a, i) { if (i !== ci && strip(a)) order.push(i); });
+    order.sort(function (a, b) { return (b === mineIdx) - (a === mineIdx); });
+    var shown = 0;
+    if (o.idx) order.forEach(function (i) {
+      if (shown >= 2) return;
+      var rel = related(o.idx, answers[i], q);
+      if (rel) { out.push({ k: "related", t: "Ne confonds pas : « " + strip(answers[i]) + " » est la bonne réponse à « " + rel + (/[?]$/.test(rel) ? " »" : " ? »") }); shown++; }
+    });
+    if (!shown && o.leurres && order.length >= 2 && order.length <= 4 && !numRank(answers, ci)) {
+      out.push({ k: "traps", t: "Les autres propositions (" + order.map(function (i) { return "« " + strip(answers[i]) + " »"; }).join(", ") + ") sont des leurres : elles ressemblent à la bonne réponse mais ne répondent pas à la question." });
+    }
+    if (o.theme) {
+      var v = sameVein(o.theme, q, right);
+      if (v) out.push({ k: "vein", t: (v.s > 0 ? "Dans la même veine" : "Dans le même thème") + " (" + strip(q.category) + ") : « " + v.q + (/[?]$/.test(v.q) ? " »" : " »") + " → " + v.a + "." });
+    }
+    if (o.coda) { var arr = CODA[ok ? "good" : none ? "none" : "bad"]; out.push({ k: "coda", t: arr[hash(q.question) % arr.length] }); }
+    return out;
+  }
+  /* index de la banque (navigateur seulement) : construit une fois, refait si la banque change */
+  var _ix = null, _th = null, _n = -1;
+  function auto() {
+    try {
+      if (typeof QUESTIONS === "undefined" || !QUESTIONS || !QUESTIONS.length) return null;
+      if (_n !== QUESTIONS.length) { _ix = buildIndex(QUESTIONS); _th = buildThemeIndex(QUESTIONS); _n = QUESTIONS.length; }
+      return { idx: _ix, theme: _th };
+    } catch (e) { return null; }
   }
 
   /* ---------- Affichage (navigateur) ---------- */
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
-  var ICON = { points: "💰", mult: "✨", power: "⚡", lesson: "📖", answer: "🎯", sentence: "💡", explain: "📘", why: "🔎", related: "🔀", remember: "🧠", bonus: "⭐", stats: "📊" };
+  var ICON = { points: "💰", mult: "✨", power: "⚡", lesson: "📖", answer: "🎯", sentence: "💡", explain: "📘", why: "🔎", related: "🔀", remember: "🧠", bonus: "⭐", stats: "📊", num: "📏", traps: "🪤", vein: "🔗", coda: "🎉" };
+  function lineHtml(l) { return '<li class="v43-' + l.k + '"><span aria-hidden="true">' + (ICON[l.k] || "•") + "</span> " + esc(l.t) + (l.quote ? " <q>" + mark(l.quote, l.hl) + "</q>" : "") + "</li>"; }
   /* Texte échappé avec la réponse mise en évidence (<mark>), au plus 4 occurrences. */
   function mark(text, hl) {
     var t = String(text == null ? "" : text), a = strip(hl);
@@ -264,7 +364,7 @@ var V43Justif = (function () {
     return '<div class="v43j ' + ex.tone + '" role="group" aria-label="Justification de la réponse"><div class="v43j-head">' + esc(ex.headline) + "</div><ul>"
       + ex.lines.map(function (l) { return '<li class="v43-' + l.k + '"><span aria-hidden="true">' + (ICON[l.k] || "•") + "</span> " + esc(l.t) + (l.quote ? " <q>" + mark(l.quote, l.hl) + "</q>" : "") + "</li>"; }).join("") + "</ul></div>";
   }
-  return { explain: explain, lessonOf: lessonOf, mark: mark, buildIndex: buildIndex, related: related, sentence: sentence, roundStats: roundStats, pointsFromLog: pointsFromLog, pointsLines: pointsLines, sentenceLike: sentenceLike, reportNote: reportNote, gap: gap, num: num, html: html, specificCorrection: specificCorrection };
+  return { learn: learn, auto: auto, buildThemeIndex: buildThemeIndex, lineHtml: lineHtml, esc: esc, numRank: numRank, explain: explain, lessonOf: lessonOf, mark: mark, buildIndex: buildIndex, related: related, sentence: sentence, roundStats: roundStats, pointsFromLog: pointsFromLog, pointsLines: pointsLines, sentenceLike: sentenceLike, reportNote: reportNote, gap: gap, num: num, html: html, specificCorrection: specificCorrection };
 })();
 if (typeof module !== "undefined" && module.exports) module.exports = V43Justif;
 if (typeof window !== "undefined") {
@@ -284,7 +384,8 @@ if (typeof window !== "undefined") {
           var nameOf = window.V40Analysis && window.V40Analysis.powerName ? window.V40Analysis.powerName : null;
           pts = { mult: typeof DIFFICULTY_INFO !== "undefined" && DIFFICULTY_INFO[currentQuestion.difficulty] ? DIFFICULTY_INFO[currentQuestion.difficulty].points : 0, streak: !!(window.gameOpts && window.gameOpts.streak), pts: log ? V43Justif.pointsFromLog(log, typeof myId !== "undefined" ? myId : "", nameOf) : null };
         } catch (e) { pts = null; }
-        var ex = V43Justif.explain(currentQuestion, { mine: last.mine, correct: last.correct, stats: st, index: bankIndex(), points: pts });
+        var au = V43Justif.auto();
+        var ex = V43Justif.explain(currentQuestion, { mine: last.mine, correct: last.correct, stats: st, index: bankIndex(), points: pts, theme: au ? au.theme : null });
         box.innerHTML = V43Justif.html(ex); box.classList.add("show");
         if (!withStats && window.V43Voice && window.V43Voice.readExplanation) window.V43Voice.readExplanation(ex.speech);
       } catch (e) { if (window.console) console.error("V43Justif", e); }
