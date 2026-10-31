@@ -98,7 +98,7 @@ var V43Justif = (function () {
   function buildIndex(questions) {
     var idx = Object.create(null);
     (questions || []).forEach(function (q) {
-      if (!q || q.media || q.v26Expanded || q.v42Mix || q.v41Img || q.v41Road || q.v47More || !Array.isArray(q.answers) || typeof q.correct !== "number") return;
+      if (!q || q.v64 || q.media || q.v26Expanded || q.v42Mix || q.v41Img || q.v41Road || q.v47More || !Array.isArray(q.answers) || typeof q.correct !== "number") return;
       var a = strip(q.answers[q.correct]); if (a.length < 3 || SKIP_ANS.test(a)) return;
       var k = key(a); if (!k) return;
       var list = idx[k] || (idx[k] = []);
@@ -171,6 +171,8 @@ var V43Justif = (function () {
     if (q && q.golden) out.push({ k: "mult", t: ok ? "Question en or : tes points sont doublés (×2)." : "Question en or : les bonnes réponses valaient le double." });
     if (q && q.event === "eclair") out.push({ k: "mult", t: ok ? "Question éclair : tes points sont multipliés par 1,5 (chrono plus court)." : "Question éclair : chrono plus court, points ×1,5 pour les bonnes réponses." });
     if (q && q.event === "chance" && ok) out.push({ k: "mult", t: "Question chance : +200 pts offerts." });
+    if (q && q.event === "vitesse") out.push({ k: "mult", t: ok ? "Question vitesse : ton bonus de rapidité a compté triple (75 pts par seconde restante)." : "Question vitesse : les bonnes réponses rapides comptaient triple." });
+    if (q && q.event === "bombe") out.push({ k: "mult", t: ok ? "Question bombe évitée : une erreur aurait coûté 400 pts." : "Question bombe : une erreur ou pas de réponse coûte 400 pts." });
     if (trap) out.push({ k: "mult", t: ok ? "Question piège déjouée : tes points sont multipliés par 5." : none ? "Question piège : sans réponse, tu ne gagnes rien." : "Question piège : une mauvaise réponse coûte 300 pts." });
     if (ok && p.streak && pt && pt.combo > 0 && pt.combo % 5 === 0) out.push({ k: "mult", t: "Série de " + pt.combo + " : palier de +" + fmt(500 * (pt.combo / 5)) + " pts." });
     if (!ok && !none && !trap && pt) out.push({ k: "mult", t: delta <= -200 ? "Pénalité de 200 pts : deux mauvaises réponses (un bouclier l'aurait annulée)." : "Pas de pénalité cette fois : elle tombe à la 2ᵉ mauvaise réponse (−200 pts)." });
@@ -269,7 +271,7 @@ var V43Justif = (function () {
   function buildThemeIndex(questions) {
     var by = Object.create(null);
     (questions || []).forEach(function (q) {
-      if (!q || q.media || q.v26Expanded || q.v42Mix || q.v41Img || q.v41Road || q.v47More || !Array.isArray(q.answers) || typeof q.correct !== "number") return;
+      if (!q || q.v64 || q.media || q.v26Expanded || q.v42Mix || q.v41Img || q.v41Road || q.v47More || !Array.isArray(q.answers) || typeof q.correct !== "number") return;
       var text = strip(q.question), a = strip(q.answers[q.correct]);
       if (!text || !a || text.length > 130 || a.length > 60 || NEEDS_IMG.test(text)) return;
       var cat = q.category || "", l = by[cat] || (by[cat] = []);

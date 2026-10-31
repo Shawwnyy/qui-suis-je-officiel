@@ -506,6 +506,16 @@ Un bouclier déjà obtenu annule le malus et se consomme. Les effets sont appliq
   (🟩🟥⬜ façon Wordle + lien), **📋 Copier mes fiches** et **⬇️ Télécharger** (fiches de révision en .txt), **🎆 Feu d'artifice** (rejoue la salve), **🔊 Lire** (lecture à voix haute d'une question et de ses justifications).
   Logique pure dans `V63Fiches` (`tests/fireworks.test.js`) ; essais de bout en bout : `tests/e2e/fx.e2e.js` (compte les sons réellement créés) et `tests/e2e/finaljustif.e2e.js`.
 
+## 🗣️ Voix grave, flammes, Vitesse / Bombe et variantes (`js/patches/059-v64-voix-grave.js`, `js/data/variants.js`, `js/patches/060-v64-variantes.js`)
+
+- **Voix grave de l'annonceur** (synthèse vocale du navigateur, hauteur au minimum, débit lent, voix française masculine si le navigateur en a une) : « *La partie commence.* », « *Trois. Deux. Un.* » dans les 3 dernières secondes avant le départ, puis « *Bonne chance !* ». Elle annonce aussi « *Dernière question !* » et les questions spéciales. Elle se tait avec « Son OFF ». Le timbre dépend des voix installées sur l'appareil.
+- **Son, Effets et micro à droite** : les trois boutons sont regroupés dans une barre en bas à droite (`#v64Side`), à gauche de la colonne de boutons.
+- **🔥 Flammes de série** : à 3, 5 puis 8 bonnes réponses d'affilée, l'écran de jeu s'enflamme (de plus en plus fort ; coupé par « moins d'animations »).
+- **⚡ Question Vitesse** (le bonus de rapidité compte triple : +50 pts par seconde restante) et **💣 Question Bombe** (−400 pts si on se trompe ou ne répond pas, jamais sous zéro). Elles apparaissent côté hôte (case « événements » cochée), jamais dans les 3 premières questions ni deux spéciales de suite, et sont annoncées en grand + à voix haute.
+- **🔁 Système de variantes** : pour étoffer les thèmes qui ont peu de questions, le jeu fabrique au chargement des questions **dérivées** de la banque (jamais d'invention de faits) — **inversées** (« Laquelle de ces questions a pour réponse « Paris » ? », avec trois autres questions du même thème qui n'ont pas cette réponse) et **duo** (« …laquelle de ces deux réponses est la bonne : « A » ou « B » ? »). Chaque thème est complété jusqu'à 200 questions au plus quand la banque le permet : **moyenne ≈ 141 questions par thème** (les 100 derniers thèmes passent d'environ 26 à 77). Ces questions portent `v64: true`, sont ajoutées à la fin de `QUESTIONS` (les index des traductions ne bougent pas), ne sont jamais citées comme « question voisine » dans les justifications, et un tirage de partie ne met jamais une question et sa variante dans les premiers tours (`V64Variants.spread`).
+  Pour changer le plafond : `CAP` dans `js/patches/060-v64-variantes.js`.
+  Tests : `tests/voice64.test.js`, `tests/variants.test.js`, `tests/readtime.test.js` (annonces), `tests/e2e/v64.e2e.js`.
+
 ## ➕ Ajouter des questions ou un thème
 
 Un thème = un fichier `js/data/bank/NNN-nom.js` :

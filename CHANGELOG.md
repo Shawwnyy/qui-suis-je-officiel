@@ -10,6 +10,13 @@ Les chiffres de version « V… » sont ceux des fichiers du dépôt (`js/patche
 
 ## Samedi 31 octobre 2026
 
+### 🗣️ V64 — Voix grave, boutons à droite, flammes, Vitesse/Bombe et 140 questions par thème — 🔖 `2d6697c` (18 h)
+- **Voix grave** : « La partie commence. Trois. Deux. Un. » dans les 3 dernières secondes avant le départ, puis « Bonne chance ! » ; elle annonce aussi la dernière question et les tours spéciaux.
+- **Son, Effets et micro** regroupés en bas à droite.
+- **🔥 Flammes de série** (3, 5, 8 bonnes réponses d'affilée), **⚡ Question Vitesse** (bonus de rapidité ×3) et **💣 Question Bombe** (−400 pts si on se trompe).
+- **🔁 Système de variantes** : ≈ 14 700 questions dérivées (inversées + duo) ajoutées aux thèmes qui en manquaient → **≈ 141 questions par thème en moyenne** (les 100 derniers thèmes : de ≈ 26 à ≈ 77). Ce sont des variantes de faits déjà vérifiés, pas de nouveaux faits.
+- Tests : `tests/voice64.test.js`, `tests/variants.test.js`, `tests/readtime.test.js`, `tests/e2e/v64.e2e.js`.
+
 ### 🎆 V63 — Feux d'artifice, rattrapage des erreurs, partage et fiches — 🔖 `29e224b` (13 h 28)
 - **Bruit de feu d'artifice** à chaque réponse (synthétisé, aucun fichier) : bonne réponse = tir complet en 2 bouquets ; mauvaise réponse = petit tir plus grave ; fin de partie = salve de 10 tirs + final.
 - **Étincelles** à l'écran, secousse et vibration sur une erreur ; bouton **« 🎆 Effets ON/OFF »** à côté du bouton Son ; respect de « Son OFF » et de « moins d'animations ».

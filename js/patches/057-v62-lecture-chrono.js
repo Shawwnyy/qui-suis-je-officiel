@@ -45,6 +45,8 @@ var V62Time = (function () {
     if (q.golden) return { cls: "gold", text: "⭐ QUESTION EN OR : points ×2 !" };
     if (q.event === "eclair") return { cls: "eclair", text: "⚡ ÉCLAIR : chrono −50 %, points ×1,5 !" };
     if (q.event === "chance") return { cls: "chance", text: "🍀 CHANCE : +200 pts pour chaque bonne réponse !" };
+    if (q.event === "vitesse") return { cls: "eclair", text: "⚡ VITESSE : le bonus de rapidité compte triple !" };
+    if (q.event === "bombe") return { cls: "trap", text: "💣 BOMBE : −400 pts si tu te trompes ou si tu ne réponds pas !" };
     return null;
   }
   var api = { MIN: MIN, MAX: MAX, readMs: readMs, cleanMs: cleanMs, cleanName: cleanName, answeredText: answeredText, roundTag: roundTag };

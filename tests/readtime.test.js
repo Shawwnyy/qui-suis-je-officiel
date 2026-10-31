@@ -19,6 +19,7 @@ t("texte : moi seul, personne d'autre n'a encore répondu", V.answeredText([], 7
 t("texte : temps écoulé", V.answeredText(["Léo"], 0) === "⏱️ Temps écoulé" && V.answeredText([], -3, true) === "⏱️ Temps écoulé");
 t("texte : liste invalide ignorée", V.answeredText("Léo", 5, false) === "" && V.answeredText([null, "", "Zoé"], 5) === "✅ Zoé a répondu · il reste 5 s");
 t("tours spéciaux annoncés : piège, or, éclair, chance, rien sinon", V.roundTag({ trap: true }).cls === "trap" && V.roundTag({ golden: true }).cls === "gold" && V.roundTag({ event: "eclair" }).cls === "eclair" && V.roundTag({ event: "chance" }).cls === "chance" && V.roundTag({}) === null && V.roundTag(null) === null);
+t("tours spéciaux : vitesse (éclair) et bombe (piège) annoncés", V.roundTag({ event: "vitesse" }).cls === "eclair" && /triple/.test(V.roundTag({ event: "vitesse" }).text) && V.roundTag({ event: "bombe" }).cls === "trap" && /400/.test(V.roundTag({ event: "bombe" }).text));
 t("piège prioritaire sur l'or", V.roundTag({ trap: true, golden: true }).cls === "trap");
 console.log("Temps de lecture et temps restant : " + ok + " OK, " + ko + " échec(s)");
 process.exit(ko ? 1 : 0);
